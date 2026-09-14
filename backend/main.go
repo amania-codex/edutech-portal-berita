@@ -17,7 +17,8 @@ func main() {
 	seedData()
 
 	app := fiber.New(fiber.Config{
-		AppName: "EduTech News Portal API v1.0",
+		AppName:   "EduTech News Portal API v1.0",
+		BodyLimit: 50 * 1024 * 1024, // 50MB for Quill base64 images
 	})
 
 	app.Use(cors.New(cors.Config{

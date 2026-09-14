@@ -280,11 +280,12 @@ const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loke
       slug: slugInput.value.trim() || undefined,
       excerpt: document.getElementById('excerpt').value.trim(),
       content: quillContent,
-      image_url: imageUrlInput.value.trim(),
+      image_url: imageUrlInput.value.trim(), // keeping this for frontend logic if needed, but backend needs imageUrl
+      imageUrl: imageUrlInput.value.trim(),
       category: document.getElementById('category').value,
       tags: document.getElementById('tags').value.trim(),
       status,
-      is_featured: document.getElementById('is-featured').checked ? 1 : 0,
+      isFeatured: document.getElementById('is-featured').checked,
     };
 
     publishBtn.disabled = true;
@@ -297,6 +298,7 @@ const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loke
     try {
       const res = await fetch(`${API_BASE}/news`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       });
@@ -320,6 +322,6 @@ const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loke
     }
   }
 
-  document.getElementById('news-form')!.addEventListener('submit', (e) => { e.preventDefault(); submitForm(false); });
+  document.getElementById('news-form').addEventListener('submit', (e) => { e.preventDefault(); submitForm(false); });
   saveDraftBtn.addEventListener('click', () => submitForm(true));
 </script>
