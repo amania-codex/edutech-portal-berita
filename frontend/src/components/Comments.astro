@@ -1,0 +1,261 @@
+---
+import { getSessionFromRequest } from '../lib/session';
+
+export interface Props {
+  newsId: number;
+}
+const { newsId } = Astro.props;
+
+const session = await getSessionFromRequest(Astro.request);
+const API_BASE = "http://localhost:3000/api";
+---
+
+<section class="comments-section" id="comments">
+  <div class="comments-header">
+    <h3 class="comments-title">Komentar <span id="comment-count">(0)</span></h3>
+  </div>
+
+  {session ? (
+    <div class="comment-form-container">
+      <div class="comment-avatar">{session.name.charAt(0).toUpperCase()}</div>
+      <form id="comment-form" class="comment-form">
+        <textarea id="comment-content" class="comment-input" placeholder="Tulis komentar Anda..." rows="3" required></textarea>
+        <div class="comment-form-actions">
+          <p class="comment-hint">Harap gunakan bahasa yang sopan. Komentar dengan kata kasar akan otomatis ditandai.</p>
+          <button type="submit" class="btn-submit-comment" id="submit-comment-btn">
+            Kirim Komentar
+          </button>
+        </div>
+        <div id="comment-msg" class="comment-msg" style="display:none"></div>
+      </form>
+    </div>
+  ) : (
+    <div class="comment-login-prompt">
+      <p>Silakan masuk untuk meninggalkan komentar.</p>
+      <a href="/login" class="btn-login-prompt">Masuk ke Akun</a>
+    </div>
+  )}
+
+  <!-- Comments loaded client-side from Go Fiber -->
+  <div class="comments-list" id="comments-list">
+    <div class="comments-loading">
+      <svg class="spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+      </svg>
+      Memuat komentar...
+    </div>
+  </div>
+</section>
+
+<style>
+  .comments-section {
+    margin-top: var(--space-8);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .comments-header { margin-bottom: var(--space-4); }
+  .comments-title {
+    font-size: var(--text-xl); font-weight: 800;
+    color: var(--color-text-primary); margin: 0;
+    font-family: var(--font-sans);
+  }
+
+  .comment-form-container {
+    display: flex; gap: var(--space-4);
+    margin-bottom: var(--space-8);
+    background: var(--color-bg-card);
+    padding: var(--space-5); border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border);
+  }
+
+  .comment-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-accent), #c1121f);
+    color: white; font-weight: 800; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .comment-form { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); }
+
+  .comment-input {
+    width: 100%; padding: var(--space-3);
+    background: var(--color-surface);
+    border: 1.5px solid var(--color-border-light);
+    border-radius: var(--radius-md);
+    color: var(--color-text-primary);
+    font-size: var(--text-sm); font-family: var(--font-sans);
+    resize: vertical; transition: border-color 0.2s; box-sizing: border-box;
+  }
+  .comment-input:focus { outline: none; border-color: var(--color-accent); }
+
+  .comment-form-actions {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: var(--space-3);
+  }
+  .comment-hint { font-size: var(--text-xs); color: var(--color-text-muted); margin: 0; }
+
+  .btn-submit-comment {
+    background: var(--color-accent); color: white;
+    border: none; padding: 10px 20px; border-radius: var(--radius-md);
+    font-size: var(--text-sm); font-weight: 700; font-family: var(--font-sans);
+    cursor: pointer; transition: background 0.2s; white-space: nowrap;
+  }
+  .btn-submit-comment:hover { background: #c1121f; }
+  .btn-submit-comment:disabled { opacity: 0.7; cursor: not-allowed; }
+
+  .comment-msg { padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 600; }
+  .msg-success { background: rgba(34,197,94,0.1); color: #16a34a; }
+  .msg-error { background: rgba(239,68,68,0.1); color: #dc2626; }
+
+  .comment-login-prompt {
+    text-align: center; padding: var(--space-6) var(--space-4);
+    background: var(--color-bg-card); border: 1px dashed var(--color-border);
+    border-radius: var(--radius-lg); margin-bottom: var(--space-8);
+  }
+  .comment-login-prompt p { margin: 0 0 var(--space-3); color: var(--color-text-secondary); font-size: var(--text-sm); }
+
+  .btn-login-prompt {
+    display: inline-block; padding: 8px 20px;
+    background: var(--color-surface); color: var(--color-text-primary);
+    border: 1px solid var(--color-border); border-radius: var(--radius-md);
+    font-size: var(--text-sm); font-weight: 600; text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-login-prompt:hover { background: var(--color-accent); color: white; border-color: var(--color-accent); }
+
+  .comments-list { display: flex; flex-direction: column; gap: var(--space-5); }
+
+  .comments-loading {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--color-text-muted); font-size: 13.5px;
+    padding: var(--space-4) 0;
+  }
+  .comments-loading svg { width: 18px; height: 18px; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin 0.8s linear infinite; }
+
+  .no-comments { text-align: center; color: var(--color-text-muted); font-style: italic; padding: var(--space-4) 0; font-size: 13.5px; }
+
+  .comment-box { display: flex; gap: var(--space-4); }
+
+  .comment-avatar-sm {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--color-surface); color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .comment-content { flex: 1; }
+  .comment-meta { display: flex; align-items: center; gap: var(--space-2); margin-bottom: 4px; }
+  .comment-author { font-size: var(--text-sm); font-weight: 700; color: var(--color-text-primary); }
+  .comment-date { font-size: 11.5px; color: var(--color-text-muted); }
+  .comment-text { font-size: 13.5px; color: var(--color-text-secondary); line-height: 1.6; margin: 0; }
+</style>
+
+<script define:vars={{ newsId, isLoggedIn: !!session, userName: session?.name || '', userId: session?.userId || null, API_BASE: "http://localhost:3000/api" }}>
+  const list = document.getElementById('comments-list');
+  const countEl = document.getElementById('comment-count');
+
+  // Render a comment element
+  function renderComment(c) {
+    const name = c.user_name || c.userName || 'Anonim';
+    const content = c.content || '';
+    const date = c.created_at || c.createdAt || '';
+    const formattedDate = date ? new Date(date).toLocaleDateString('id-ID', {
+      day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    }) : '';
+
+    const box = document.createElement('div');
+    box.className = 'comment-box';
+    box.innerHTML = `
+      <div class="comment-avatar-sm">${name.charAt(0).toUpperCase()}</div>
+      <div class="comment-content">
+        <div class="comment-meta">
+          <span class="comment-author">${name}</span>
+          <span class="comment-date">${formattedDate}</span>
+        </div>
+        <p class="comment-text">${content}</p>
+      </div>
+    `;
+    return box;
+  }
+
+  // Load comments from Go Fiber
+  async function loadComments() {
+    try {
+      const res = await fetch(`${API_BASE}/comments?news_id=${newsId}`);
+      if (!res.ok) throw new Error('Failed to fetch comments');
+      const data = await res.json();
+      const comments = Array.isArray(data) ? data : (data.data || data.comments || []);
+      const visible = comments.filter(c => !c.is_flagged && c.is_flagged !== 1);
+
+      list.innerHTML = '';
+      countEl.textContent = `(${visible.length})`;
+
+      if (visible.length === 0) {
+        list.innerHTML = '<p class="no-comments">Belum ada komentar. Jadilah yang pertama berkomentar!</p>';
+        return;
+      }
+      visible.forEach(c => list.appendChild(renderComment(c)));
+    } catch (err) {
+      list.innerHTML = '<p class="no-comments">Gagal memuat komentar.</p>';
+    }
+  }
+
+  loadComments();
+
+  // Submit comment
+  const form = document.getElementById('comment-form');
+  if (form && isLoggedIn) {
+    const input = document.getElementById('comment-content');
+    const btn = document.getElementById('submit-comment-btn');
+    const msg = document.getElementById('comment-msg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = input.value.trim();
+      if (!content) return;
+
+      btn.disabled = true;
+      btn.textContent = 'Mengirim...';
+      msg.style.display = 'none';
+
+      try {
+        const res = await fetch(`${API_BASE}/comments`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            news_id: Number(newsId),
+            user_id: Number(userId),
+            content,
+          }),
+        });
+
+        const data = await res.json();
+        if (res.ok) {
+          msg.textContent = 'Komentar berhasil dikirim!';
+          msg.className = 'comment-msg msg-success';
+          msg.style.display = 'block';
+          input.value = '';
+          await loadComments();
+        } else {
+          msg.textContent = data.error || 'Gagal mengirim komentar.';
+          msg.className = 'comment-msg msg-error';
+          msg.style.display = 'block';
+        }
+      } catch {
+        msg.textContent = 'Terjadi kesalahan jaringan.';
+        msg.className = 'comment-msg msg-error';
+        msg.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Kirim Komentar';
+      }
+    });
+  }
+</script>

@@ -1,0 +1,247 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { getSessionFromRequest } from '../../lib/session';
+
+const session = await getSessionFromRequest(Astro.request);
+if (!session || session.role !== 'admin') return Astro.redirect('/dashboard');
+
+const API_BASE = "http://localhost:3000/api";
+
+let allComments: any[] = [];
+let sentimentStats = { positive: 0, neutral: 0, negative: 0 };
+let flaggedCount = 0;
+let totalComments = 0;
+
+try {
+  const res = await fetch(`${API_BASE}/comments`);
+  if (res.ok) {
+    const data = await res.json();
+    allComments = Array.isArray(data) ? data : (data.data || data.comments || []);
+    totalComments = allComments.length;
+    flaggedCount = allComments.filter((c: any) => c.is_flagged === 1 || c.is_flagged === true).length;
+    sentimentStats.positive = allComments.filter((c: any) => c.sentiment === 'positive').length;
+    sentimentStats.neutral = allComments.filter((c: any) => c.sentiment === 'neutral').length;
+    sentimentStats.negative = allComments.filter((c: any) => c.sentiment === 'negative').length;
+  }
+} catch (err) {
+  console.error("Failed to fetch comments:", err);
+}
+
+function normalizeComment(c: any) {
+  return {
+    id: c.ID || c.id,
+    content: c.content,
+    sentiment: c.sentiment || 'neutral',
+    sentiment_score: c.sentiment_score || c.sentimentScore || 0,
+    is_flagged: c.is_flagged || c.isFlagged || 0,
+    user_name: c.user_name || c.userName || c.user?.name || 'Anonim',
+    news_title: c.news_title || c.newsTitle || c.news?.title || '-',
+    created_at: c.created_at || c.createdAt || c.CreatedAt,
+  };
+}
+
+const comments = allComments.map(normalizeComment);
+---
+
+<DashboardLayout title="Analisis Komentar" activeMenu="comments">
+  <div class="comments-dashboard">
+    <div class="manager-header">
+      <div>
+        <h2 class="manager-title">Analisis Sentimen Komentar</h2>
+        <p class="manager-subtitle">Monitoring respon dan interaksi pembaca secara real-time</p>
+      </div>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card stat-green">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+        </div>
+        <div class="stat-info">
+          <p class="stat-value">{sentimentStats.positive}</p>
+          <p class="stat-label">Sentimen Positif</p>
+        </div>
+      </div>
+
+      <div class="stat-card stat-gray">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </div>
+        <div class="stat-info">
+          <p class="stat-value">{sentimentStats.neutral}</p>
+          <p class="stat-label">Sentimen Netral</p>
+        </div>
+      </div>
+
+      <div class="stat-card stat-orange">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
+        </div>
+        <div class="stat-info">
+          <p class="stat-value">{sentimentStats.negative}</p>
+          <p class="stat-label">Sentimen Negatif</p>
+        </div>
+      </div>
+
+      <div class="stat-card stat-red">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
+        </div>
+        <div class="stat-info">
+          <p class="stat-value">{flaggedCount}</p>
+          <p class="stat-label">Komentar Ditandai</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Comments Table -->
+    <div class="dash-card">
+      <div class="card-header-flex">
+        <h3 class="dash-card-title">Daftar Komentar ({totalComments})</h3>
+        <select id="filter-sentiment" class="filter-select">
+          <option value="all">Semua Sentimen</option>
+          <option value="positive">😊 Positif</option>
+          <option value="neutral">😐 Netral</option>
+          <option value="negative">😠 Negatif</option>
+          <option value="flagged">⚠ Ditandai</option>
+        </select>
+      </div>
+
+      <div class="comments-list" id="comments-list">
+        {comments.length === 0 ? (
+          <p class="empty-state">Belum ada komentar. Pastikan Go Fiber backend aktif.</p>
+        ) : (
+          comments.map((comment) => (
+            <div
+              class={`comment-item ${comment.is_flagged ? 'is-flagged' : ''}`}
+              data-sentiment={comment.is_flagged ? 'flagged' : comment.sentiment}
+            >
+              <div class="comment-header">
+                <div class="comment-author">
+                  <div class="author-avatar">{comment.user_name.charAt(0).toUpperCase()}</div>
+                  <div>
+                    <p class="author-name">{comment.user_name}</p>
+                    <p class="comment-meta-text">
+                      Pada <strong>{comment.news_title}</strong> ·{' '}
+                      {comment.created_at
+                        ? new Date(comment.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+                        : '-'}
+                    </p>
+                  </div>
+                </div>
+                <div class="comment-badges">
+                  {comment.is_flagged === 1 && <span class="badge badge-flagged">⚠ Flagged</span>}
+                  <span class={`badge badge-${comment.sentiment}`}>
+                    {comment.sentiment === 'positive' ? '😊 Positif' : comment.sentiment === 'negative' ? '😠 Negatif' : '😐 Netral'}
+                    {' '}({Number(comment.sentiment_score).toFixed(1)})
+                  </span>
+                </div>
+              </div>
+
+              <div class="comment-body">
+                <p>{comment.content}</p>
+              </div>
+
+              <div class="comment-actions">
+                <button class="action-btn btn-danger" onclick={`deleteComment(${comment.id})`}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  Hapus
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<style>
+  .comments-dashboard { display: flex; flex-direction: column; gap: 24px; }
+  .manager-title { font-size: 20px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 4px; }
+  .manager-subtitle { font-size: 13px; color: var(--color-text-muted); margin: 0; }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+  .stat-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px; position: relative; overflow: hidden; }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .stat-green::before { background: #22c55e; }
+  .stat-gray::before { background: #94a3b8; }
+  .stat-orange::before { background: #f97316; }
+  .stat-red::before { background: #ef4444; }
+
+  .stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .stat-green .stat-icon { background: rgba(34,197,94,0.1); color: #22c55e; }
+  .stat-gray .stat-icon { background: rgba(148,163,184,0.1); color: #94a3b8; }
+  .stat-orange .stat-icon { background: rgba(249,115,22,0.1); color: #f97316; }
+  .stat-red .stat-icon { background: rgba(239,68,68,0.1); color: #ef4444; }
+  .stat-icon svg { width: 22px; height: 22px; }
+
+  .stat-value { font-size: 26px; font-weight: 800; color: var(--color-text-primary); margin: 0; line-height: 1; }
+  .stat-label { font-size: 11px; font-weight: 600; color: var(--color-text-muted); margin: 4px 0 0; text-transform: uppercase; letter-spacing: 0.05em; }
+
+  .dash-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 24px; }
+  .card-header-flex { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+  .dash-card-title { font-size: 15px; font-weight: 700; color: var(--color-text-primary); margin: 0; }
+
+  .filter-select { background: var(--color-surface); border: 1.5px solid var(--color-border-light); border-radius: 8px; color: var(--color-text-primary); font-size: 13px; padding: 8px 12px; font-family: var(--font-sans); outline: none; cursor: pointer; }
+
+  .comments-list { display: flex; flex-direction: column; gap: 16px; }
+  .comment-item { padding: 16px; border: 1px solid var(--color-border-light); border-radius: 10px; background: var(--color-surface); transition: all 0.2s; }
+  .comment-item.is-flagged { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.03); }
+  .comment-item.hidden { display: none; }
+
+  .comment-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .comment-author { display: flex; align-items: center; gap: 12px; }
+  .author-avatar { width: 36px; height: 36px; background: var(--color-border); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; color: var(--color-text-secondary); }
+  .author-name { font-size: 14px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 2px; }
+  .comment-meta-text { font-size: 11.5px; color: var(--color-text-muted); margin: 0; }
+
+  .comment-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; white-space: nowrap; }
+  .badge-positive { background: rgba(34,197,94,0.15); color: #16a34a; }
+  .badge-neutral { background: rgba(148,163,184,0.15); color: #64748b; }
+  .badge-negative { background: rgba(249,115,22,0.15); color: #ea580c; }
+  .badge-flagged { background: #ef4444; color: white; animation: pulse 2s infinite; }
+
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 70% { box-shadow: 0 0 0 6px rgba(239,68,68,0); } 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); } }
+
+  .comment-body { font-size: 13.5px; line-height: 1.6; color: var(--color-text-secondary); margin-bottom: 12px; }
+  .comment-body p { margin: 0; }
+
+  .comment-actions { display: flex; gap: 8px; border-top: 1px solid var(--color-border-light); padding-top: 12px; }
+  .action-btn { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; font-family: var(--font-sans); transition: all 0.15s; }
+  .action-btn svg { width: 14px; height: 14px; }
+  .btn-danger { background: rgba(239,68,68,0.1); color: #ef4444; }
+  .btn-danger:hover { background: #ef4444; color: white; }
+
+  .empty-state { text-align: center; color: var(--color-text-muted); padding: 40px 0; font-size: 14px; }
+</style>
+
+<script define:vars={{ API_BASE: "http://localhost:3000/api" }}>
+  // Filter by sentiment
+  const filterSelect = document.getElementById('filter-sentiment');
+  filterSelect.addEventListener('change', () => {
+    const val = filterSelect.value;
+    document.querySelectorAll('.comment-item').forEach(item => {
+      const sentiment = item.getAttribute('data-sentiment');
+      const show = val === 'all' || sentiment === val;
+      item.classList.toggle('hidden', !show);
+    });
+  });
+
+  // Delete comment via Go Fiber
+  window.deleteComment = async (id) => {
+    if (!confirm('Yakin ingin menghapus komentar ini?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/comments/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        window.location.reload();
+      } else {
+        alert('Gagal menghapus komentar. Periksa endpoint Go Fiber /api/comments/:id');
+      }
+    } catch {
+      alert('Terjadi kesalahan jaringan.');
+    }
+  };
+</script>

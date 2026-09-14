@@ -1,0 +1,310 @@
+---
+// FeaturedNews.astro — "Unggulan" section with large main article + photo grid
+export interface Props {
+  featured: Array<{
+    id: number;
+    title: string;
+    slug: string;
+    excerpt?: string;
+    imageUrl?: string;
+    category?: string;
+    author?: string;
+    viewCount?: number;
+    createdAt?: string;
+  }>;
+}
+
+const { featured = [] } = Astro.props;
+const main = featured[0];
+const grid = featured.slice(1, 5);
+
+function timeAgo(dateStr: string): string {
+  if (!dateStr) return "Baru saja";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Hari ini";
+  if (diffDays < 7) return `${diffDays} hari lalu`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} minggu lalu`;
+  return `${Math.floor(diffDays / 30)} bulan lalu`;
+}
+---
+
+{main && (
+  <section class="featured-section" aria-labelledby="featured-heading">
+    <div class="section-header">
+      <h2 id="featured-heading">Unggulan</h2>
+      <div class="section-line"></div>
+      <a href="/kategori/unggulan" class="see-all">Lihat Semua →</a>
+    </div>
+
+    <div class="featured-layout">
+      <!-- Main large article -->
+      <a href={`/berita/${main.slug}`} class="featured-main" aria-label={main.title}>
+        <div class="featured-main-img">
+          <img src={main.imageUrl} alt={main.title} loading="lazy" />
+          <div class="featured-overlay"></div>
+          <div class="featured-badge">UNGGULAN</div>
+          <div class="featured-main-info">
+            {main.category && (
+              <span class="badge badge-accent">{main.category}</span>
+            )}
+            <span class="featured-time">{timeAgo(main.createdAt || '')}</span>
+          </div>
+          <div class="featured-main-text">
+            <h3 class="featured-main-title">{main.title}</h3>
+            <div class="featured-meta news-meta">
+              <span class="dot"></span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                <circle cx="12" cy="12" r="3"/>
+              </svg>
+              <span>{main.viewCount || 0}</span>
+              <span>·</span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              <span>{main.author || 'Redaksi'}</span>
+            </div>
+          </div>
+        </div>
+      </a>
+
+      <!-- Photo grid -->
+      {grid.length > 0 && (
+        <div class="featured-grid">
+          {grid.map((article) => (
+            <a href={`/berita/${article.slug}`} class="grid-item" key={article.id}>
+              <div class="grid-img">
+                <img src={article.imageUrl} alt={article.title} loading="lazy" />
+                <div class="grid-overlay"></div>
+                <p class="grid-title">{article.title}</p>
+              </div>
+            </a>
+          ))}
+          <!-- Pagination dots -->
+          <div class="grid-dots">
+            {[0, 1, 2, 3].map((i) => (
+              <span class:list={["dot-item", { active: i === 0 }]}></span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  </section>
+)}
+
+<style>
+  .featured-section {
+    margin-bottom: var(--space-8);
+  }
+
+  .see-all {
+    font-size: var(--text-sm);
+    color: var(--color-accent);
+    font-weight: 600;
+    white-space: nowrap;
+    transition: opacity var(--transition-fast);
+  }
+
+  .see-all:hover {
+    opacity: 0.8;
+  }
+
+  .featured-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: var(--space-4);
+  }
+
+  /* Main Article */
+  .featured-main {
+    position: relative;
+    display: block;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    cursor: pointer;
+  }
+
+  .featured-main-img {
+    position: relative;
+    height: 420px;
+    overflow: hidden;
+  }
+
+  .featured-main-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition-slow);
+  }
+
+  .featured-main:hover .featured-main-img img {
+    transform: scale(1.03);
+  }
+
+  .featured-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      transparent 40%,
+      rgba(0,0,0,0.5) 65%,
+      rgba(0,0,0,0.92) 100%
+    );
+  }
+
+  .featured-badge {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-3);
+    background: white;
+    color: #111;
+    font-size: var(--text-xs);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    padding: 4px 12px;
+    border-radius: var(--radius-sm);
+  }
+
+  .featured-main-info {
+    position: absolute;
+    bottom: 80px;
+    left: var(--space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .featured-time {
+    font-size: var(--text-xs);
+    color: rgba(255,255,255,0.7);
+    font-weight: 500;
+  }
+
+  .featured-main-text {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: var(--space-4);
+  }
+
+  .featured-main-title {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    color: white;
+    line-height: 1.3;
+    margin-bottom: var(--space-2);
+    text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+  }
+
+  .featured-meta {
+    color: rgba(255,255,255,0.7);
+  }
+
+  .featured-meta .dot {
+    background: var(--color-accent);
+  }
+
+  /* Photo Grid */
+  .featured-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: var(--space-2);
+    position: relative;
+  }
+
+  .grid-item {
+    display: block;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+
+  .grid-img {
+    position: relative;
+    height: 100%;
+    min-height: 100px;
+    overflow: hidden;
+  }
+
+  .grid-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition-slow);
+  }
+
+  .grid-item:hover .grid-img img {
+    transform: scale(1.08);
+  }
+
+  .grid-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%);
+  }
+
+  .grid-title {
+    position: absolute;
+    bottom: var(--space-2);
+    left: var(--space-2);
+    right: var(--space-2);
+    font-size: 11px;
+    font-weight: 600;
+    color: white;
+    line-height: 1.3;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .grid-dots {
+    position: absolute;
+    bottom: -24px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+  }
+
+  .dot-item {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-surface);
+    transition: background var(--transition-fast), width var(--transition-fast);
+  }
+
+  .dot-item.active {
+    background: var(--color-accent);
+    width: 18px;
+    border-radius: 3px;
+  }
+
+  @media (max-width: 900px) {
+    .featured-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .featured-grid {
+      grid-template-columns: repeat(4, 1fr);
+      grid-template-rows: 100px;
+    }
+  }
+
+  @media (max-width: 600px) {
+    .featured-main-img {
+      height: 280px;
+    }
+
+    .featured-grid {
+      grid-template-columns: repeat(2, 1fr);
+      grid-template-rows: repeat(2, 100px);
+    }
+  }
+</style>

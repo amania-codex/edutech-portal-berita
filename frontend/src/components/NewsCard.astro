@@ -1,0 +1,242 @@
+---
+// NewsCard.astro — Reusable news card component
+export interface Props {
+  title: string;
+  slug: string;
+  excerpt?: string;
+  imageUrl?: string;
+  category?: string;
+  author?: string;
+  viewCount?: number;
+  createdAt?: string;
+  size?: "sm" | "md" | "lg";
+  horizontal?: boolean;
+}
+
+const {
+  title,
+  slug,
+  excerpt,
+  imageUrl,
+  category,
+  author = "Redaksi",
+  viewCount = 0,
+  createdAt,
+  size = "md",
+  horizontal = false,
+} = Astro.props;
+
+function timeAgo(dateStr: string): string {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return "Hari ini";
+  if (diffDays === 1) return "1 hari lalu";
+  if (diffDays < 7) return `${diffDays} hari lalu`;
+  if (diffDays < 14) return "1 minggu lalu";
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)} minggu lalu`;
+  if (diffDays < 60) return "1 bulan lalu";
+  return `${Math.floor(diffDays / 30)} bulan lalu`;
+}
+
+const timeStr = createdAt ? timeAgo(createdAt) : "Baru saja";
+const fallbackImage = `https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80`;
+---
+
+<article class:list={["news-card", `size-${size}`, { horizontal }]}>
+  <a href={`/berita/${slug}`} class="card-image-link" aria-label={title}>
+    <div class="card-img-wrap">
+      <img
+        src={imageUrl || fallbackImage}
+        alt={title}
+        loading="lazy"
+        onerror={`this.src='${fallbackImage}'`}
+      />
+      {category && (
+        <span class="card-category badge badge-accent">{category}</span>
+      )}
+    </div>
+  </a>
+
+  <div class="card-body">
+    <a href={`/berita/${slug}`} class="card-title-link">
+      <h3 class="card-title">{title}</h3>
+    </a>
+    {excerpt && size !== "sm" && (
+      <p class="card-excerpt">{excerpt}</p>
+    )}
+    <div class="card-meta news-meta">
+      <span class="dot"></span>
+      <span class="meta-time">{timeStr}</span>
+      <span class="meta-sep">·</span>
+      <span class="meta-views">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+          <circle cx="12" cy="12" r="3"/>
+        </svg>
+        {viewCount}
+      </span>
+      <span class="meta-sep">·</span>
+      <span class="meta-author">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+          <circle cx="12" cy="7" r="4"/>
+        </svg>
+        {author}
+      </span>
+    </div>
+  </div>
+</article>
+
+<style>
+  .news-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    transition: transform var(--transition-base);
+  }
+
+  .news-card:hover {
+    transform: translateY(-2px);
+  }
+
+  .news-card.horizontal {
+    flex-direction: row;
+    gap: var(--space-3);
+    align-items: flex-start;
+  }
+
+  .news-card.horizontal .card-img-wrap {
+    flex-shrink: 0;
+    width: 90px;
+    height: 68px;
+    border-radius: var(--radius-sm);
+  }
+
+  .news-card.horizontal .card-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  /* Image */
+  .card-image-link {
+    display: block;
+  }
+
+  .card-img-wrap {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  .size-sm .card-img-wrap {
+    height: 140px;
+  }
+  .size-md .card-img-wrap {
+    height: 200px;
+  }
+  .size-lg .card-img-wrap {
+    height: 260px;
+  }
+
+  .card-img-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition-slow);
+  }
+
+  .card-img-wrap:hover img {
+    transform: scale(1.06);
+  }
+
+  .card-category {
+    position: absolute;
+    top: var(--space-2);
+    left: var(--space-2);
+    z-index: 1;
+    font-size: 10px;
+  }
+
+  /* Body */
+  .card-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .card-title-link {
+    text-decoration: none;
+  }
+
+  .card-title {
+    font-size: var(--text-base);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    transition: color var(--transition-fast);
+  }
+
+  .size-sm .card-title {
+    font-size: var(--text-sm);
+    -webkit-line-clamp: 2;
+  }
+
+  .size-lg .card-title {
+    font-size: var(--text-xl);
+    -webkit-line-clamp: 3;
+  }
+
+  .card-title-link:hover .card-title {
+    color: var(--color-accent);
+  }
+
+  .card-excerpt {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Meta */
+  .card-meta {
+    margin-top: auto;
+  }
+
+  .meta-time {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  .meta-sep {
+    color: var(--color-text-muted);
+  }
+
+  .meta-views,
+  .meta-author {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  /* Horizontal variant overrides */
+  .horizontal .card-title {
+    font-size: var(--text-sm);
+    -webkit-line-clamp: 3;
+    font-weight: 600;
+  }
+
+  .horizontal .card-meta {
+    margin-top: var(--space-1);
+  }
+</style>

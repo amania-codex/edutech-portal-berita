@@ -1,0 +1,198 @@
+---
+import Layout from "../layouts/Layout.astro";
+import Navbar from "../components/Navbar.astro";
+import NewsTicker from "../components/NewsTicker.astro";
+import HeroBanner from "../components/HeroBanner.astro";
+import FeaturedNews from "../components/FeaturedNews.astro";
+import TrendingNews from "../components/TrendingNews.astro";
+import LatestNewsGrid from "../components/LatestNewsGrid.astro";
+import Footer from "../components/Footer.astro";
+
+const API_BASE = "http://localhost:3000/api";
+
+// Fetch all data in parallel
+let allNews = [];
+let featuredNews = [];
+let trendingNews = [];
+
+try {
+  const [allRes, featuredRes, trendingRes] = await Promise.all([
+    fetch(`${API_BASE}/news?limit=12`),
+    fetch(`${API_BASE}/news/featured?limit=5`),
+    fetch(`${API_BASE}/news/trending?limit=5`),
+  ]);
+
+  if (allRes.ok) allNews = await allRes.json();
+  if (featuredRes.ok) featuredNews = await featuredRes.json();
+  if (trendingRes.ok) trendingNews = await trendingRes.json();
+} catch (err) {
+  console.error("Failed to fetch from API:", err);
+}
+
+// Latest news = all news excluding featured and trending
+const featuredIds = new Set([...featuredNews.map((a: any) => a.ID || a.id), ...trendingNews.map((a: any) => a.ID || a.id)]);
+const latestNews = allNews.filter((a: any) => !featuredIds.has(a.ID || a.id));
+
+// Normalize function (to handle Go Fiber JSON payload formats like uppercase 'ID' or 'CreatedAt')
+function normalize(article: any) {
+  return {
+    id: article.ID || article.id,
+    title: article.title,
+    slug: article.slug,
+    excerpt: article.excerpt,
+    imageUrl: article.imageUrl || article.image_url,
+    category: article.category,
+    author: article.author,
+    viewCount: article.viewCount || article.view_count,
+    createdAt: article.CreatedAt || article.createdAt || article.created_at,
+  };
+}
+
+const normalizedFeatured = featuredNews.map(normalize);
+const normalizedTrending = trendingNews.map(normalize);
+const normalizedLatest = latestNews.length > 0
+  ? latestNews.map(normalize)
+  : allNews.slice(0, 8).map(normalize);
+
+// Ticker items
+const tickerItems = allNews.slice(0, 6).map((a: any) => ({
+  title: a.title,
+  slug: a.slug,
+}));
+---
+
+<Layout
+  title="EduTech News Portal — Berita Pendidikan & Teknologi Terkini"
+  description="Portal berita terdepan untuk informasi seputar pendidikan, teknologi, riset, dan karir akademik Indonesia."
+>
+  <Navbar />
+  <NewsTicker articles={tickerItems} />
+
+  <main id="main-content">
+    <!-- Hero Section -->
+    <div class="container section-hero">
+      <HeroBanner />
+    </div>
+
+    <!-- Featured + Trending (2-column layout) -->
+    <div class="container section-main">
+      <div class="main-layout">
+        <!-- Left: Featured News -->
+        <div class="col-featured">
+          <FeaturedNews featured={normalizedFeatured} />
+        </div>
+
+        <!-- Right: Trending Sidebar -->
+        <aside class="col-trending">
+          <TrendingNews trending={normalizedTrending} />
+        </aside>
+      </div>
+    </div>
+
+    <!-- Latest News Grid -->
+    <div class="container section-latest">
+      <LatestNewsGrid articles={normalizedLatest} />
+    </div>
+
+    <!-- Category Quick Links -->
+    <div class="container section-categories">
+      <div class="section-header">
+        <h2>Jelajahi Kategori</h2>
+        <div class="section-line"></div>
+      </div>
+      <div class="category-pills">
+        {["Teknologi", "Pendidikan", "Kampus", "Event", "Riset", "Loker", "Video", "Artikel"].map((cat) => (
+          <a href={`/kategori/${cat.toLowerCase()}`} class="category-pill">
+            {cat}
+          </a>
+        ))}
+      </div>
+    </div>
+  </main>
+
+  <Footer />
+</Layout>
+
+<style>
+  main {
+    min-height: 100vh;
+    padding-bottom: var(--space-8);
+  }
+
+  .section-hero {
+    padding-top: var(--space-5);
+    padding-bottom: 0;
+  }
+
+  .section-main {
+    padding-top: var(--space-6);
+  }
+
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: var(--space-6);
+    align-items: start;
+  }
+
+  .col-featured {
+    min-width: 0;
+  }
+
+  .col-trending {
+    position: sticky;
+    top: calc(var(--navbar-height) + var(--space-4));
+  }
+
+  .section-latest {
+    padding-top: var(--space-6);
+  }
+
+  .section-categories {
+    margin-top: var(--space-10);
+  }
+
+  .category-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+  }
+
+  .category-pill {
+    padding: var(--space-2) var(--space-5);
+    border: 1px solid var(--color-border-light);
+    border-radius: var(--radius-full);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    transition: all var(--transition-fast);
+    background: var(--color-bg-card);
+  }
+
+  .category-pill:hover {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
+  }
+
+  @media (max-width: 1024px) {
+    .main-layout {
+      grid-template-columns: 1fr;
+    }
+
+    .col-trending {
+      position: static;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .section-hero,
+    .section-main,
+    .section-latest {
+      padding-top: var(--space-4);
+    }
+  }
+</style>

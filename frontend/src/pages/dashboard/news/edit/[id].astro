@@ -1,0 +1,266 @@
+---
+import DashboardLayout from '../../../../layouts/DashboardLayout.astro';
+import { getSessionFromRequest } from '../../../../lib/session';
+
+const session = await getSessionFromRequest(Astro.request);
+if (!session || session.role !== 'admin') return Astro.redirect('/dashboard');
+
+const { id } = Astro.params;
+const API_BASE = 'http://localhost:3000/api';
+
+let article: any = null;
+try {
+  const res = await fetch(`${API_BASE}/news/${id}`);
+  if (res.ok) {
+    const raw = await res.json();
+    article = {
+      id: raw.ID || raw.id,
+      title: raw.title,
+      slug: raw.slug,
+      excerpt: raw.excerpt || '',
+      content: raw.content || '',
+      image_url: raw.imageUrl || raw.image_url || '',
+      category: raw.category,
+      tags: raw.tags || '',
+      status: raw.status,
+      is_featured: raw.is_featured || raw.isFeatured || 0,
+      view_count: raw.viewCount || raw.view_count || 0,
+      author: raw.author,
+      created_at: raw.CreatedAt || raw.createdAt || raw.created_at,
+    };
+  }
+} catch (err) {
+  console.error('Failed to fetch article:', err);
+}
+
+if (!article) return Astro.redirect('/dashboard/news');
+
+const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loker', 'Video', 'Artikel', 'Berita'];
+---
+
+<DashboardLayout title="Edit Berita" activeMenu="news">
+  <div class="news-editor">
+    <div class="editor-header">
+      <a href="/dashboard/news" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Kembali
+      </a>
+      <h2 class="editor-title">Edit Berita</h2>
+    </div>
+
+    <div class="alert alert-error" id="form-error" style="display:none"></div>
+    <div class="alert alert-success" id="form-success" style="display:none"></div>
+
+    <form id="news-form" class="editor-layout">
+      <div class="editor-main">
+        <div class="dash-card form-card">
+          <div class="form-group">
+            <label class="form-label">Judul Berita <span class="required">*</span></label>
+            <input type="text" id="title" name="title" class="form-input" value={article.title} required maxlength="255" />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Slug</label>
+            <input type="text" id="slug" name="slug" class="form-input" value={article.slug} />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Ringkasan / Excerpt</label>
+            <textarea id="excerpt" name="excerpt" class="form-textarea" rows="3">{article.excerpt || ''}</textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Konten Berita <span class="required">*</span></label>
+            <textarea id="content" name="content" class="form-textarea content-area" rows="16" required>{article.content}</textarea>
+          </div>
+        </div>
+      </div>
+
+      <div class="editor-sidebar">
+        <div class="dash-card form-card">
+          <h3 class="settings-title">Pengaturan Publikasi</h3>
+
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="status" name="status" class="form-select">
+              <option value="draft" selected={article.status === 'draft'}>Draft</option>
+              <option value="published" selected={article.status === 'published'}>Terbit</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Kategori <span class="required">*</span></label>
+            <select id="category" name="category" class="form-select" required>
+              {categories.map(cat => (
+                <option value={cat} selected={article.category === cat}>{cat}</option>
+              ))}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <div class="toggle-group">
+              <div>
+                <p class="toggle-label">Berita Unggulan</p>
+                <p class="toggle-desc">Tampilkan di section featured</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="is-featured" name="is_featured" checked={article.is_featured === 1} />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="publish-actions">
+            <button type="submit" id="update-btn" class="btn-primary-full">
+              <span class="btn-text">Simpan Perubahan</span>
+              <span class="btn-loading" style="display:none">Menyimpan...</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="dash-card form-card">
+          <h3 class="settings-title">Gambar Utama</h3>
+          <div class="form-group">
+            <input type="text" id="image-url" name="image_url" class="form-input" value={article.image_url || ''} placeholder="URL gambar..." />
+          </div>
+          {article.image_url && (
+            <div class="img-preview-box" id="img-preview-box">
+              <img id="img-preview" src={article.image_url} alt="Preview" />
+            </div>
+          )}
+          {!article.image_url && (
+            <div class="img-preview-box" id="img-preview-box" style="display:none">
+              <img id="img-preview" src="" alt="Preview" />
+            </div>
+          )}
+        </div>
+
+        <div class="dash-card form-card">
+          <h3 class="settings-title">Tags</h3>
+          <div class="form-group">
+            <input type="text" id="tags" name="tags" class="form-input" value={article.tags || ''} placeholder="AI, Teknologi..." />
+          </div>
+        </div>
+
+        <div class="dash-card article-info-card">
+          <p class="info-item"><strong>ID:</strong> {article.id}</p>
+          <p class="info-item"><strong>Penulis:</strong> {article.author}</p>
+          <p class="info-item"><strong>Tayangan:</strong> {article.view_count}</p>
+          <p class="info-item"><strong>Dibuat:</strong> {new Date(article.created_at).toLocaleDateString('id-ID')}</p>
+          <a href={`/berita/${article.slug}`} class="view-article-link" target="_blank">Lihat Artikel →</a>
+        </div>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>
+
+<style>
+  .news-editor { display: flex; flex-direction: column; gap: 20px; }
+  .editor-header { display: flex; align-items: center; gap: 16px; }
+  .back-link { display: flex; align-items: center; gap: 6px; color: var(--color-text-muted); font-size: 13.5px; font-weight: 500; transition: color 0.15s; }
+  .back-link svg { width: 16px; height: 16px; }
+  .back-link:hover { color: var(--color-text-primary); }
+  .editor-title { font-size: 20px; font-weight: 700; color: var(--color-text-primary); margin: 0; }
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; }
+  .alert-error { background: rgba(239,68,68,0.1); color: #ef4444; border-color: rgba(239,68,68,0.2); }
+  .alert-success { background: rgba(34,197,94,0.1); color: #22c55e; border-color: rgba(34,197,94,0.2); }
+  .editor-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+  .editor-main { min-width: 0; }
+  .editor-sidebar { display: flex; flex-direction: column; gap: 16px; }
+  .dash-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px; }
+  .form-card { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+  .settings-title { font-size: 13px; font-weight: 700; color: var(--color-text-primary); margin: 0; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-label { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+  .required { color: var(--color-accent); }
+  .form-input, .form-select, .form-textarea { background: var(--color-surface); border: 1.5px solid var(--color-border-light); border-radius: 8px; color: var(--color-text-primary); font-size: 13.5px; font-family: var(--font-sans); padding: 10px 14px; width: 100%; box-sizing: border-box; transition: border-color 0.15s; }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--color-accent); }
+  .form-textarea { resize: vertical; line-height: 1.7; }
+  .content-area { min-height: 400px; }
+  .toggle-group { display: flex; align-items: center; justify-content: space-between; }
+  .toggle-label { font-size: 13px; font-weight: 600; color: var(--color-text-primary); margin: 0 0 2px; }
+  .toggle-desc { font-size: 11px; color: var(--color-text-muted); margin: 0; }
+  .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-thumb { position: absolute; inset: 0; background: var(--color-border); border-radius: 24px; transition: 0.3s; }
+  .toggle-thumb::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+  .toggle-switch input:checked + .toggle-thumb { background: var(--color-accent); }
+  .toggle-switch input:checked + .toggle-thumb::before { transform: translateX(20px); }
+  .btn-primary-full { padding: 11px; border-radius: 8px; font-size: 13.5px; font-weight: 700; font-family: var(--font-sans); cursor: pointer; border: none; background: var(--color-accent); color: white; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-primary-full:hover { background: #c1121f; }
+  .btn-primary-full:disabled { opacity: 0.7; cursor: not-allowed; }
+  .img-preview-box { border-radius: 8px; overflow: hidden; }
+  .img-preview-box img { width: 100%; max-height: 180px; object-fit: cover; display: block; }
+  .article-info-card { padding: 16px 20px; display: flex; flex-direction: column; gap: 6px; }
+  .info-item { font-size: 12px; color: var(--color-text-muted); margin: 0; }
+  .info-item strong { color: var(--color-text-primary); }
+  .view-article-link { font-size: 12px; font-weight: 600; color: var(--color-accent); margin-top: 4px; }
+  @media (max-width: 1100px) { .editor-layout { grid-template-columns: 1fr; } .editor-sidebar { order: -1; } }
+</style>
+
+<script>
+  const articleId = window.location.pathname.split('/').pop();
+  const errorEl = document.getElementById('form-error')!;
+  const successEl = document.getElementById('form-success')!;
+  const updateBtn = document.getElementById('update-btn') as HTMLButtonElement;
+  const imageUrlInput = document.getElementById('image-url') as HTMLInputElement;
+  const imgPreviewBox = document.getElementById('img-preview-box')!;
+  const imgPreview = document.getElementById('img-preview') as HTMLImageElement;
+
+  imageUrlInput.addEventListener('input', () => {
+    const url = imageUrlInput.value.trim();
+    if (url) {
+      imgPreview.src = url;
+      imgPreviewBox.style.display = 'block';
+      imgPreview.onerror = () => { imgPreviewBox.style.display = 'none'; };
+    } else {
+      imgPreviewBox.style.display = 'none';
+    }
+  });
+
+  document.getElementById('news-form')!.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    errorEl.style.display = 'none';
+    successEl.style.display = 'none';
+
+    const data = {
+      title: (document.getElementById('title') as HTMLInputElement).value.trim(),
+      slug: (document.getElementById('slug') as HTMLInputElement).value.trim() || undefined,
+      excerpt: (document.getElementById('excerpt') as HTMLTextAreaElement).value.trim(),
+      content: (document.getElementById('content') as HTMLTextAreaElement).value.trim(),
+      image_url: imageUrlInput.value.trim(),
+      category: (document.getElementById('category') as HTMLSelectElement).value,
+      tags: (document.getElementById('tags') as HTMLInputElement).value.trim(),
+      status: (document.getElementById('status') as HTMLSelectElement).value,
+      is_featured: (document.getElementById('is-featured') as HTMLInputElement).checked ? 1 : 0,
+    };
+
+    updateBtn.disabled = true;
+    (updateBtn.querySelector('.btn-text') as HTMLElement).style.display = 'none';
+    (updateBtn.querySelector('.btn-loading') as HTMLElement).style.display = 'inline';
+
+    try {
+      const res = await fetch(`http://localhost:3000/api/news/${articleId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        errorEl.textContent = result.error || 'Gagal menyimpan perubahan.';
+        errorEl.style.display = 'block';
+      } else {
+        successEl.textContent = 'Perubahan berhasil disimpan!';
+        successEl.style.display = 'block';
+        setTimeout(() => { window.location.href = '/dashboard/news'; }, 1200);
+      }
+    } catch {
+      errorEl.textContent = 'Terjadi kesalahan server.';
+      errorEl.style.display = 'block';
+    } finally {
+      updateBtn.disabled = false;
+      (updateBtn.querySelector('.btn-text') as HTMLElement).style.display = 'inline';
+      (updateBtn.querySelector('.btn-loading') as HTMLElement).style.display = 'none';
+    }
+  });
+</script>

@@ -1,0 +1,302 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Navbar from "../../components/Navbar.astro";
+import NewsCard from "../../components/NewsCard.astro";
+import TrendingNews from "../../components/TrendingNews.astro";
+import Footer from "../../components/Footer.astro";
+
+const { category } = Astro.params;
+const displayCategory = category
+  ? category.charAt(0).toUpperCase() + category.slice(1)
+  : "Semua";
+
+const API_BASE = "http://localhost:3000/api";
+
+let articles: any[] = [];
+let trendingNews: any[] = [];
+
+try {
+  const [articlesRes, trendingRes] = await Promise.all([
+    fetch(`${API_BASE}/news/category/${displayCategory}`),
+    fetch(`${API_BASE}/news/trending?limit=5`),
+  ]);
+
+  if (articlesRes.ok) articles = await articlesRes.json();
+  if (trendingRes.ok) trendingNews = await trendingRes.json();
+} catch (err) {
+  console.error("Failed to fetch:", err);
+}
+
+function normalize(a: any) {
+  return {
+    id: a.ID || a.id,
+    title: a.title,
+    slug: a.slug,
+    excerpt: a.excerpt,
+    imageUrl: a.imageUrl,
+    category: a.category,
+    author: a.author,
+    viewCount: a.viewCount,
+    createdAt: a.CreatedAt || a.createdAt,
+  };
+}
+
+const normalizedArticles = articles.map(normalize);
+const normalizedTrending = trendingNews.map(normalize);
+
+const categoryIcons: Record<string, string> = {
+  teknologi: "💻",
+  pendidikan: "🎓",
+  kampus: "🏫",
+  event: "📅",
+  riset: "🔬",
+  loker: "💼",
+  video: "🎬",
+  artikel: "📝",
+  headline: "📰",
+};
+
+const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
+---
+
+<Layout
+  title={`${displayCategory} — EduTech News Portal`}
+  description={`Kumpulan berita dan artikel terbaru seputar ${displayCategory} di EduTech News Portal.`}
+>
+  <Navbar />
+
+  <!-- Category Header -->
+  <div class="category-hero">
+    <div class="container category-hero-inner">
+      <div class="category-icon-big">{icon}</div>
+      <div>
+        <div class="breadcrumb-mini">
+          <a href="/">Beranda</a>
+          <span>›</span>
+          <span>{displayCategory}</span>
+        </div>
+        <h1 class="category-page-title">{displayCategory}</h1>
+        <p class="category-count">{normalizedArticles.length} artikel ditemukan</p>
+      </div>
+    </div>
+  </div>
+
+  <main id="main-content" class="container category-layout">
+    <!-- Articles Grid -->
+    <section class="category-articles" aria-label={`Berita ${displayCategory}`}>
+      {normalizedArticles.length === 0 ? (
+        <div class="empty-category">
+          <div class="empty-icon">📭</div>
+          <h2>Belum Ada Berita</h2>
+          <p>Tidak ada berita dalam kategori "{displayCategory}" saat ini.</p>
+          <a href="/" class="back-home">← Kembali ke Beranda</a>
+        </div>
+      ) : (
+        <div class="articles-grid">
+          {normalizedArticles.map((article) => (
+            <NewsCard
+              key={article.id}
+              title={article.title}
+              slug={article.slug}
+              excerpt={article.excerpt}
+              imageUrl={article.imageUrl}
+              category={article.category}
+              author={article.author}
+              viewCount={article.viewCount}
+              createdAt={article.createdAt}
+              size="md"
+            />
+          ))}
+        </div>
+      )}
+    </section>
+
+    <!-- Trending Sidebar -->
+    <aside class="category-sidebar">
+      <TrendingNews trending={normalizedTrending} />
+
+      <!-- Other Categories -->
+      <div class="other-categories">
+        <div class="section-header" style="margin-top: var(--space-5)">
+          <h2>Kategori Lain</h2>
+        </div>
+        <div class="other-cat-list">
+          {["Teknologi", "Pendidikan", "Kampus", "Event", "Riset", "Loker", "Video"].filter(
+            (c) => c.toLowerCase() !== category?.toLowerCase()
+          ).map((cat) => (
+            <a href={`/kategori/${cat.toLowerCase()}`} class="other-cat-link">
+              <span>{categoryIcons[cat.toLowerCase()] || "📰"}</span>
+              <span>{cat}</span>
+            </a>
+          ))}
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <Footer />
+</Layout>
+
+<style>
+  /* Hero */
+  .category-hero {
+    background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-card) 100%);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-8) 0;
+  }
+
+  .category-hero-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-5);
+  }
+
+  .category-icon-big {
+    font-size: 3rem;
+    line-height: 1;
+  }
+
+  .breadcrumb-mini {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin-bottom: var(--space-2);
+  }
+
+  .breadcrumb-mini a {
+    color: var(--color-text-secondary);
+    transition: color var(--transition-fast);
+  }
+
+  .breadcrumb-mini a:hover {
+    color: var(--color-accent);
+  }
+
+  .category-page-title {
+    font-size: var(--text-3xl);
+    font-weight: 900;
+    color: var(--color-text-primary);
+    line-height: 1.1;
+  }
+
+  .category-count {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-top: 4px;
+  }
+
+  /* Layout */
+  .category-layout {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: var(--space-8);
+    align-items: start;
+    padding-top: var(--space-6);
+    padding-bottom: var(--space-8);
+  }
+
+  /* Grid */
+  .articles-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-5);
+  }
+
+  /* Empty State */
+  .empty-category {
+    text-align: center;
+    padding: var(--space-12) var(--space-6);
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px dashed var(--color-border);
+  }
+
+  .empty-icon {
+    font-size: 3rem;
+    margin-bottom: var(--space-4);
+  }
+
+  .empty-category h2 {
+    font-size: var(--text-xl);
+    font-weight: 700;
+    margin-bottom: var(--space-2);
+  }
+
+  .empty-category p {
+    color: var(--color-text-secondary);
+    margin-bottom: var(--space-5);
+  }
+
+  .back-home {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-5);
+    background: var(--color-accent);
+    color: white;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: var(--text-sm);
+    transition: background var(--transition-fast);
+  }
+
+  .back-home:hover {
+    background: var(--color-accent-hover);
+    color: white;
+  }
+
+  /* Sidebar */
+  .category-sidebar {
+    position: sticky;
+    top: calc(var(--navbar-height) + var(--space-4));
+  }
+
+  /* Other Categories */
+  .other-cat-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-1);
+    margin-top: var(--space-3);
+  }
+
+  .other-cat-link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    transition: all var(--transition-fast);
+    font-weight: 500;
+  }
+
+  .other-cat-link:hover {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    color: white;
+    transform: translateX(4px);
+  }
+
+  @media (max-width: 1024px) {
+    .category-layout {
+      grid-template-columns: 1fr;
+    }
+    .category-sidebar {
+      position: static;
+    }
+    .articles-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 600px) {
+    .articles-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>

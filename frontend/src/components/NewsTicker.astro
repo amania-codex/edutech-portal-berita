@@ -1,0 +1,125 @@
+---
+// NewsTicker.astro
+export interface Props {
+  articles?: Array<{ title: string; slug: string }>;
+}
+
+const { articles = [] } = Astro.props;
+
+// Fallback ticker items if no articles provided
+const tickerItems = articles.length > 0 ? articles : [
+  { title: "Monitoring KKN UAP, Program Mahasiswa di Pekon Madaraya Didorong Berkelanjutan", slug: "monitoring-kkn-uap-pekon-madaraya-sdgs" },
+  { title: "Bupati Pringsewu Buka PASTI UAP 2026, 2.038 Mahasiswa Baru Resmi Bergabung", slug: "bupati-pringsewu-buka-pasti-uap-2026" },
+  { title: "UAP dan UNISBA Perkuat Kolaborasi melalui MoU, Perjanjian Kerja Sama Ditandatangani", slug: "uap-unisba-mou-kerja-sama" },
+  { title: "Upacara HUT ke-81 RI di UAP, Pembina Yayasan Ajak Sivitas Isi Kemerdekaan dengan Prestasi", slug: "hut-ri-81-uap-prestasi" },
+  { title: "SENIKO 2026: Seminar Nasional Informatika Digelar di Purwokerto 24 Oktober", slug: "seniko-2026-seminar-nasional-informatika" },
+];
+---
+
+<div class="ticker-wrap">
+  <div class="ticker-label">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="ticker-icon">
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/>
+    </svg>
+    <span>TERKINI</span>
+  </div>
+  <div class="ticker-track-wrapper">
+    <div class="ticker-track" id="ticker-track">
+      {[...tickerItems, ...tickerItems].map((item, i) => (
+        <a href={`/berita/${item.slug}`} class="ticker-item" key={i}>
+          <span class="ticker-dot" aria-hidden="true">●</span>
+          {item.title}
+        </a>
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .ticker-wrap {
+    display: flex;
+    align-items: center;
+    background: var(--color-bg-card);
+    border-bottom: 1px solid var(--color-border);
+    overflow: hidden;
+    height: 36px;
+  }
+
+  .ticker-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--color-accent);
+    color: white;
+    padding: 0 14px;
+    height: 100%;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
+    z-index: 1;
+  }
+
+  .ticker-icon {
+    width: 14px;
+    height: 14px;
+  }
+
+  .ticker-track-wrapper {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    mask-image: linear-gradient(to right, transparent 0%, black 2%, black 98%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to right, transparent 0%, black 2%, black 98%, transparent 100%);
+  }
+
+  .ticker-track {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    animation: ticker-scroll 50s linear infinite;
+    white-space: nowrap;
+    will-change: transform;
+  }
+
+  .ticker-track:hover {
+    animation-play-state: paused;
+  }
+
+  .ticker-item {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0 var(--space-6);
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+    border-right: 1px solid var(--color-border);
+    height: 100%;
+  }
+
+  .ticker-item:hover {
+    color: var(--color-accent);
+  }
+
+  .ticker-dot {
+    color: var(--color-accent);
+    font-size: 8px;
+    flex-shrink: 0;
+  }
+
+  @keyframes ticker-scroll {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+</style>

@@ -1,0 +1,283 @@
+---
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import { getSessionFromRequest } from '../../../lib/session';
+
+const session = await getSessionFromRequest(Astro.request);
+if (!session || session.role !== 'admin') return Astro.redirect('/dashboard');
+
+const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loker', 'Video', 'Artikel', 'Berita'];
+---
+
+<DashboardLayout title="Tulis Berita Baru" activeMenu="create-news">
+  <div class="news-editor">
+    <div class="editor-header">
+      <a href="/dashboard/news" class="back-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Kembali
+      </a>
+      <h2 class="editor-title">Tulis Berita Baru</h2>
+    </div>
+
+    <div class="alert alert-error" id="form-error" style="display:none"></div>
+    <div class="alert alert-success" id="form-success" style="display:none"></div>
+
+    <form id="news-form" class="editor-layout">
+      <!-- Main Content -->
+      <div class="editor-main">
+        <div class="dash-card form-card">
+          <div class="form-group">
+            <label class="form-label">Judul Berita <span class="required">*</span></label>
+            <input type="text" id="title" name="title" class="form-input" placeholder="Tulis judul berita yang menarik..." required maxlength="255" />
+            <p class="form-hint"><span id="title-count">0</span>/255 karakter</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Slug (URL)</label>
+            <input type="text" id="slug" name="slug" class="form-input" placeholder="Akan dibuat otomatis dari judul" />
+            <p class="form-hint">Contoh: berita-terbaru-indonesia</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Ringkasan / Excerpt</label>
+            <textarea id="excerpt" name="excerpt" class="form-textarea" rows="3" placeholder="Ringkasan singkat berita (opsional)..." maxlength="500"></textarea>
+            <p class="form-hint"><span id="excerpt-count">0</span>/500 karakter</p>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Konten Berita <span class="required">*</span></label>
+            <textarea id="content" name="content" class="form-textarea content-area" rows="16" placeholder="Tulis isi berita di sini..." required></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Settings -->
+      <div class="editor-sidebar">
+        <!-- Publish Settings -->
+        <div class="dash-card form-card">
+          <h3 class="settings-title">Pengaturan Publikasi</h3>
+
+          <div class="form-group">
+            <label class="form-label">Status</label>
+            <select id="status" name="status" class="form-select">
+              <option value="draft">Draft (Simpan sebagai draft)</option>
+              <option value="published">Terbit (Publikasikan sekarang)</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Kategori <span class="required">*</span></label>
+            <select id="category" name="category" class="form-select" required>
+              <option value="">-- Pilih Kategori --</option>
+              {categories.map(cat => <option value={cat}>{cat}</option>)}
+            </select>
+          </div>
+
+          <div class="form-group">
+            <div class="toggle-group">
+              <div>
+                <p class="toggle-label">Berita Unggulan</p>
+                <p class="toggle-desc">Tampilkan di section featured</p>
+              </div>
+              <label class="toggle-switch">
+                <input type="checkbox" id="is-featured" name="is_featured" />
+                <span class="toggle-thumb"></span>
+              </label>
+            </div>
+          </div>
+
+          <div class="publish-actions">
+            <button type="button" id="save-draft-btn" class="btn-secondary">Simpan Draft</button>
+            <button type="submit" id="publish-btn" class="btn-primary-full">
+              <span class="btn-text">Terbitkan</span>
+              <span class="btn-loading" style="display:none">Menyimpan...</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Image Settings -->
+        <div class="dash-card form-card">
+          <h3 class="settings-title">Gambar Utama</h3>
+          <div class="form-group">
+            <input type="text" id="image-url" name="image_url" class="form-input" placeholder="Paste URL gambar di sini..." />
+            <p class="form-hint">URL gambar dari internet</p>
+          </div>
+          <div class="img-preview-box" id="img-preview-box" style="display:none">
+            <img id="img-preview" src="" alt="Preview" />
+          </div>
+        </div>
+
+        <!-- Tags -->
+        <div class="dash-card form-card">
+          <h3 class="settings-title">Tags</h3>
+          <div class="form-group">
+            <input type="text" id="tags" name="tags" class="form-input" placeholder="AI, Teknologi, Pendidikan..." />
+            <p class="form-hint">Pisahkan dengan koma</p>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>
+
+<style>
+  .news-editor { display: flex; flex-direction: column; gap: 20px; }
+
+  .editor-header { display: flex; align-items: center; gap: 16px; }
+  .back-link { display: flex; align-items: center; gap: 6px; color: var(--color-text-muted); font-size: 13.5px; font-weight: 500; transition: color 0.15s; }
+  .back-link svg { width: 16px; height: 16px; }
+  .back-link:hover { color: var(--color-text-primary); }
+  .editor-title { font-size: 20px; font-weight: 700; color: var(--color-text-primary); margin: 0; }
+
+  .alert { padding: 12px 16px; border-radius: 8px; font-size: 13.5px; font-weight: 500; border: 1px solid transparent; }
+  .alert-error { background: rgba(239,68,68,0.1); color: #ef4444; border-color: rgba(239,68,68,0.2); }
+  .alert-success { background: rgba(34,197,94,0.1); color: #22c55e; border-color: rgba(34,197,94,0.2); }
+
+  .editor-layout { display: grid; grid-template-columns: 1fr 300px; gap: 20px; align-items: start; }
+  .editor-main { min-width: 0; }
+  .editor-sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+  .dash-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px; }
+  .form-card { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+
+  .settings-title { font-size: 13px; font-weight: 700; color: var(--color-text-primary); margin: 0 0 4px; }
+
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-label { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+  .required { color: var(--color-accent); }
+  .form-hint { font-size: 11px; color: var(--color-text-muted); margin: 0; }
+
+  .form-input, .form-select, .form-textarea {
+    background: var(--color-surface); border: 1.5px solid var(--color-border-light);
+    border-radius: 8px; color: var(--color-text-primary);
+    font-size: 13.5px; font-family: var(--font-sans); padding: 10px 14px;
+    width: 100%; box-sizing: border-box; transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { outline: none; border-color: var(--color-accent); }
+  .form-input::placeholder, .form-textarea::placeholder { color: var(--color-text-muted); }
+  .form-textarea { resize: vertical; line-height: 1.7; }
+  .content-area { min-height: 400px; }
+
+  .toggle-group { display: flex; align-items: center; justify-content: space-between; }
+  .toggle-label { font-size: 13px; font-weight: 600; color: var(--color-text-primary); margin: 0 0 2px; }
+  .toggle-desc { font-size: 11px; color: var(--color-text-muted); margin: 0; }
+  .toggle-switch { position: relative; display: inline-block; width: 44px; height: 24px; cursor: pointer; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-thumb { position: absolute; inset: 0; background: var(--color-border); border-radius: 24px; transition: 0.3s; }
+  .toggle-thumb::before { content: ''; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.3s; }
+  .toggle-switch input:checked + .toggle-thumb { background: var(--color-accent); }
+  .toggle-switch input:checked + .toggle-thumb::before { transform: translateX(20px); }
+
+  .publish-actions { display: flex; flex-direction: column; gap: 8px; }
+  .btn-secondary { padding: 10px; border-radius: 8px; font-size: 13.5px; font-weight: 700; font-family: var(--font-sans); cursor: pointer; border: 1.5px solid var(--color-border); background: var(--color-surface); color: var(--color-text-secondary); transition: all 0.15s; }
+  .btn-secondary:hover { border-color: var(--color-text-secondary); color: var(--color-text-primary); }
+
+  .btn-primary-full { padding: 11px; border-radius: 8px; font-size: 13.5px; font-weight: 700; font-family: var(--font-sans); cursor: pointer; border: none; background: var(--color-accent); color: white; transition: all 0.15s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn-primary-full:hover { background: #c1121f; }
+  .btn-primary-full:disabled { opacity: 0.7; cursor: not-allowed; }
+
+  .img-preview-box { border-radius: 8px; overflow: hidden; }
+  .img-preview-box img { width: 100%; max-height: 180px; object-fit: cover; display: block; }
+
+  @media (max-width: 1100px) {
+    .editor-layout { grid-template-columns: 1fr; }
+    .editor-sidebar { order: -1; }
+  }
+</style>
+
+<script>
+  const titleInput = document.getElementById('title') as HTMLInputElement;
+  const slugInput = document.getElementById('slug') as HTMLInputElement;
+  const excerptInput = document.getElementById('excerpt') as HTMLTextAreaElement;
+  const imageUrlInput = document.getElementById('image-url') as HTMLInputElement;
+  const imgPreviewBox = document.getElementById('img-preview-box')!;
+  const imgPreview = document.getElementById('img-preview') as HTMLImageElement;
+  const errorEl = document.getElementById('form-error')!;
+  const successEl = document.getElementById('form-success')!;
+  const publishBtn = document.getElementById('publish-btn') as HTMLButtonElement;
+  const saveDraftBtn = document.getElementById('save-draft-btn') as HTMLButtonElement;
+
+  // Character counts
+  titleInput.addEventListener('input', () => {
+    (document.getElementById('title-count') as HTMLElement).textContent = titleInput.value.length.toString();
+    // Auto-generate slug
+    if (!slugInput.dataset.manual) {
+      slugInput.value = titleInput.value.toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+    }
+  });
+
+  slugInput.addEventListener('input', () => { slugInput.dataset.manual = 'true'; });
+
+  excerptInput.addEventListener('input', () => {
+    (document.getElementById('excerpt-count') as HTMLElement).textContent = excerptInput.value.length.toString();
+  });
+
+  // Image preview
+  imageUrlInput.addEventListener('input', () => {
+    const url = imageUrlInput.value.trim();
+    if (url) {
+      imgPreview.src = url;
+      imgPreviewBox.style.display = 'block';
+      imgPreview.onerror = () => { imgPreviewBox.style.display = 'none'; };
+    } else {
+      imgPreviewBox.style.display = 'none';
+    }
+  });
+
+  const API_BASE = 'http://localhost:3000/api';
+
+  async function submitForm(isDraft = false) {
+    errorEl.style.display = 'none';
+    successEl.style.display = 'none';
+
+    const statusEl = document.getElementById('status') as HTMLSelectElement;
+    const status = isDraft ? 'draft' : statusEl.value;
+
+    const data = {
+      title: titleInput.value.trim(),
+      slug: slugInput.value.trim() || undefined,
+      excerpt: (document.getElementById('excerpt') as HTMLTextAreaElement).value.trim(),
+      content: (document.getElementById('content') as HTMLTextAreaElement).value.trim(),
+      image_url: imageUrlInput.value.trim(),
+      category: (document.getElementById('category') as HTMLSelectElement).value,
+      tags: (document.getElementById('tags') as HTMLInputElement).value.trim(),
+      status,
+      is_featured: (document.getElementById('is-featured') as HTMLInputElement).checked ? 1 : 0,
+    };
+
+    publishBtn.disabled = true;
+    saveDraftBtn.disabled = true;
+    const btnText = publishBtn.querySelector('.btn-text') as HTMLElement;
+    const btnLoading = publishBtn.querySelector('.btn-loading') as HTMLElement;
+    btnText.style.display = 'none';
+    btnLoading.style.display = 'inline';
+
+    try {
+      const res = await fetch(`${API_BASE}/news`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        errorEl.textContent = result.error || 'Gagal menyimpan berita.';
+        errorEl.style.display = 'block';
+      } else {
+        successEl.textContent = `Berita berhasil ${status === 'published' ? 'diterbitkan' : 'disimpan sebagai draft'}!`;
+        successEl.style.display = 'block';
+        setTimeout(() => { window.location.href = '/dashboard/news'; }, 1200);
+      }
+    } catch {
+      errorEl.textContent = 'Terjadi kesalahan server.';
+      errorEl.style.display = 'block';
+    } finally {
+      publishBtn.disabled = false;
+      saveDraftBtn.disabled = false;
+      btnText.style.display = 'inline';
+      btnLoading.style.display = 'none';
+    }
+  }
+
+  document.getElementById('news-form')!.addEventListener('submit', (e) => { e.preventDefault(); submitForm(false); });
+  saveDraftBtn.addEventListener('click', () => submitForm(true));
+</script>

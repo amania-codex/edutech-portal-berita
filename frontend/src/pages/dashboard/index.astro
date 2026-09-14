@@ -1,0 +1,301 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import { getSessionFromRequest } from '../../lib/session';
+
+const session = await getSessionFromRequest(Astro.request);
+if (!session) return Astro.redirect('/login');
+
+const isAdmin = session.role === 'admin';
+const API_BASE = "http://localhost:3000/api";
+
+// Fetch stats from Go Fiber backend
+let totalNews = 0, publishedNews = 0, draftNews = 0;
+let totalComments = 0, flaggedComments = 0;
+let recentNews: any[] = [];
+let sentimentStats = { positive: 0, neutral: 0, negative: 0 };
+
+try {
+  const [newsRes, commentsRes] = await Promise.all([
+    fetch(`${API_BASE}/news?limit=100`),
+    fetch(`${API_BASE}/comments`),
+  ]);
+
+  if (newsRes.ok) {
+    const newsData = await newsRes.json();
+    const newsList = Array.isArray(newsData) ? newsData : (newsData.data || []);
+    totalNews = newsList.length;
+    publishedNews = newsList.filter((n: any) => n.status === 'published').length;
+    draftNews = newsList.filter((n: any) => n.status === 'draft').length;
+    recentNews = newsList.slice(0, 5);
+  }
+
+  if (commentsRes.ok) {
+    const commentsData = await commentsRes.json();
+    const commentsList = Array.isArray(commentsData) ? commentsData : (commentsData.data || []);
+    totalComments = commentsList.length;
+    flaggedComments = commentsList.filter((c: any) => c.is_flagged === 1 || c.is_flagged === true).length;
+    sentimentStats.positive = commentsList.filter((c: any) => c.sentiment === 'positive').length;
+    sentimentStats.neutral = commentsList.filter((c: any) => c.sentiment === 'neutral').length;
+    sentimentStats.negative = commentsList.filter((c: any) => c.sentiment === 'negative').length;
+  }
+} catch (err) {
+  console.error("Failed to fetch dashboard stats:", err);
+}
+
+function normalize(a: any) {
+  return {
+    id: a.ID || a.id,
+    title: a.title,
+    slug: a.slug,
+    imageUrl: a.imageUrl || a.image_url,
+    category: a.category,
+    author: a.author,
+    status: a.status,
+    viewCount: a.viewCount || a.view_count || 0,
+    created_at: a.CreatedAt || a.createdAt || a.created_at,
+  };
+}
+const normalizedRecent = recentNews.map(normalize);
+---
+
+<DashboardLayout title="Dashboard" activeMenu="dashboard">
+  <div class="dash-overview">
+    <!-- Welcome Banner -->
+    <div class="welcome-banner">
+      <div class="welcome-text">
+        <h2>Selamat datang, <span class="welcome-name">{session.name}</span> 👋</h2>
+        <p>{isAdmin ? 'Panel Admin — Kelola berita, dan analisis komentar portal.' : 'Ini adalah halaman dashboard Anda.'}</p>
+      </div>
+      {isAdmin && (
+        <a href="/dashboard/news/create" class="btn-create-news">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Tulis Berita
+        </a>
+      )}
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-card stat-blue">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        </div>
+        <div class="stat-info">
+          <p class="stat-value">{totalNews}</p>
+          <p class="stat-label">Total Berita</p>
+        </div>
+        <div class="stat-sub">
+          <span class="sub-green">{publishedNews} Terbit</span>
+          <span class="sub-gray">·</span>
+          <span class="sub-orange">{draftNews} Draft</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-green">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </div>
+        <div class="stat-info">
+          <p class="stat-value">{totalComments}</p>
+          <p class="stat-label">Total Komentar</p>
+        </div>
+        <div class="stat-sub">
+          {flaggedComments > 0
+            ? <span class="sub-red">⚠ {flaggedComments} Ditandai</span>
+            : <span class="sub-green">✓ Bersih</span>
+          }
+        </div>
+      </div>
+
+      <div class="stat-card stat-orange">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div class="stat-info">
+          <p class="stat-value">{sentimentStats.positive}</p>
+          <p class="stat-label">Komentar Positif</p>
+        </div>
+        <div class="stat-sub">
+          <span class="sub-red">{sentimentStats.negative} Neg</span>
+          <span class="sub-gray">·</span>
+          <span class="sub-gray">{sentimentStats.neutral} Net</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="dash-lower">
+      <!-- Recent News -->
+      <div class="dash-card recent-news-card">
+        <div class="card-head">
+          <h3 class="dash-card-title">Berita Terbaru</h3>
+          {isAdmin && <a href="/dashboard/news" class="card-link">Lihat Semua →</a>}
+        </div>
+        <div class="recent-news-list">
+          {normalizedRecent.length === 0 ? (
+            <p class="empty-state">Belum ada berita. Go Fiber backend mungkin belum aktif.</p>
+          ) : (
+            normalizedRecent.map((article) => (
+              <div class="recent-news-item">
+                <div class="rn-img">
+                  {article.imageUrl ? (
+                    <img src={article.imageUrl} alt={article.title} />
+                  ) : (
+                    <div class="rn-img-placeholder">📰</div>
+                  )}
+                </div>
+                <div class="rn-info">
+                  <a href={`/berita/${article.slug}`} class="rn-title" target="_blank">{article.title}</a>
+                  <div class="rn-meta">
+                    <span class={`rn-status status-${article.status}`}>{article.status === 'published' ? 'Terbit' : 'Draft'}</span>
+                    <span class="rn-cat">{article.category}</span>
+                    <span class="rn-views">👁 {article.viewCount}</span>
+                  </div>
+                </div>
+                {isAdmin && (
+                  <a href={`/dashboard/news/edit/${article.id}`} class="rn-edit-btn" title="Edit">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </a>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
+      <!-- Sentiment Chart -->
+      {isAdmin && (
+        <div class="dash-card sentiment-card">
+          <h3 class="dash-card-title">Sentimen Komentar</h3>
+          <div class="sentiment-chart">
+            <div class="sentiment-donut">
+              <div class="donut-center">
+                <span class="donut-number">{totalComments}</span>
+                <span class="donut-label">Total</span>
+              </div>
+            </div>
+            <div class="sentiment-legend">
+              <div class="legend-item">
+                <span class="legend-dot dot-positive"></span>
+                <span class="legend-name">Positif</span>
+                <span class="legend-count">{sentimentStats.positive}</span>
+                <span class="legend-pct">{totalComments > 0 ? Math.round(sentimentStats.positive / totalComments * 100) : 0}%</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-neutral"></span>
+                <span class="legend-name">Netral</span>
+                <span class="legend-count">{sentimentStats.neutral}</span>
+                <span class="legend-pct">{totalComments > 0 ? Math.round(sentimentStats.neutral / totalComments * 100) : 0}%</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-dot dot-negative"></span>
+                <span class="legend-name">Negatif</span>
+                <span class="legend-count">{sentimentStats.negative}</span>
+                <span class="legend-pct">{totalComments > 0 ? Math.round(sentimentStats.negative / totalComments * 100) : 0}%</span>
+              </div>
+            </div>
+          </div>
+          <a href="/dashboard/comments" class="btn-analysis">Lihat Analisis Lengkap →</a>
+        </div>
+      )}
+    </div>
+  </div>
+</DashboardLayout>
+
+<style>
+  .dash-overview { display: flex; flex-direction: column; gap: 24px; }
+
+  .welcome-banner {
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px;
+    background: linear-gradient(135deg, var(--color-accent) 0%, #c1121f 100%);
+    border-radius: 16px; padding: 24px 28px; color: white;
+  }
+  .welcome-text h2 { margin: 0 0 4px; font-size: 20px; font-weight: 700; }
+  .welcome-text p { margin: 0; font-size: 13.5px; opacity: 0.85; }
+  .welcome-name { font-weight: 800; }
+
+  .btn-create-news {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,0.2); color: white;
+    padding: 10px 18px; border-radius: 10px;
+    font-size: 13.5px; font-weight: 700; text-decoration: none;
+    border: 1px solid rgba(255,255,255,0.3); transition: all 0.15s; white-space: nowrap;
+  }
+  .btn-create-news svg { width: 16px; height: 16px; }
+  .btn-create-news:hover { background: rgba(255,255,255,0.3); transform: translateY(-1px); }
+
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+
+  .stat-card {
+    background: var(--color-bg-card); border: 1px solid var(--color-border);
+    border-radius: 12px; padding: 20px;
+    display: flex; flex-direction: column; gap: 10px;
+    position: relative; overflow: hidden; transition: transform 0.15s;
+  }
+  .stat-card:hover { transform: translateY(-2px); }
+  .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .stat-blue::before { background: #3b82f6; }
+  .stat-green::before { background: #22c55e; }
+  .stat-orange::before { background: #f97316; }
+
+  .stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .stat-blue .stat-icon { background: rgba(59,130,246,0.1); color: #3b82f6; }
+  .stat-green .stat-icon { background: rgba(34,197,94,0.1); color: #22c55e; }
+  .stat-orange .stat-icon { background: rgba(249,115,22,0.1); color: #f97316; }
+  .stat-icon svg { width: 20px; height: 20px; }
+
+  .stat-value { font-size: 28px; font-weight: 800; color: var(--color-text-primary); margin: 0; line-height: 1; }
+  .stat-label { font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin: 2px 0 0; }
+  .stat-sub { display: flex; align-items: center; gap: 6px; font-size: 11.5px; }
+  .sub-green { color: #22c55e; font-weight: 600; }
+  .sub-orange { color: #f97316; font-weight: 600; }
+  .sub-red { color: #ef4444; font-weight: 600; }
+  .sub-gray { color: var(--color-text-muted); }
+
+  .dash-lower { display: grid; grid-template-columns: 1fr 340px; gap: 20px; }
+  .dash-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 20px; }
+  .dash-card-title { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-text-muted); margin: 0 0 16px; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  .card-head .dash-card-title { margin: 0; }
+  .card-link { font-size: 12px; font-weight: 600; color: var(--color-accent); }
+
+  .recent-news-list { display: flex; flex-direction: column; gap: 12px; }
+  .recent-news-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-radius: 8px; transition: background 0.15s; }
+  .recent-news-item:hover { background: var(--color-surface); }
+  .rn-img { width: 56px; height: 44px; border-radius: 6px; overflow: hidden; flex-shrink: 0; }
+  .rn-img img { width: 100%; height: 100%; object-fit: cover; }
+  .rn-img-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-surface); font-size: 18px; }
+  .rn-info { flex: 1; min-width: 0; }
+  .rn-title { font-size: 13px; font-weight: 600; color: var(--color-text-primary); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-decoration: none; }
+  .rn-title:hover { color: var(--color-accent); }
+  .rn-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+  .rn-status { font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 20px; }
+  .status-published { background: rgba(34,197,94,0.12); color: #22c55e; }
+  .status-draft { background: rgba(249,115,22,0.12); color: #f97316; }
+  .rn-cat { font-size: 11px; color: var(--color-text-muted); }
+  .rn-views { font-size: 11px; color: var(--color-text-muted); }
+  .rn-edit-btn { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; color: var(--color-text-muted); transition: all 0.15s; flex-shrink: 0; }
+  .rn-edit-btn svg { width: 14px; height: 14px; }
+  .rn-edit-btn:hover { background: rgba(230,57,70,0.1); color: var(--color-accent); }
+  .empty-state { color: var(--color-text-muted); font-size: 13px; text-align: center; padding: 20px 0; }
+
+  .sentiment-chart { display: flex; flex-direction: column; gap: 20px; }
+  .sentiment-donut { width: 120px; height: 120px; margin: 0 auto; background: conic-gradient(#22c55e 0deg 120deg, #94a3b8 120deg 240deg, #ef4444 240deg 360deg); border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
+  .sentiment-donut::before { content: ''; position: absolute; width: 80px; height: 80px; background: var(--color-bg-card); border-radius: 50%; }
+  .donut-center { position: relative; z-index: 1; text-align: center; }
+  .donut-number { display: block; font-size: 20px; font-weight: 800; color: var(--color-text-primary); line-height: 1; }
+  .donut-label { font-size: 10px; color: var(--color-text-muted); font-weight: 600; }
+  .sentiment-legend { display: flex; flex-direction: column; gap: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot-positive { background: #22c55e; }
+  .dot-neutral { background: #94a3b8; }
+  .dot-negative { background: #ef4444; }
+  .legend-name { flex: 1; color: var(--color-text-secondary); }
+  .legend-count { font-weight: 700; color: var(--color-text-primary); }
+  .legend-pct { color: var(--color-text-muted); font-size: 11px; width: 32px; text-align: right; }
+  .btn-analysis { display: block; text-align: center; padding: 10px; background: var(--color-surface); border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--color-accent); margin-top: 16px; transition: background 0.15s; }
+  .btn-analysis:hover { background: rgba(230,57,70,0.1); }
+
+  @media (max-width: 1200px) { .dash-lower { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+</style>

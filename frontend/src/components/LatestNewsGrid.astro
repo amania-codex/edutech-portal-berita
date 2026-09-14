@@ -1,0 +1,103 @@
+---
+// LatestNewsGrid.astro — Grid of latest news articles
+import NewsCard from "./NewsCard.astro";
+
+export interface Props {
+  articles: Array<{
+    id: number;
+    title: string;
+    slug: string;
+    excerpt?: string;
+    imageUrl?: string;
+    category?: string;
+    author?: string;
+    viewCount?: number;
+    createdAt?: string;
+  }>;
+}
+
+const { articles = [] } = Astro.props;
+---
+
+<section class="latest-section" aria-labelledby="latest-heading">
+  <div class="section-header">
+    <h2 id="latest-heading">Berita Terbaru</h2>
+    <div class="section-line"></div>
+    <a href="/kategori/berita" class="see-all">Lihat Semua →</a>
+  </div>
+
+  {articles.length === 0 ? (
+    <div class="empty-latest">
+      <p>Belum ada berita terbaru.</p>
+    </div>
+  ) : (
+    <div class="latest-grid">
+      {articles.map((article) => (
+        <NewsCard
+          key={article.id}
+          title={article.title}
+          slug={article.slug}
+          excerpt={article.excerpt}
+          imageUrl={article.imageUrl}
+          category={article.category}
+          author={article.author}
+          viewCount={article.viewCount}
+          createdAt={article.createdAt}
+          size="md"
+        />
+      ))}
+    </div>
+  )}
+</section>
+
+<style>
+  .latest-section {
+    margin-top: var(--space-8);
+  }
+
+  .see-all {
+    font-size: var(--text-sm);
+    color: var(--color-accent);
+    font-weight: 600;
+    white-space: nowrap;
+    transition: opacity var(--transition-fast);
+  }
+
+  .see-all:hover {
+    opacity: 0.8;
+  }
+
+  .latest-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-5);
+  }
+
+  .empty-latest {
+    padding: var(--space-12);
+    text-align: center;
+    color: var(--color-text-muted);
+    background: var(--color-bg-card);
+    border-radius: var(--radius-lg);
+    border: 1px dashed var(--color-border);
+  }
+
+  @media (max-width: 1100px) {
+    .latest-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+
+  @media (max-width: 768px) {
+    .latest-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: var(--space-4);
+    }
+  }
+
+  @media (max-width: 480px) {
+    .latest-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
