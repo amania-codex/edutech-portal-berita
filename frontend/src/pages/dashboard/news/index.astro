@@ -118,6 +118,9 @@ const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loke
                       <a href={`/berita/${article.slug}`} class="action-btn action-view" target="_blank" title="Lihat">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                       </a>
+                      <a href={`/dashboard/news/analytics/${article.id}`} class="action-btn action-analytics" title="Analisis">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                      </a>
                       <a href={`/dashboard/news/edit/${article.id}`} class="action-btn action-edit" title="Edit">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                       </a>
@@ -198,6 +201,7 @@ const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loke
   .action-btn { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 6px; cursor: pointer; transition: all 0.15s; border: none; background: none; }
   .action-btn svg { width: 14px; height: 14px; }
   .action-view { color: #3b82f6; } .action-view:hover { background: rgba(59,130,246,0.1); }
+  .action-analytics { color: #a855f7; } .action-analytics:hover { background: rgba(168,85,247,0.1); }
   .action-edit { color: #f97316; } .action-edit:hover { background: rgba(249,115,22,0.1); }
   .action-delete { color: #ef4444; } .action-delete:hover { background: rgba(239,68,68,0.1); }
 

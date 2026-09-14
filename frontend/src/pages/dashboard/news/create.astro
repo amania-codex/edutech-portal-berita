@@ -110,6 +110,15 @@ const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loke
           </div>
         </div>
 
+        <!-- Author -->
+        <div class="dash-card form-card">
+          <h3 class="settings-title">Penulis</h3>
+          <div class="form-group">
+            <input type="text" id="author" name="author" class="form-input" placeholder="Nama penulis berita..." />
+            <p class="form-hint">Kosongkan untuk menggunakan nama akun Anda</p>
+          </div>
+        </div>
+
         <!-- Tags -->
         <div class="dash-card form-card">
           <h3 class="settings-title">Tags</h3>
@@ -280,10 +289,11 @@ const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loke
       slug: slugInput.value.trim() || undefined,
       excerpt: document.getElementById('excerpt').value.trim(),
       content: quillContent,
-      image_url: imageUrlInput.value.trim(), // keeping this for frontend logic if needed, but backend needs imageUrl
+      image_url: imageUrlInput.value.trim(),
       imageUrl: imageUrlInput.value.trim(),
       category: document.getElementById('category').value,
       tags: document.getElementById('tags').value.trim(),
+      author: document.getElementById('author').value.trim(),
       status,
       isFeatured: document.getElementById('is-featured').checked,
     };
