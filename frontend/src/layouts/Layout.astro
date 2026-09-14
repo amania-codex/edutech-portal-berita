@@ -48,6 +48,26 @@ const {
 
     <!-- Global Styles -->
     <link rel="stylesheet" href="/styles/global.css" />
+
+    <!-- Theme Initialization Script -->
+    <script is:inline>
+      const theme = (() => {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('theme')) {
+          return localStorage.getItem('theme');
+        }
+        if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+          return 'light';
+        }
+        return 'dark';
+      })();
+    
+      if (theme === 'light') {
+        document.documentElement.classList.add('light');
+      } else {
+        document.documentElement.classList.remove('light');
+      }
+      window.localStorage.setItem('theme', theme);
+    </script>
   </head>
   <body>
     <slot />
