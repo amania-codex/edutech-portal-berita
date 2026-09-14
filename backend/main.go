@@ -8,6 +8,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"golang.org/x/crypto/bcrypt"
 )
 
 func main() {
@@ -31,6 +32,20 @@ func main() {
 }
 
 func seedData() {
+	var userCount int64
+	database.DB.Model(&models.User{}).Count(&userCount)
+	if userCount == 0 {
+		hash, _ := bcrypt.GenerateFromPassword([]byte("admin12345"), bcrypt.DefaultCost)
+		admin := models.User{
+			Name:     "Admin EduTech",
+			Email:    "admin@edutech.id",
+			Password: string(hash),
+			Role:     "admin",
+		}
+		database.DB.Create(&admin)
+		log.Println("Seed data User berhasil ditambahkan.")
+	}
+
 	var count int64
 	database.DB.Model(&models.Article{}).Count(&count)
 	if count == 0 {

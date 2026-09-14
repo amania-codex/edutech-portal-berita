@@ -76,7 +76,9 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
           <span>{displayCategory}</span>
         </div>
         <h1 class="category-page-title">{displayCategory}</h1>
-        <p class="category-count">{normalizedArticles.length} artikel ditemukan</p>
+        <p class="category-count">
+          {normalizedArticles.length} artikel ditemukan
+        </p>
       </div>
     </div>
   </div>
@@ -84,31 +86,34 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
   <main id="main-content" class="container category-layout">
     <!-- Articles Grid -->
     <section class="category-articles" aria-label={`Berita ${displayCategory}`}>
-      {normalizedArticles.length === 0 ? (
-        <div class="empty-category">
-          <div class="empty-icon">📭</div>
-          <h2>Belum Ada Berita</h2>
-          <p>Tidak ada berita dalam kategori "{displayCategory}" saat ini.</p>
-          <a href="/" class="back-home">← Kembali ke Beranda</a>
-        </div>
-      ) : (
-        <div class="articles-grid">
-          {normalizedArticles.map((article) => (
-            <NewsCard
-              key={article.id}
-              title={article.title}
-              slug={article.slug}
-              excerpt={article.excerpt}
-              imageUrl={article.imageUrl}
-              category={article.category}
-              author={article.author}
-              viewCount={article.viewCount}
-              createdAt={article.createdAt}
-              size="md"
-            />
-          ))}
-        </div>
-      )}
+      {
+        normalizedArticles.length === 0 ? (
+          <div class="empty-category">
+            <div class="empty-icon">📭</div>
+            <h2>Belum Ada Berita</h2>
+            <p>Tidak ada berita dalam kategori "{displayCategory}" saat ini.</p>
+            <a href="/" class="back-home">
+              ← Kembali ke Beranda
+            </a>
+          </div>
+        ) : (
+          <div class="articles-grid">
+            {normalizedArticles.map((article) => (
+              <NewsCard
+                title={article.title}
+                slug={article.slug}
+                excerpt={article.excerpt}
+                imageUrl={article.imageUrl}
+                category={article.category}
+                author={article.author}
+                viewCount={article.viewCount}
+                createdAt={article.createdAt}
+                size="md"
+              />
+            ))}
+          </div>
+        )
+      }
     </section>
 
     <!-- Trending Sidebar -->
@@ -121,14 +126,27 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
           <h2>Kategori Lain</h2>
         </div>
         <div class="other-cat-list">
-          {["Teknologi", "Pendidikan", "Kampus", "Event", "Riset", "Loker", "Video"].filter(
-            (c) => c.toLowerCase() !== category?.toLowerCase()
-          ).map((cat) => (
-            <a href={`/kategori/${cat.toLowerCase()}`} class="other-cat-link">
-              <span>{categoryIcons[cat.toLowerCase()] || "📰"}</span>
-              <span>{cat}</span>
-            </a>
-          ))}
+          {
+            [
+              "Teknologi",
+              "Pendidikan",
+              "Kampus",
+              "Event",
+              "Riset",
+              "Loker",
+              "Video",
+            ]
+              .filter((c) => c.toLowerCase() !== category?.toLowerCase())
+              .map((cat) => (
+                <a
+                  href={`/kategori/${cat.toLowerCase()}`}
+                  class="other-cat-link"
+                >
+                  <span>{categoryIcons[cat.toLowerCase()] || "📰"}</span>
+                  <span>{cat}</span>
+                </a>
+              ))
+          }
         </div>
       </div>
     </aside>
@@ -140,7 +158,11 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
 <style>
   /* Hero */
   .category-hero {
-    background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-card) 100%);
+    background: linear-gradient(
+      135deg,
+      var(--color-bg-secondary) 0%,
+      var(--color-bg-card) 100%
+    );
     border-bottom: 1px solid var(--color-border);
     padding: var(--space-8) 0;
   }
