@@ -1,4 +1,4 @@
-﻿package handlers
+package handlers
 
 import (
 	"fmt"
@@ -69,20 +69,13 @@ func GetNewsById(c *fiber.Ctx) error {
 	return c.JSON(article)
 }
 
-// GetCategories â€” GET /api/categories
-func GetCategories(c *fiber.Ctx) error {
-	var categories []string
-	database.DB.Model(&models.Article{}).Where("is_published = ?", true).
-		Distinct("category").Pluck("category", &categories)
-	return c.JSON(categories)
-}
 
 // CreateNews â€” POST /api/news (admin)
 func CreateNews(c *fiber.Ctx) error {
 	type Input struct {
 		Title       string `json:"title"`
 		Slug        string `json:"slug"`
-		Excerpt     string `json:"excerpt"`
+
 		Content     string `json:"content"`
 		ImageURL    string `json:"imageUrl"`
 		Category    string `json:"category"`
@@ -125,7 +118,7 @@ func CreateNews(c *fiber.Ctx) error {
 	article := models.Article{
 		Title:       input.Title,
 		Slug:        slug,
-		Excerpt:     input.Excerpt,
+
 		Content:     input.Content,
 		ImageURL:    input.ImageURL,
 		Category:    input.Category,
@@ -161,7 +154,7 @@ func UpdateNews(c *fiber.Ctx) error {
 	type Input struct {
 		Title       string `json:"title"`
 		Slug        string `json:"slug"`
-		Excerpt     string `json:"excerpt"`
+
 		Content     string `json:"content"`
 		ImageURL    string `json:"imageUrl"`
 		Category    string `json:"category"`
@@ -178,7 +171,7 @@ func UpdateNews(c *fiber.Ctx) error {
 
 	updates := map[string]interface{}{
 		"title":        input.Title,
-		"excerpt":      input.Excerpt,
+
 		"content":      input.Content,
 		"image_url":    input.ImageURL,
 		"category":     input.Category,

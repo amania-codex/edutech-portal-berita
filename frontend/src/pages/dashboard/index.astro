@@ -6,6 +6,8 @@ const session = await getSessionFromRequest(Astro.request);
 if (!session) return Astro.redirect('/login');
 
 const isAdmin = session.role === 'admin';
+if (!isAdmin) return Astro.redirect('/user');
+
 const API_BASE = "http://localhost:3000/api";
 
 // Fetch stats from Go Fiber backend

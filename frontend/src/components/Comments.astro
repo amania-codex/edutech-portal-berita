@@ -12,26 +12,31 @@ const API_BASE = "http://localhost:3000/api";
 
 <section class="comments-section" id="comments">
   <div class="comments-header">
-    <h3 class="comments-title">Komentar <span id="comment-count">(0)</span></h3>
+    <h3 class="comments-title">Komentar <span id="comment-count" class="count-badge">0</span></h3>
   </div>
 
   {session ? (
-    <div class="comment-form-container">
+    <div class="comment-form-container" id="main-comment-form">
       <div class="comment-avatar">{session.name.charAt(0).toUpperCase()}</div>
-      <form id="comment-form" class="comment-form">
+      <form id="comment-form" class="comment-form" data-parent="null">
         <textarea id="comment-content" class="comment-input" placeholder="Tulis komentar Anda..." rows="3" required></textarea>
         <div class="comment-form-actions">
           <p class="comment-hint">Harap gunakan bahasa yang sopan. Komentar dengan kata kasar akan otomatis ditandai.</p>
-          <button type="submit" class="btn-submit-comment" id="submit-comment-btn">
-            Kirim Komentar
-          </button>
+          <div style="display:flex; gap:8px;">
+            <button type="submit" class="btn-submit-comment" id="submit-comment-btn">
+              Kirim Komentar
+            </button>
+          </div>
         </div>
         <div id="comment-msg" class="comment-msg" style="display:none"></div>
       </form>
     </div>
   ) : (
     <div class="comment-login-prompt">
-      <p>Silakan masuk untuk meninggalkan komentar.</p>
+      <div class="prompt-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </div>
+      <p>Silakan masuk untuk berdiskusi dan meninggalkan komentar.</p>
       <a href="/login" class="btn-login-prompt">Masuk ke Akun</a>
     </div>
   )}
@@ -52,114 +57,420 @@ const API_BASE = "http://localhost:3000/api";
     margin-top: var(--space-8);
     padding-top: var(--space-6);
     border-top: 1px solid var(--color-border);
-  }
-
-  .comments-header { margin-bottom: var(--space-4); }
-  .comments-title {
-    font-size: var(--text-xl); font-weight: 800;
-    color: var(--color-text-primary); margin: 0;
     font-family: var(--font-sans);
   }
 
+  .comments-header { 
+    margin-bottom: var(--space-5); 
+    display: flex;
+    align-items: center;
+  }
+  
+  .comments-title {
+    font-size: var(--text-2xl); 
+    font-weight: 800;
+    color: var(--color-text-primary); 
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  
+  .count-badge {
+    background: var(--color-accent);
+    color: white;
+    font-size: 14px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-weight: 700;
+  }
+
+  /* Form Styling */
   .comment-form-container {
-    display: flex; gap: var(--space-4);
+    display: flex; 
+    gap: var(--space-4);
     margin-bottom: var(--space-8);
     background: var(--color-bg-card);
-    padding: var(--space-5); border-radius: var(--radius-lg);
-    border: 1px solid var(--color-border);
+    padding: 24px; 
+    border-radius: 16px;
+    border: 1px solid var(--color-border-light);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+    transition: all 0.3s ease;
+  }
+  
+  .comment-form-container:focus-within {
+    border-color: var(--color-accent);
+    box-shadow: 0 8px 30px rgba(225, 29, 72, 0.08);
   }
 
   .comment-avatar {
-    width: 40px; height: 40px; border-radius: 50%;
-    background: linear-gradient(135deg, var(--color-accent), #c1121f);
-    color: white; font-weight: 800; font-size: 16px;
+    width: 44px; height: 44px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-accent), #9f1239);
+    color: white; font-weight: 800; font-size: 18px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(225, 29, 72, 0.3);
   }
 
-  .comment-form { flex: 1; display: flex; flex-direction: column; gap: var(--space-3); }
+  .comment-form { flex: 1; display: flex; flex-direction: column; gap: 16px; }
 
-  .comment-input {
-    width: 100%; padding: var(--space-3);
+  :global(.comment-input) {
+    width: 100%; padding: 16px;
     background: var(--color-surface);
-    border: 1.5px solid var(--color-border-light);
-    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
     color: var(--color-text-primary);
-    font-size: var(--text-sm); font-family: var(--font-sans);
-    resize: vertical; transition: border-color 0.2s; box-sizing: border-box;
+    font-size: 15px; font-family: var(--font-sans);
+    resize: vertical; transition: all 0.2s; box-sizing: border-box;
+    line-height: 1.5;
   }
-  .comment-input:focus { outline: none; border-color: var(--color-accent); }
+  
+  :global(.comment-input:focus) { 
+    outline: none; 
+    border-color: var(--color-accent); 
+    background: var(--color-bg-primary);
+  }
 
   .comment-form-actions {
     display: flex; align-items: center; justify-content: space-between;
-    flex-wrap: wrap; gap: var(--space-3);
+    flex-wrap: wrap; gap: 12px;
   }
-  .comment-hint { font-size: var(--text-xs); color: var(--color-text-muted); margin: 0; }
+  .comment-hint { font-size: 12px; color: var(--color-text-muted); margin: 0; font-style: italic; }
 
-  .btn-submit-comment {
-    background: var(--color-accent); color: white;
-    border: none; padding: 10px 20px; border-radius: var(--radius-md);
-    font-size: var(--text-sm); font-weight: 700; font-family: var(--font-sans);
-    cursor: pointer; transition: background 0.2s; white-space: nowrap;
+  :global(.btn-submit-comment) {
+    background: linear-gradient(135deg, var(--color-accent), #e11d48);
+    color: white;
+    border: none; padding: 10px 24px; border-radius: 8px;
+    font-size: 14px; font-weight: 700; font-family: var(--font-sans);
+    cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
   }
-  .btn-submit-comment:hover { background: #c1121f; }
-  .btn-submit-comment:disabled { opacity: 0.7; cursor: not-allowed; }
-
-  .comment-msg { padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 600; }
-  .msg-success { background: rgba(34,197,94,0.1); color: #16a34a; }
-  .msg-error { background: rgba(239,68,68,0.1); color: #dc2626; }
-
-  .comment-login-prompt {
-    text-align: center; padding: var(--space-6) var(--space-4);
-    background: var(--color-bg-card); border: 1px dashed var(--color-border);
-    border-radius: var(--radius-lg); margin-bottom: var(--space-8);
+  :global(.btn-submit-comment:hover) { 
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(225, 29, 72, 0.3);
   }
-  .comment-login-prompt p { margin: 0 0 var(--space-3); color: var(--color-text-secondary); font-size: var(--text-sm); }
+  :global(.btn-submit-comment:active) { transform: translateY(0); }
+  :global(.btn-submit-comment:disabled) { opacity: 0.7; cursor: not-allowed; transform: none; }
 
-  .btn-login-prompt {
-    display: inline-block; padding: 8px 20px;
-    background: var(--color-surface); color: var(--color-text-primary);
-    border: 1px solid var(--color-border); border-radius: var(--radius-md);
-    font-size: var(--text-sm); font-weight: 600; text-decoration: none;
+  :global(.btn-cancel-reply) {
+    background: transparent; 
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border); 
+    padding: 10px 20px; 
+    border-radius: 8px;
+    font-size: 14px; font-weight: 600; cursor: pointer;
     transition: all 0.2s;
   }
-  .btn-login-prompt:hover { background: var(--color-accent); color: white; border-color: var(--color-accent); }
+  :global(.btn-cancel-reply:hover) { background: var(--color-surface); color: var(--color-text-primary); }
 
-  .comments-list { display: flex; flex-direction: column; gap: var(--space-5); }
+  :global(.comment-msg) { padding: 12px 16px; border-radius: 8px; font-size: 14px; font-weight: 600; margin-top: 8px; }
+  :global(.msg-success) { background: rgba(34,197,94,0.1); color: #16a34a; border: 1px solid rgba(34,197,94,0.2); }
+  :global(.msg-error) { background: rgba(239,68,68,0.1); color: #dc2626; border: 1px solid rgba(239,68,68,0.2); }
+
+  /* Login Prompt */
+  .comment-login-prompt {
+    text-align: center; padding: 40px 20px;
+    background: var(--color-bg-card); 
+    border: 1px dashed var(--color-border);
+    border-radius: 16px; margin-bottom: var(--space-8);
+    display: flex; flex-direction: column; align-items: center;
+    gap: 16px;
+  }
+  
+  .prompt-icon {
+    width: 60px; height: 60px;
+    border-radius: 50%;
+    background: var(--color-surface);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--color-text-muted);
+  }
+  .prompt-icon svg { width: 30px; height: 30px; }
+  
+  .comment-login-prompt p { margin: 0; color: var(--color-text-secondary); font-size: 15px; }
+
+  .btn-login-prompt {
+    display: inline-block; padding: 10px 24px;
+    background: var(--color-surface); color: var(--color-text-primary);
+    border: 1px solid var(--color-border); border-radius: 8px;
+    font-size: 14px; font-weight: 600; text-decoration: none;
+    transition: all 0.2s;
+  }
+  .btn-login-prompt:hover { 
+    background: var(--color-accent); color: white; border-color: var(--color-accent); 
+    box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
+  }
+
+  /* List Styling */
+  .comments-list { display: flex; flex-direction: column; gap: 24px; }
 
   .comments-loading {
-    display: flex; align-items: center; gap: 10px;
-    color: var(--color-text-muted); font-size: 13.5px;
-    padding: var(--space-4) 0;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
+    color: var(--color-text-muted); font-size: 15px; font-weight: 500;
+    padding: 40px 0;
   }
-  .comments-loading svg { width: 18px; height: 18px; }
+  .comments-loading svg { width: 24px; height: 24px; color: var(--color-accent); }
 
   @keyframes spin { to { transform: rotate(360deg); } }
-  .spin { animation: spin 0.8s linear infinite; }
+  .spin { animation: spin 1s linear infinite; }
 
-  .no-comments { text-align: center; color: var(--color-text-muted); font-style: italic; padding: var(--space-4) 0; font-size: 13.5px; }
+  .no-comments { 
+    text-align: center; color: var(--color-text-muted); 
+    padding: 40px 0; font-size: 15px; 
+    background: var(--color-surface);
+    border-radius: 12px; border: 1px dashed var(--color-border-light);
+  }
 
-  .comment-box { display: flex; gap: var(--space-4); }
+  /* Comment Item (Dynamically rendered, needs :global) */
+  :global(.comment-box) { 
+    display: flex; 
+    flex-direction: column; 
+    gap: 16px;
+    position: relative;
+  }
+  
+  :global(.comment-main) { 
+    display: flex; 
+    gap: 16px; 
+    background: var(--color-bg-card);
+    padding: 20px;
+    border-radius: 16px;
+    border: 1px solid var(--color-border-light);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.02);
+    transition: background 0.2s;
+  }
+  
+  :global(.comment-main:hover) {
+    background: var(--color-surface);
+  }
 
-  .comment-avatar-sm {
-    width: 36px; height: 36px; border-radius: 50%;
-    background: var(--color-surface); color: var(--color-text-secondary);
+  :global(.comment-avatar-sm) {
+    width: 40px; height: 40px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-surface), var(--color-border)); 
+    color: var(--color-text-primary);
     border: 1px solid var(--color-border);
-    font-weight: 700; font-size: 14px;
+    font-weight: 800; font-size: 16px;
     display: flex; align-items: center; justify-content: center;
     flex-shrink: 0;
   }
 
-  .comment-content { flex: 1; }
-  .comment-meta { display: flex; align-items: center; gap: var(--space-2); margin-bottom: 4px; }
-  .comment-author { font-size: var(--text-sm); font-weight: 700; color: var(--color-text-primary); }
-  .comment-date { font-size: 11.5px; color: var(--color-text-muted); }
-  .comment-text { font-size: 13.5px; color: var(--color-text-secondary); line-height: 1.6; margin: 0; }
+  :global(.comment-content) { flex: 1; min-width: 0; }
+  
+  :global(.comment-meta) { 
+    display: flex; align-items: center; gap: 10px; margin-bottom: 6px; 
+    flex-wrap: wrap;
+  }
+  :global(.comment-author) { font-size: 15px; font-weight: 700; color: var(--color-text-primary); }
+  
+  :global(.comment-date) { 
+    font-size: 12px; color: var(--color-text-muted); 
+    display: flex; align-items: center; gap: 4px;
+  }
+  :global(.comment-date::before) {
+    content: "•";
+    color: var(--color-border);
+  }
+  
+  :global(.comment-text) { 
+    font-size: 15px; color: var(--color-text-secondary); 
+    line-height: 1.6; margin: 0 0 12px; 
+    word-break: break-word;
+  }
+  
+  :global(.comment-actions) { 
+    display: flex; gap: 16px; font-size: 13px; font-weight: 600; color: var(--color-text-muted); 
+  }
+  :global(.comment-actions button) { 
+    background: none; border: none; color: inherit; cursor: pointer; padding: 6px 10px; 
+    font: inherit; display: flex; align-items: center; gap: 6px; 
+    transition: all 0.2s; border-radius: 6px; margin: -6px -10px;
+  }
+  
+  :global(.btn-like:hover) { color: #e11d48; background: rgba(225, 29, 72, 0.08); }
+  :global(.btn-like.liked) { color: #e11d48; }
+  :global(.btn-like.liked svg) { fill: #e11d48; }
+  
+  :global(.btn-reply:hover) { color: #3b82f6; background: rgba(59, 130, 246, 0.08); }
+
+  /* Replies */
+  :global(.replies-list) { 
+    display: flex; flex-direction: column; gap: 16px; 
+    margin-left: 20px; 
+    padding-left: 24px; 
+    border-left: 2px solid var(--color-border);
+    position: relative;
+  }
+  
+  :global(.reply-item) { 
+    display: flex; gap: 12px; 
+    background: var(--color-bg-primary);
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--color-border-light);
+  }
+  
+  :global(.reply-item .comment-avatar-sm) { width: 32px; height: 32px; font-size: 13px; }
+  :global(.reply-item .comment-text) { font-size: 14px; }
+
+  /* Inline Reply Form */
+  :global(.inline-reply-form) {
+    margin-left: 20px;
+    padding: 16px;
+    background: var(--color-surface);
+    border-radius: 12px;
+    border: 1px solid var(--color-border-light);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 8px;
+  }
+  :global(.inline-reply-actions) {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  @media (max-width: 640px) {
+    :global(.comment-main) { padding: 16px; }
+    :global(.replies-list) { margin-left: 10px; padding-left: 16px; }
+  }
 </style>
 
 <script define:vars={{ newsId, isLoggedIn: !!session, userName: session?.name || '', userId: session?.userId || null, API_BASE: "http://localhost:3000/api" }}>
   const list = document.getElementById('comments-list');
   const countEl = document.getElementById('comment-count');
+  
+  const form = document.getElementById('comment-form');
+  const cancelBtn = document.getElementById('cancel-reply-btn');
+  const input = document.getElementById('comment-content');
+
+  function bindActions() {
+    if (!isLoggedIn) return;
+    
+    // Reply (Inline)
+    document.querySelectorAll('.btn-reply').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        
+        // Hide all other inline forms
+        document.querySelectorAll('.inline-reply-form').forEach(f => f.style.display = 'none');
+        
+        const replyForm = document.getElementById(`reply-form-${id}`);
+        if (replyForm) {
+          replyForm.style.display = 'flex';
+          document.getElementById(`reply-input-${id}`).focus();
+        }
+      });
+    });
+
+    document.querySelectorAll('.inline-cancel-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        document.getElementById(`reply-form-${id}`).style.display = 'none';
+        document.getElementById(`reply-input-${id}`).value = '';
+      });
+    });
+
+    document.querySelectorAll('.inline-submit-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        const input = document.getElementById(`reply-input-${id}`);
+        const msg = document.getElementById(`reply-msg-${id}`);
+        const content = input.value.trim();
+        if (!content) return;
+
+        btn.disabled = true;
+        btn.textContent = 'Mengirim...';
+        msg.style.display = 'none';
+
+        try {
+          const res = await fetch(`${API_BASE}/comments`, {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              news_id: Number(newsId),
+              user_id: Number(userId),
+              content,
+              parent_id: Number(id)
+            }),
+          });
+          
+          if (res.ok) {
+            input.value = '';
+            document.getElementById(`reply-form-${id}`).style.display = 'none';
+            await loadComments();
+          } else {
+            const data = await res.json();
+            msg.textContent = data.error || 'Gagal mengirim balasan.';
+            msg.className = 'comment-msg msg-error';
+            msg.style.display = 'block';
+          }
+        } catch {
+          msg.textContent = 'Terjadi kesalahan jaringan.';
+          msg.className = 'comment-msg msg-error';
+          msg.style.display = 'block';
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Kirim Balasan';
+        }
+      });
+    });
+
+    // Like
+    document.querySelectorAll('.btn-like').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        try {
+          // Play a little animation
+          const svg = btn.querySelector('svg');
+          svg.style.transform = 'scale(1.2)';
+          setTimeout(() => svg.style.transform = 'scale(1)', 200);
+
+          const res = await fetch(`${API_BASE}/comments/${id}/like`, { 
+            method: 'POST',
+            credentials: 'include'
+          });
+          if (res.ok) {
+            await loadComments();
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      });
+    });
+  }
+
+  // Render a single reply
+  function renderReply(r) {
+    const name = r.user_name || r.userName || 'Anonim';
+    const content = r.content || '';
+    const date = r.created_at || r.createdAt || '';
+    const formattedDate = date ? new Date(date).toLocaleDateString('id-ID', {
+      day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    }) : '';
+    
+    // To identify if current user liked it, we need data. We'll just rely on like_count for now.
+    return `
+      <div class="reply-item">
+        <div class="comment-avatar-sm">${name.charAt(0).toUpperCase()}</div>
+        <div class="comment-content">
+          <div class="comment-meta">
+            <span class="comment-author">${name}</span>
+            <span class="comment-date">${formattedDate}</span>
+          </div>
+          <p class="comment-text">${content}</p>
+          ${isLoggedIn ? `
+            <div class="comment-actions">
+              <button class="btn-like" data-id="${r.ID}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition: transform 0.2s;"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                ${r.like_count || 0}
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }
 
   // Render a comment element
   function renderComment(c) {
@@ -167,20 +478,55 @@ const API_BASE = "http://localhost:3000/api";
     const content = c.content || '';
     const date = c.created_at || c.createdAt || '';
     const formattedDate = date ? new Date(date).toLocaleDateString('id-ID', {
-      day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
     }) : '';
 
     const box = document.createElement('div');
     box.className = 'comment-box';
-    box.innerHTML = `
-      <div class="comment-avatar-sm">${name.charAt(0).toUpperCase()}</div>
-      <div class="comment-content">
-        <div class="comment-meta">
-          <span class="comment-author">${name}</span>
-          <span class="comment-date">${formattedDate}</span>
+    
+    let repliesHtml = '';
+    if (c.Replies && c.Replies.length > 0) {
+      repliesHtml = `<div class="replies-list">
+        ${c.Replies.filter(r => !r.is_flagged).map(renderReply).join('')}
+      </div>`;
+    }
+
+    const inlineFormHtml = isLoggedIn ? `
+      <div class="inline-reply-form" id="reply-form-${c.ID}" style="display:none;">
+        <textarea id="reply-input-${c.ID}" class="comment-input" placeholder="Membalas ${name}..." rows="2"></textarea>
+        <div class="inline-reply-actions">
+          <button type="button" class="btn-cancel-reply inline-cancel-btn" data-id="${c.ID}">Batal</button>
+          <button type="button" class="btn-submit-comment inline-submit-btn" data-id="${c.ID}">Kirim Balasan</button>
         </div>
-        <p class="comment-text">${content}</p>
+        <div id="reply-msg-${c.ID}" class="comment-msg" style="display:none"></div>
       </div>
+    ` : '';
+
+    box.innerHTML = `
+      <div class="comment-main">
+        <div class="comment-avatar-sm">${name.charAt(0).toUpperCase()}</div>
+        <div class="comment-content">
+          <div class="comment-meta">
+            <span class="comment-author">${name}</span>
+            <span class="comment-date">${formattedDate}</span>
+          </div>
+          <p class="comment-text">${content}</p>
+          ${isLoggedIn ? `
+            <div class="comment-actions">
+              <button class="btn-like" data-id="${c.ID}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition: transform 0.2s;"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                ${c.like_count || 0}
+              </button>
+              <button class="btn-reply" data-id="${c.ID}" data-name="${name}">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 10 20 15 15 20"></polyline><path d="M4 4v7a4 4 0 0 0 4 4h12"></path></svg>
+                Balas
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      </div>
+      ${inlineFormHtml}
+      ${repliesHtml}
     `;
     return box;
   }
@@ -188,20 +534,21 @@ const API_BASE = "http://localhost:3000/api";
   // Load comments from Go Fiber
   async function loadComments() {
     try {
-      const res = await fetch(`${API_BASE}/comments?news_id=${newsId}`);
+      const res = await fetch(`${API_BASE}/comments/news/${newsId}`, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to fetch comments');
       const data = await res.json();
       const comments = Array.isArray(data) ? data : (data.data || data.comments || []);
       const visible = comments.filter(c => !c.is_flagged && c.is_flagged !== 1);
 
       list.innerHTML = '';
-      countEl.textContent = `(${visible.length})`;
+      countEl.textContent = `${visible.length}`;
 
       if (visible.length === 0) {
         list.innerHTML = '<p class="no-comments">Belum ada komentar. Jadilah yang pertama berkomentar!</p>';
         return;
       }
       visible.forEach(c => list.appendChild(renderComment(c)));
+      bindActions();
     } catch (err) {
       list.innerHTML = '<p class="no-comments">Gagal memuat komentar.</p>';
     }
@@ -210,9 +557,7 @@ const API_BASE = "http://localhost:3000/api";
   loadComments();
 
   // Submit comment
-  const form = document.getElementById('comment-form');
   if (form && isLoggedIn) {
-    const input = document.getElementById('comment-content');
     const btn = document.getElementById('submit-comment-btn');
     const msg = document.getElementById('comment-msg');
 
@@ -225,14 +570,18 @@ const API_BASE = "http://localhost:3000/api";
       btn.textContent = 'Mengirim...';
       msg.style.display = 'none';
 
+      let parentId = null;
+
       try {
         const res = await fetch(`${API_BASE}/comments`, {
           method: 'POST',
+          credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             news_id: Number(newsId),
             user_id: Number(userId),
             content,
+            parent_id: parentId
           }),
         });
 
@@ -243,6 +592,7 @@ const API_BASE = "http://localhost:3000/api";
           msg.style.display = 'block';
           input.value = '';
           await loadComments();
+          setTimeout(() => msg.style.display = 'none', 3000);
         } else {
           msg.textContent = data.error || 'Gagal mengirim komentar.';
           msg.className = 'comment-msg msg-error';

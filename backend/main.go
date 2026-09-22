@@ -57,7 +57,7 @@ func seedData() {
 			{
 				Title:       "Monitoring KKN UAP, Program Mahasiswa di Pekon Madaraya Didorong Berkelanjutan dan Sejalan dengan SDGs",
 				Slug:        "monitoring-kkn-uap-pekon-madaraya-sdgs",
-				Excerpt:     "Program KKN UAP di Pekon Madaraya mendapat perhatian khusus dari universitas.",
+
 				Content:     "Program Kuliah Kerja Nyata (KKN) Universitas Aisyah Pringsewu (UAP) di Pekon Madaraya mendapatkan monitoring intensif...",
 				ImageURL:    "https://images.unsplash.com/photo-1529156069898-49953e39b3ac?auto=format&fit=crop&w=1200&q=80",
 				Category:    "Pendidikan",

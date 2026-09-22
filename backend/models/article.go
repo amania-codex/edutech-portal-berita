@@ -1,4 +1,4 @@
-﻿package models
+package models
 
 import "gorm.io/gorm"
 
@@ -7,7 +7,7 @@ type Article struct {
 	gorm.Model
 	Title       string `json:"title" gorm:"type:varchar(255);not null"`
 	Slug        string `json:"slug" gorm:"type:varchar(255);unique;not null"`
-	Excerpt     string `json:"excerpt" gorm:"type:text"`
+
 	Content     string `json:"content" gorm:"type:longtext;not null"`
 	ImageURL    string `json:"imageUrl" gorm:"type:varchar(500)"`
 	Category    string `json:"category" gorm:"type:varchar(100)"`

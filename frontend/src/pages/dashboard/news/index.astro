@@ -3,7 +3,8 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
 import { getSessionFromRequest } from '../../../lib/session';
 
 const session = await getSessionFromRequest(Astro.request);
-if (!session || session.role !== 'admin') return Astro.redirect('/dashboard');
+if (!session) return Astro.redirect('/login');
+if (session.role !== 'admin') return Astro.redirect('/user');
 
 const API_BASE = "http://localhost:3000/api";
 

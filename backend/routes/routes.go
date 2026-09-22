@@ -1,4 +1,4 @@
-﻿package routes
+package routes
 
 import (
 	"news-portal-backend/handlers"
@@ -9,6 +9,12 @@ import (
 
 func Setup(app *fiber.App) {
 	api := app.Group("/api")
+
+	// Serve uploaded files statically
+	app.Static("/uploads", "./public/uploads")
+
+	// Upload route (admin only)
+	api.Post("/upload", middleware.Protected(), middleware.AdminOnly(), handlers.UploadImage)
 
 	// Auth routes
 	api.Post("/auth/register", handlers.Register)
@@ -22,8 +28,10 @@ func Setup(app *fiber.App) {
 	api.Get("/news/trending", handlers.GetTrendingNews)
 	api.Get("/news/slug/:slug", handlers.GetNewsBySlug)
 	api.Get("/news/:id", handlers.GetNewsById)
-	api.Get("/categories", handlers.GetCategories)
-
+	api.Get("/categories", handlers.GetAllCategories)
+	api.Post("/categories", middleware.Protected(), middleware.AdminOnly(), handlers.CreateCategory)
+	api.Put("/categories/:id", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateCategory)
+	api.Delete("/categories/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteCategory)
 	// News routes (Admin)
 	api.Post("/news", middleware.Protected(), middleware.AdminOnly(), handlers.CreateNews)
 	api.Put("/news/:id", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateNews)
@@ -33,5 +41,16 @@ func Setup(app *fiber.App) {
 	api.Get("/comments", middleware.Protected(), middleware.AdminOnly(), handlers.GetComments)
 	api.Get("/comments/news/:newsId", handlers.GetCommentsByNews)
 	api.Post("/comments", middleware.Protected(), handlers.CreateComment)
+	api.Post("/comments/:id/like", middleware.Protected(), handlers.LikeComment)
 	api.Delete("/comments/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteComment)
+
+	// User dashboard routes
+	api.Get("/user/history", middleware.Protected(), handlers.GetReadingHistory)
+	api.Post("/user/history", middleware.Protected(), handlers.AddReadingHistory)
+	api.Get("/user/bookmarks", middleware.Protected(), handlers.GetBookmarks)
+	api.Post("/user/bookmarks", middleware.Protected(), handlers.ToggleBookmark)
+	api.Get("/user/bookmarks/:news_id", middleware.Protected(), handlers.CheckBookmark)
+	api.Get("/user/notifications", middleware.Protected(), handlers.GetNotifications)
+	api.Post("/user/notifications/read-all", middleware.Protected(), handlers.ReadAllNotifications)
+	api.Post("/user/notifications/:id/read", middleware.Protected(), handlers.ReadNotification)
 }

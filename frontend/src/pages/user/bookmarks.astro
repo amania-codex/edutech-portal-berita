@@ -1,0 +1,108 @@
+---
+import UserLayout from '../../layouts/UserLayout.astro';
+import { getSessionFromRequest } from '../../lib/session';
+
+const session = await getSessionFromRequest(Astro.request);
+if (!session) return Astro.redirect('/login');
+
+const API_BASE = "http://localhost:3000/api";
+let bookmarkItems: any[] = [];
+
+try {
+  const res = await fetch(`${API_BASE}/user/bookmarks`, {
+    headers: { 'Cookie': Astro.request.headers.get('cookie') || '' }
+  });
+  if (res.ok) {
+    bookmarkItems = await res.json();
+  }
+} catch(err) {
+  console.error("Gagal mengambil bookmarks", err);
+}
+---
+
+<UserLayout title="Berita Disimpan" activeMenu="bookmarks">
+  <div class="content-wrapper">
+    <div class="dash-card">
+      <div class="card-head">
+        <h2 class="dash-card-title">Koleksi Tersimpan</h2>
+      </div>
+
+      <div class="news-list">
+        {bookmarkItems.length === 0 ? (
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            <p>Belum ada berita yang Anda simpan.</p>
+          </div>
+        ) : (
+          bookmarkItems.map((item) => (
+            <div class="news-item-wrapper">
+              <a href={`/berita/${item.news_slug}`} class="news-item">
+                <div class="news-img">
+                  {item.news_image ? (
+                    <img src={item.news_image} alt={item.news_title} />
+                  ) : (
+                    <div class="img-placeholder">📰</div>
+                  )}
+                </div>
+                <div class="news-info">
+                  <h3 class="news-title">{item.news_title}</h3>
+                  <span class="news-meta">Disimpan pada: {new Date(item.CreatedAt).toLocaleString('id-ID')}</span>
+                </div>
+              </a>
+              <button class="remove-btn" data-id={item.news_id} title="Hapus dari Bookmark">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  </div>
+</UserLayout>
+
+<style>
+  .content-wrapper { max-width: 800px; margin: 0 auto; }
+  .card-head { margin-bottom: 20px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
+  
+  .news-list { display: flex; flex-direction: column; gap: 16px; }
+  .news-item-wrapper { display: flex; align-items: center; gap: 12px; }
+  .news-item { flex: 1; display: flex; gap: 16px; padding: 12px; border-radius: 12px; border: 1px solid var(--color-border); background: var(--color-surface); text-decoration: none; transition: all 0.2s; }
+  .news-item:hover { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+  
+  .news-img { width: 100px; height: 75px; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
+  .news-img img { width: 100%; height: 100%; object-fit: cover; }
+  .img-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-bg-primary); font-size: 24px; }
+  
+  .news-info { display: flex; flex-direction: column; justify-content: center; gap: 6px; }
+  .news-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--color-text-primary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .news-meta { font-size: 12px; color: var(--color-text-muted); }
+  
+  .remove-btn { width: 40px; height: 40px; border-radius: 8px; background: rgba(239,68,68,0.1); color: #ef4444; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.2s; flex-shrink: 0; }
+  .remove-btn:hover { background: rgba(239,68,68,0.2); }
+  .remove-btn svg { width: 20px; height: 20px; }
+
+  .empty-state { padding: 40px 20px; text-align: center; color: var(--color-text-muted); }
+  .empty-state svg { width: 48px; height: 48px; opacity: 0.5; margin-bottom: 16px; }
+</style>
+
+<script is:inline>
+  document.querySelectorAll('.remove-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const newsId = btn.dataset.id;
+      if (!confirm('Hapus dari berita disimpan?')) return;
+      try {
+        const res = await fetch('http://localhost:3000/api/user/bookmarks', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ news_id: parseInt(newsId) })
+        });
+        if (res.ok) {
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  });
+</script>

@@ -4,6 +4,10 @@ import Navbar from "../../components/Navbar.astro";
 import TrendingNews from "../../components/TrendingNews.astro";
 import Footer from "../../components/Footer.astro";
 import Comments from "../../components/Comments.astro";
+import { getSessionFromRequest } from '../../lib/session';
+
+const session = await getSessionFromRequest(Astro.request);
+const cookieStr = Astro.request.headers.get('cookie') || '';
 
 const { slug } = Astro.params;
 const API_BASE = "http://localhost:3000/api";
@@ -19,8 +23,31 @@ try {
 
   if (articleRes.ok) article = await articleRes.json();
   if (trendingRes.ok) trendingNews = await trendingRes.json();
+
+  // If logged in, add to history and check bookmark
+  if (session && article) {
+    // Record history
+    fetch(`${API_BASE}/user/history`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Cookie': cookieStr },
+      body: JSON.stringify({ news_id: article.ID || article.id })
+    }).catch(e => console.error("History err:", e));
+  }
 } catch (err) {
   console.error("Failed to fetch from Go Fiber:", err);
+}
+
+let isBookmarked = false;
+if (session && article) {
+  try {
+    const res = await fetch(`${API_BASE}/user/bookmarks/${article.ID || article.id}`, {
+      headers: { 'Cookie': cookieStr }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      isBookmarked = data.bookmarked;
+    }
+  } catch (err) { console.error(err); }
 }
 
 if (!article) {
@@ -90,9 +117,7 @@ const formattedDate = normalizedArticle.createdAt
       )}
       <h1 class="article-title">{normalizedArticle.title}</h1>
 
-      {normalizedArticle.excerpt && (
-        <p class="article-excerpt">{normalizedArticle.excerpt}</p>
-      )}
+
 
       <!-- Meta -->
       <div class="article-meta">
@@ -146,10 +171,23 @@ const formattedDate = normalizedArticle.createdAt
         </div>
       )}
 
-      <!-- Share -->
+      <!-- Share & Bookmark -->
       <div class="article-share">
-        <span class="share-label">Bagikan:</span>
         <div class="share-buttons">
+          {session && (
+            <button
+              id="bookmark-btn"
+              class={`share-btn share-copy ${isBookmarked ? 'bookmarked' : ''}`}
+              data-id={normalizedArticle.id}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span id="bm-text">{isBookmarked ? 'Tersimpan' : 'Simpan Berita'}</span>
+            </button>
+          )}
+
+          <span class="share-label" style="margin-left:8px;">Bagikan:</span>
           <button
             id="share-fb"
             class="share-btn share-facebook"
@@ -187,7 +225,7 @@ const formattedDate = normalizedArticle.createdAt
       </div>
 
       <!-- Comments Section -->
-      <Comments newsId={normalizedArticle.id} />
+      <Comments newsId={normalizedArticle.id} currentUser={session} />
     </article>
 
     <!-- Sidebar -->
@@ -268,15 +306,6 @@ const formattedDate = normalizedArticle.createdAt
     font-family: var(--font-sans);
   }
 
-  .article-excerpt {
-    font-size: var(--text-lg);
-    color: var(--color-text-secondary);
-    line-height: 1.7;
-    margin-bottom: var(--space-4);
-    border-left: 3px solid var(--color-accent);
-    padding-left: var(--space-4);
-    font-style: italic;
-  }
 
   /* Meta */
   .article-meta {
@@ -509,4 +538,33 @@ const formattedDate = normalizedArticle.createdAt
       }
     });
   });
+  // Bookmark
+  const bmBtn = document.getElementById('bookmark-btn');
+  if (bmBtn) {
+    bmBtn.addEventListener('click', async () => {
+      const newsId = bmBtn.dataset.id;
+      try {
+        const res = await fetch('http://localhost:3000/api/user/bookmarks', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ news_id: parseInt(newsId) })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const svg = bmBtn.querySelector('svg');
+          const span = document.getElementById('bm-text');
+          if (data.bookmarked) {
+            bmBtn.classList.add('bookmarked');
+            svg.setAttribute('fill', 'currentColor');
+            span.textContent = 'Tersimpan';
+          } else {
+            bmBtn.classList.remove('bookmarked');
+            svg.setAttribute('fill', 'none');
+            span.textContent = 'Simpan Berita';
+          }
+        }
+      } catch (err) { console.error(err); }
+    });
+  }
 </script>

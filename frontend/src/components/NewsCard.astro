@@ -3,7 +3,7 @@
 export interface Props {
   title: string;
   slug: string;
-  excerpt?: string;
+
   imageUrl?: string;
   category?: string;
   author?: string;
@@ -16,7 +16,7 @@ export interface Props {
 const {
   title,
   slug,
-  excerpt,
+
   imageUrl,
   category,
   author = "Redaksi",
@@ -64,9 +64,7 @@ const fallbackImage = `https://images.unsplash.com/photo-1504711434969-e33886168
     <a href={`/berita/${slug}`} class="card-title-link">
       <h3 class="card-title">{title}</h3>
     </a>
-    {excerpt && size !== "sm" && (
-      <p class="card-excerpt">{excerpt}</p>
-    )}
+
     <div class="card-meta news-meta">
       <span class="dot"></span>
       <span class="meta-time">{timeStr}</span>
@@ -198,15 +196,6 @@ const fallbackImage = `https://images.unsplash.com/photo-1504711434969-e33886168
     color: var(--color-accent);
   }
 
-  .card-excerpt {
-    font-size: var(--text-sm);
-    color: var(--color-text-secondary);
-    line-height: 1.6;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-  }
 
   /* Meta */
   .card-meta {

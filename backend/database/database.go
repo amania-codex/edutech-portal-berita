@@ -25,7 +25,16 @@ func Connect() {
 
 	log.Println("Database connection successfully opened")
 
-	err = database.AutoMigrate(&models.User{}, &models.Article{}, &models.Comment{})
+	err = database.AutoMigrate(
+		&models.User{}, 
+		&models.Article{}, 
+		&models.Comment{}, 
+		&models.Category{},
+		&models.ReadingHistory{},
+		&models.Bookmark{},
+		&models.Notification{},
+		&models.CommentLike{},
+	)
 	if err != nil {
 		log.Fatal("Failed to auto-migrate database!\n", err)
 	}
@@ -45,5 +54,40 @@ func Connect() {
 			Role:     "admin",
 		})
 		log.Println("Admin user seeded.")
+	}
+
+	// Seed regular user
+	var userCount int64
+	DB.Model(&models.User{}).Where("email = ?", "user@edutech.id").Count(&userCount)
+	if userCount == 0 {
+		hashUser, _ := bcrypt.GenerateFromPassword([]byte("user123"), 10)
+		DB.Create(&models.User{
+			Name:     "Regular User",
+			Email:    "user@edutech.id",
+			Password: string(hashUser),
+			Role:     "user",
+		})
+		log.Println("Regular user seeded.")
+	}
+
+	// Seed categories
+	var catCount int64
+	DB.Model(&models.Category{}).Count(&catCount)
+	if catCount == 0 {
+		initialCategories := []models.Category{
+			{Name: "Teknologi", Slug: "teknologi"},
+			{Name: "Pendidikan", Slug: "pendidikan"},
+			{Name: "Kampus", Slug: "kampus"},
+			{Name: "Event", Slug: "event"},
+			{Name: "Riset", Slug: "riset"},
+			{Name: "Loker", Slug: "loker"},
+			{Name: "Video", Slug: "video"},
+			{Name: "Artikel", Slug: "artikel"},
+			{Name: "Headline", Slug: "headline"},
+		}
+		for _, cat := range initialCategories {
+			DB.Create(&cat)
+		}
+		log.Println("Categories seeded.")
 	}
 }
