@@ -288,9 +288,8 @@ const pendingComments = comments.filter((c: any) => c.status === 'pending').leng
   }
 </style>
 
-<script is:inline>
+<script is:inline define:vars={{ createdAt: article.createdAt }}>
   // Calculate article age
-  const createdAt = {JSON.stringify(article.createdAt)};
   if (createdAt) {
     const created = new Date(createdAt);
     const now = new Date();

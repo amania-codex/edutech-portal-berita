@@ -26,7 +26,7 @@ const tickerItems = articles.length > 0 ? articles : [
   <div class="ticker-track-wrapper">
     <div class="ticker-track" id="ticker-track">
       {[...tickerItems, ...tickerItems].map((item, i) => (
-        <a href={`/berita/${item.slug}`} class="ticker-item" key={i}>
+        <a href={`/berita/${item.slug}`} class="ticker-item">
           <span class="ticker-dot" aria-hidden="true">●</span>
           {item.title}
         </a>

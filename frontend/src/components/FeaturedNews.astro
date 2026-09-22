@@ -75,7 +75,7 @@ function timeAgo(dateStr: string): string {
       {grid.length > 0 && (
         <div class="featured-grid">
           {grid.map((article) => (
-            <a href={`/berita/${article.slug}`} class="grid-item" key={article.id}>
+            <a href={`/berita/${article.slug}`} class="grid-item">
               <div class="grid-img">
                 <img src={article.imageUrl} alt={article.title} loading="lazy" />
                 <div class="grid-overlay"></div>
