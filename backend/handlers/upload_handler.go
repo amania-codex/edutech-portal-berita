@@ -6,12 +6,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/disintegration/imaging"
 	"github.com/gofiber/fiber/v2"
 )
 
-// UploadImage handles image uploads and saves them to the public/uploads directory
+// UploadImage handles image uploads, compresses, and saves them
 func UploadImage(c *fiber.Ctx) error {
-	file, err := c.FormFile("image")
+	fileHeader, err := c.FormFile("image")
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Tidak ada file yang diunggah",
@@ -19,7 +20,7 @@ func UploadImage(c *fiber.Ctx) error {
 	}
 
 	// Validate file type
-	ext := strings.ToLower(filepath.Ext(file.Filename))
+	ext := strings.ToLower(filepath.Ext(fileHeader.Filename))
 	allowedExts := map[string]bool{
 		".jpg":  true,
 		".jpeg": true,
@@ -34,21 +35,41 @@ func UploadImage(c *fiber.Ctx) error {
 	}
 
 	// Validate file size (max 10MB)
-	if file.Size > 10*1024*1024 {
+	if fileHeader.Size > 10*1024*1024 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Ukuran file maksimum 10MB",
 		})
 	}
 
-	// Generate unique filename
+	file, err := fileHeader.Open()
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Gagal membuka file",
+		})
+	}
+	defer file.Close()
+
+	img, err := imaging.Decode(file)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Gagal membaca format gambar",
+		})
+	}
+
+	// Kompresi dan resize (lebar maksimum 1200px)
+	if img.Bounds().Dx() > 1200 {
+		img = imaging.Resize(img, 1200, 0, imaging.Lanczos)
+	}
+
+	// Format selalu disimpan sebagai JPG untuk kompresi
 	timestamp := time.Now().UnixNano()
-	filename := fmt.Sprintf("%d%s", timestamp, ext)
+	filename := fmt.Sprintf("%d.jpg", timestamp)
 	savePath := fmt.Sprintf("./public/uploads/%s", filename)
 
-	// Save file
-	if err := c.SaveFile(file, savePath); err != nil {
+	// Simpan dengan kualitas 80
+	if err := imaging.Save(img, savePath, imaging.JPEGQuality(80)); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Gagal menyimpan file: " + err.Error(),
+			"error": "Gagal menyimpan gambar: " + err.Error(),
 		})
 	}
 
@@ -57,6 +78,6 @@ func UploadImage(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"url":      url,
 		"filename": filename,
-		"size":     file.Size,
+		"size":     fileHeader.Size,
 	})
 }

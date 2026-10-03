@@ -1,6 +1,10 @@
-﻿package models
+package models
 
-import "gorm.io/gorm"
+import (
+	"time"
+	
+	"gorm.io/gorm"
+)
 
 // User model — MVC Model layer
 type User struct {
@@ -10,5 +14,7 @@ type User struct {
 	Password string `json:"-" gorm:"type:varchar(255);not null"`
 	Role     string `json:"role" gorm:"type:varchar(20);default:'user'"`
 	Avatar   string `json:"avatar" gorm:"type:varchar(500)"`
-	Bio      string `json:"bio" gorm:"type:text"`
+	Bio           string     `json:"bio" gorm:"type:text"`
+	ResetCode     string     `json:"-" gorm:"type:varchar(6)"`
+	ResetCodeExp  *time.Time `json:"-"`
 }

@@ -9,13 +9,14 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// GetNews â€” GET /api/news
+// GetNews — GET /api/news
 func GetNews(c *fiber.Ctx) error {
 	var articles []models.Article
 	limit := c.QueryInt("limit", 20)
 	offset := c.QueryInt("offset", 0)
 	status := c.Query("status")
 	category := c.Query("category")
+	search := c.Query("q")
 
 	q := database.DB.Order("created_at desc").Limit(limit).Offset(offset)
 	if status != "" {
@@ -25,6 +26,9 @@ func GetNews(c *fiber.Ctx) error {
 	}
 	if category != "" {
 		q = q.Where("category = ?", category)
+	}
+	if search != "" {
+		q = q.Where("title LIKE ?", "%"+search+"%")
 	}
 	q.Find(&articles)
 	return c.JSON(articles)

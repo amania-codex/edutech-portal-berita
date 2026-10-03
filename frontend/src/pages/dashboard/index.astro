@@ -58,6 +58,14 @@ function normalize(a: any) {
   };
 }
 const normalizedRecent = recentNews.map(normalize);
+
+// Calculate donut chart angles
+let conicGradient = 'conic-gradient(#22c55e 0deg 120deg, #94a3b8 120deg 240deg, #ef4444 240deg 360deg)';
+if (totalComments > 0) {
+  const posDeg = Math.round((sentimentStats.positive / totalComments) * 360);
+  const neuDeg = Math.round((sentimentStats.neutral / totalComments) * 360);
+  conicGradient = `conic-gradient(#22c55e 0deg ${posDeg}deg, #94a3b8 ${posDeg}deg ${posDeg + neuDeg}deg, #ef4444 ${posDeg + neuDeg}deg 360deg)`;
+}
 ---
 
 <DashboardLayout title="Dashboard" activeMenu="dashboard">
@@ -169,7 +177,7 @@ const normalizedRecent = recentNews.map(normalize);
         <div class="dash-card sentiment-card">
           <h3 class="dash-card-title">Sentimen Komentar</h3>
           <div class="sentiment-chart">
-            <div class="sentiment-donut">
+            <div class="sentiment-donut" style={`background: ${conicGradient};`}>
               <div class="donut-center">
                 <span class="donut-number">{totalComments}</span>
                 <span class="donut-label">Total</span>
@@ -281,7 +289,7 @@ const normalizedRecent = recentNews.map(normalize);
   .empty-state { color: var(--color-text-muted); font-size: 13px; text-align: center; padding: 20px 0; }
 
   .sentiment-chart { display: flex; flex-direction: column; gap: 20px; }
-  .sentiment-donut { width: 120px; height: 120px; margin: 0 auto; background: conic-gradient(#22c55e 0deg 120deg, #94a3b8 120deg 240deg, #ef4444 240deg 360deg); border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
+  .sentiment-donut { width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
   .sentiment-donut::before { content: ''; position: absolute; width: 80px; height: 80px; background: var(--color-bg-card); border-radius: 50%; }
   .donut-center { position: relative; z-index: 1; text-align: center; }
   .donut-number { display: block; font-size: 20px; font-weight: 800; color: var(--color-text-primary); line-height: 1; }

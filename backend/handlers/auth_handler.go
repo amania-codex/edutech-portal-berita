@@ -1,6 +1,9 @@
-﻿package handlers
+package handlers
 
 import (
+	"fmt"
+	"log"
+	"math/rand"
 	"news-portal-backend/database"
 	"news-portal-backend/models"
 	"os"
@@ -155,11 +158,162 @@ func Logout(c *fiber.Ctx) error {
 
 // GetMe â€” GET /api/auth/me
 func GetMe(c *fiber.Ctx) error {
-	user := c.Locals("user").(*Claims)
+	userClaims := c.Locals("user").(*Claims)
+	var dbUser models.User
+	if err := database.DB.First(&dbUser, userClaims.UserID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "User tidak ditemukan"})
+	}
+
 	return c.JSON(fiber.Map{
-		"id":    user.UserID,
-		"name":  user.Name,
-		"email": user.Email,
-		"role":  user.Role,
+		"id":         dbUser.ID,
+		"name":       dbUser.Name,
+		"email":      dbUser.Email,
+		"role":       dbUser.Role,
+		"avatar":     dbUser.Avatar,
+		"bio":        dbUser.Bio,
+		"created_at": dbUser.CreatedAt,
 	})
+}
+
+// ChangePassword - PUT /api/auth/password
+func ChangePassword(c *fiber.Ctx) error {
+	userClaims := c.Locals("user").(*Claims)
+	
+	type Input struct {
+		OldPassword string `json:"oldPassword"`
+		NewPassword string `json:"newPassword"`
+	}
+	var input Input
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Format permintaan tidak valid."})
+	}
+
+	if len(input.NewPassword) < 6 {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Password baru minimal 6 karakter."})
+	}
+
+	var dbUser models.User
+	if err := database.DB.First(&dbUser, userClaims.UserID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": "User tidak ditemukan."})
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(dbUser.Password), []byte(input.OldPassword)); err != nil {
+		return c.Status(401).JSON(fiber.Map{"success": false, "error": "Password lama salah."})
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), 10)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal memproses password."})
+	}
+
+	dbUser.Password = string(hash)
+	if err := database.DB.Save(&dbUser).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal menyimpan password baru."})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Password berhasil diubah."})
+}
+
+// UpdateProfile - PUT /api/auth/profile
+func UpdateProfile(c *fiber.Ctx) error {
+	userClaims := c.Locals("user").(*Claims)
+	
+	type Input struct {
+		Name   string `json:"name"`
+		Bio    string `json:"bio"`
+		Avatar string `json:"avatar"`
+	}
+	var input Input
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Format permintaan tidak valid."})
+	}
+
+	if len(input.Name) < 2 {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Nama minimal 2 karakter."})
+	}
+
+	var dbUser models.User
+	if err := database.DB.First(&dbUser, userClaims.UserID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": "User tidak ditemukan."})
+	}
+
+	dbUser.Name = input.Name
+	dbUser.Bio = input.Bio
+	if input.Avatar != "" {
+		dbUser.Avatar = input.Avatar
+	}
+
+	if err := database.DB.Save(&dbUser).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal menyimpan profil."})
+	}
+
+	return c.JSON(fiber.Map{"success": true, "message": "Profil berhasil diperbarui."})
+}
+
+// ForgotPassword - POST /api/auth/forgot-password
+func ForgotPassword(c *fiber.Ctx) error {
+	type Input struct {
+		Email string `json:"email"`
+	}
+	var input Input
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Format tidak valid"})
+	}
+
+	var user models.User
+	if err := database.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
+		// Return success even if not found to prevent email enumeration
+		return c.JSON(fiber.Map{"success": true, "message": "Jika email terdaftar, kode telah dikirim."})
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	exp := time.Now().Add(15 * time.Minute)
+
+	user.ResetCode = code
+	user.ResetCodeExp = &exp
+	database.DB.Save(&user)
+
+	// Simulate sending email
+	log.Printf("=========================================\n")
+	log.Printf("EMAIL KE: %s\n", user.Email)
+	log.Printf("KODE RESET PASSWORD ANDA: %s\n", code)
+	log.Printf("Berlaku hingga 15 menit ke depan.\n")
+	log.Printf("=========================================\n")
+
+	return c.JSON(fiber.Map{"success": true, "message": "Jika email terdaftar, kode telah dikirim."})
+}
+
+// ResetPassword - POST /api/auth/reset-password
+func ResetPassword(c *fiber.Ctx) error {
+	type Input struct {
+		Email       string `json:"email"`
+		Code        string `json:"code"`
+		NewPassword string `json:"newPassword"`
+	}
+	var input Input
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Format tidak valid"})
+	}
+
+	if len(input.NewPassword) < 6 {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Password baru minimal 6 karakter"})
+	}
+
+	var user models.User
+	if err := database.DB.Where("email = ? AND reset_code = ?", input.Email, input.Code).First(&user).Error; err != nil {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Kode tidak valid atau email salah."})
+	}
+
+	if user.ResetCodeExp == nil || time.Now().After(*user.ResetCodeExp) {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Kode telah kedaluwarsa."})
+	}
+
+	hash, _ := bcrypt.GenerateFromPassword([]byte(input.NewPassword), 10)
+	user.Password = string(hash)
+	user.ResetCode = ""
+	user.ResetCodeExp = nil
+	database.DB.Save(&user)
+
+	return c.JSON(fiber.Map{"success": true, "message": "Password berhasil direset. Silakan login."})
 }

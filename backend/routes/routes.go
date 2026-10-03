@@ -13,14 +13,18 @@ func Setup(app *fiber.App) {
 	// Serve uploaded files statically
 	app.Static("/uploads", "./public/uploads")
 
-	// Upload route (admin only)
-	api.Post("/upload", middleware.Protected(), middleware.AdminOnly(), handlers.UploadImage)
+	// Upload route (protected for all users to allow avatar upload)
+	api.Post("/upload", middleware.Protected(), handlers.UploadImage)
 
 	// Auth routes
 	api.Post("/auth/register", handlers.Register)
 	api.Post("/auth/login", handlers.Login)
 	api.Post("/auth/logout", handlers.Logout)
+	api.Post("/auth/forgot-password", handlers.ForgotPassword)
+	api.Post("/auth/reset-password", handlers.ResetPassword)
 	api.Get("/auth/me", middleware.Protected(), handlers.GetMe)
+	api.Put("/auth/password", middleware.Protected(), handlers.ChangePassword)
+	api.Put("/auth/profile", middleware.Protected(), handlers.UpdateProfile)
 
 	// News routes (Public)
 	api.Get("/news", handlers.GetNews)
