@@ -18,36 +18,106 @@ try {
 } catch(err) {
   console.error("Gagal mengambil riwayat", err);
 }
+
+const fallbackImg = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80";
+
+function formatRelativeTime(dateStr: string): string {
+  if (!dateStr) return "Baru saja";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffSec < 60) return "Baru saja";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} menit lalu`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} jam lalu`;
+  if (diffSec < 172800) return "Kemarin";
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 ---
 
 <UserLayout title="Riwayat Baca" activeMenu="history">
   <div class="content-wrapper">
     <div class="dash-card">
+      <!-- Card Header -->
       <div class="card-head">
-        <h2 class="dash-card-title">Berita Terakhir Dibaca</h2>
+        <div class="head-info">
+          <h2 class="dash-card-title">Riwayat Baca Berita</h2>
+          <span class="count-badge" id="history-count-badge">
+            <span id="history-total">{historyItems.length}</span> Berita
+          </span>
+        </div>
+        {historyItems.length > 0 && (
+          <button id="clear-all-btn" class="btn-clear-all" title="Hapus seluruh riwayat bacaan Anda">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
+              <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+            </svg>
+            Bersihkan Semua
+          </button>
+        )}
       </div>
 
-      <div class="news-list">
+      <!-- Alert -->
+      <div class="alert alert-toast" id="history-toast" style="display:none"></div>
+
+      <!-- News List -->
+      <div class="history-list" id="history-list">
         {historyItems.length === 0 ? (
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            <p>Belum ada riwayat baca berita.</p>
+          <div class="empty-state" id="history-empty">
+            <div class="empty-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h3>Belum Ada Riwayat Baca</h3>
+            <p>Artikel dan berita yang Anda baca akan otomatis tercatat di sini agar mudah ditemukan kembali.</p>
+            <a href="/" class="btn-primary-sm">Jelajahi Berita Sekarang</a>
           </div>
         ) : (
           historyItems.map((item) => (
-            <a href={`/berita/${item.news_slug}`} class="news-item">
-              <div class="news-img">
-                {item.news_image ? (
-                  <img src={item.news_image} alt={item.news_title} />
-                ) : (
-                  <div class="img-placeholder">📰</div>
-                )}
+            <div class="history-card" id={`history-card-${item.ID || item.id}`}>
+              <a href={`/berita/${item.news_slug}`} class="history-thumb-link">
+                <img
+                  src={item.news_image || fallbackImg}
+                  alt={item.news_title}
+                  loading="lazy"
+                  onerror={`this.onerror=null;this.src='${fallbackImg}';`}
+                />
+              </a>
+
+              <div class="history-body">
+                <a href={`/berita/${item.news_slug}`} class="history-title-link">
+                  <h3 class="history-title">{item.news_title}</h3>
+                </a>
+
+                <div class="history-meta">
+                  <span class="meta-item">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    Terakhir dibaca: {formatRelativeTime(item.read_at || item.ReadAt)}
+                  </span>
+                </div>
               </div>
-              <div class="news-info">
-                <h3 class="news-title">{item.news_title}</h3>
-                <span class="news-meta">Dibaca pada: {new Date(item.read_at).toLocaleString('id-ID')}</span>
+
+              <div class="history-actions">
+                <a href={`/berita/${item.news_slug}`} class="btn-read-again">
+                  Baca Lagi
+                </a>
+                <button
+                  class="btn-delete-item"
+                  data-id={item.ID || item.id}
+                  title="Hapus dari riwayat baca"
+                  aria-label="Hapus item riwayat"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
               </div>
-            </a>
+            </div>
           ))
         )}
       </div>
@@ -56,21 +126,371 @@ try {
 </UserLayout>
 
 <style>
-  .content-wrapper { max-width: 800px; margin: 0 auto; }
-  .card-head { margin-bottom: 20px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
-  
-  .news-list { display: flex; flex-direction: column; gap: 16px; }
-  .news-item { display: flex; gap: 16px; padding: 12px; border-radius: 12px; border: 1px solid var(--color-border); background: var(--color-surface); text-decoration: none; transition: all 0.2s; }
-  .news-item:hover { border-color: #3b82f6; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-  
-  .news-img { width: 100px; height: 75px; border-radius: 8px; overflow: hidden; flex-shrink: 0; }
-  .news-img img { width: 100%; height: 100%; object-fit: cover; }
-  .img-placeholder { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; background: var(--color-bg-primary); font-size: 24px; }
-  
-  .news-info { display: flex; flex-direction: column; justify-content: center; gap: 6px; }
-  .news-title { margin: 0; font-size: 15px; font-weight: 600; color: var(--color-text-primary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-  .news-meta { font-size: 12px; color: var(--color-text-muted); }
-  
-  .empty-state { padding: 40px 20px; text-align: center; color: var(--color-text-muted); }
-  .empty-state svg { width: 48px; height: 48px; opacity: 0.5; margin-bottom: 16px; }
+  .content-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  .dash-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .head-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .dash-card-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .count-badge {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--color-accent);
+    background: rgba(230, 57, 70, 0.1);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .btn-clear-all {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    padding: 7px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-clear-all:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+  }
+
+  .alert-toast {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    background: rgba(34, 197, 94, 0.12);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }
+
+  /* History list */
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .history-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    transition: all 0.2s ease;
+  }
+
+  .history-card:hover {
+    border-color: rgba(230, 57, 70, 0.4);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+    transform: translateY(-1px);
+  }
+
+  .history-thumb-link {
+    width: 110px;
+    height: 76px;
+    border-radius: 8px;
+    overflow: hidden;
+    flex-shrink: 0;
+    display: block;
+    background: var(--color-bg-primary);
+  }
+
+  .history-thumb-link img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+  }
+
+  .history-card:hover .history-thumb-link img {
+    transform: scale(1.06);
+  }
+
+  .history-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .history-title-link {
+    text-decoration: none;
+  }
+
+  .history-title {
+    margin: 0 0 6px;
+    font-size: 14.5px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    transition: color 0.15s;
+  }
+
+  .history-title-link:hover .history-title {
+    color: var(--color-accent);
+  }
+
+  .history-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+  }
+
+  .meta-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .history-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .btn-read-again {
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    text-decoration: none;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+
+  .btn-read-again:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  .btn-delete-item {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: none;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-delete-item:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.2);
+  }
+
+  /* Empty State */
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--color-text-muted);
+  }
+
+  .empty-icon-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(230, 57, 70, 0.08);
+    color: var(--color-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+  }
+
+  .empty-icon-wrap svg {
+    width: 32px;
+    height: 32px;
+  }
+
+  .empty-state h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .empty-state p {
+    margin: 0 auto 20px;
+    font-size: 13.5px;
+    max-width: 440px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
+
+  .btn-primary-sm {
+    display: inline-block;
+    padding: 9px 20px;
+    background: var(--color-accent);
+    color: white;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+
+  .btn-primary-sm:hover {
+    background: #c1121f;
+  }
+
+  @media (max-width: 640px) {
+    .history-card {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    .history-thumb-link {
+      width: 100%;
+      height: 140px;
+    }
+
+    .history-actions {
+      width: 100%;
+      justify-content: space-between;
+      border-top: 1px solid var(--color-border);
+      padding-top: 10px;
+      margin-top: 6px;
+    }
+  }
 </style>
+
+<script is:inline>
+  const API_BASE = 'http://localhost:3000/api';
+  const toast = document.getElementById('history-toast');
+  const countBadge = document.getElementById('history-total');
+  const clearAllBtn = document.getElementById('clear-all-btn');
+
+  function showToast(msg) {
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 3000);
+  }
+
+  function updateCount(delta) {
+    if (!countBadge) return;
+    let current = parseInt(countBadge.textContent || '0');
+    current = Math.max(0, current + delta);
+    countBadge.textContent = current.toString();
+
+    if (current === 0) {
+      if (clearAllBtn) clearAllBtn.style.display = 'none';
+      const list = document.getElementById('history-list');
+      if (list) {
+        list.innerHTML = `
+          <div class="empty-state" id="history-empty">
+            <div class="empty-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="32" height="32">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <h3>Belum Ada Riwayat Baca</h3>
+            <p>Artikel dan berita yang Anda baca akan otomatis tercatat di sini agar mudah ditemukan kembali.</p>
+            <a href="/" class="btn-primary-sm">Jelajahi Berita Sekarang</a>
+          </div>
+        `;
+      }
+    }
+  }
+
+  // Delete single history item
+  document.querySelectorAll('.btn-delete-item').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      if (!confirm('Hapus artikel ini dari riwayat baca?')) return;
+
+      try {
+        const res = await fetch(`${API_BASE}/user/history/${id}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const card = document.getElementById(`history-card-${id}`);
+          if (card) {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(10px)';
+            setTimeout(() => { card.remove(); updateCount(-1); }, 200);
+          }
+          showToast('Artikel berhasil dihapus dari riwayat baca.');
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  });
+
+  // Clear all history
+  clearAllBtn?.addEventListener('click', async () => {
+    if (!confirm('Apakah Anda yakin ingin menghapus seluruh riwayat bacaan Anda? Tindakan ini tidak dapat dibatalkan.')) return;
+
+    try {
+      const res = await fetch(`${API_BASE}/user/history`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        updateCount(-999);
+        showToast('Seluruh riwayat baca berhasil dibersihkan.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  });
+</script>

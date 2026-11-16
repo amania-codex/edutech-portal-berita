@@ -13,9 +13,9 @@ type ReadingHistory struct {
 	ReadAt time.Time `json:"read_at" gorm:"not null"`
 
 	// Relasi virtual untuk API response
-	NewsTitle string `json:"news_title" gorm:"-"`
-	NewsSlug  string `json:"news_slug" gorm:"-"`
-	NewsImage string `json:"news_image" gorm:"-"`
+	NewsTitle string `json:"news_title" gorm:"->;<-:false"`
+	NewsSlug  string `json:"news_slug" gorm:"->;<-:false"`
+	NewsImage string `json:"news_image" gorm:"->;<-:false"`
 }
 
 type Bookmark struct {
@@ -24,7 +24,7 @@ type Bookmark struct {
 	NewsID uint `json:"news_id" gorm:"not null;index"`
 
 	// Relasi virtual untuk API response
-	NewsTitle string `json:"news_title" gorm:"-"`
-	NewsSlug  string `json:"news_slug" gorm:"-"`
-	NewsImage string `json:"news_image" gorm:"-"`
+	NewsTitle string `json:"news_title" gorm:"->;<-:false"`
+	NewsSlug  string `json:"news_slug" gorm:"->;<-:false"`
+	NewsImage string `json:"news_image" gorm:"->;<-:false"`
 }

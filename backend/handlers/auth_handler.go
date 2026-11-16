@@ -1,9 +1,10 @@
 package handlers
 
 import (
+	cryptorand "crypto/rand"
+	"crypto/sha256"
 	"fmt"
 	"log"
-	"math/rand"
 	"news-portal-backend/database"
 	"news-portal-backend/models"
 	"os"
@@ -14,13 +15,16 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var jwtSecret = []byte(getJWTSecret())
-
-func getJWTSecret() string {
-	if s := os.Getenv("JWT_SECRET"); s != "" {
-		return s
+// GetJWTSecret returns the secret key byte slice from env or fallback
+func GetJWTSecret() []byte {
+	s := os.Getenv("JWT_SECRET")
+	if os.Getenv("APP_ENV") == "production" && s == "" {
+		log.Fatal("FATAL: JWT_SECRET environment variable MUST be set in production mode!")
 	}
-	return "edutech-super-secret-key-change-in-production-2026"
+	if s != "" {
+		return []byte(s)
+	}
+	return []byte("edutech-super-secret-key-change-in-production-2026")
 }
 
 type Claims struct {
@@ -43,10 +47,10 @@ func generateToken(user models.User) (string, error) {
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(jwtSecret)
+	return token.SignedString(GetJWTSecret())
 }
 
-// Register â€” POST /api/auth/register
+// Register — POST /api/auth/register
 func Register(c *fiber.Ctx) error {
 	type Input struct {
 		Name     string `json:"name"`
@@ -86,11 +90,15 @@ func Register(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal membuat sesi."})
 	}
 
+	// Trigger welcome system notification
+	CreateSystemNotification(user.ID, "Selamat datang di EduTech Portal Berita! Anda kini dapat membaca artikel, menyimpan berita favorit, dan berpartisipasi dalam diskusi komentar.", "")
+
 	c.Cookie(&fiber.Cookie{
 		Name:     "auth_token",
 		Value:    token,
 		Path:     "/",
 		HTTPOnly: true,
+		Secure:   os.Getenv("APP_ENV") == "production",
 		SameSite: "Lax",
 		MaxAge:   7 * 24 * 3600,
 	})
@@ -102,7 +110,7 @@ func Register(c *fiber.Ctx) error {
 	})
 }
 
-// Login â€” POST /api/auth/login
+// Login — POST /api/auth/login
 func Login(c *fiber.Ctx) error {
 	type Input struct {
 		Email    string `json:"email"`
@@ -132,6 +140,7 @@ func Login(c *fiber.Ctx) error {
 		Value:    token,
 		Path:     "/",
 		HTTPOnly: true,
+		Secure:   os.Getenv("APP_ENV") == "production",
 		SameSite: "Lax",
 		MaxAge:   7 * 24 * 3600,
 	})
@@ -143,7 +152,7 @@ func Login(c *fiber.Ctx) error {
 	})
 }
 
-// Logout â€” POST /api/auth/logout
+// Logout — POST /api/auth/logout
 func Logout(c *fiber.Ctx) error {
 	c.Cookie(&fiber.Cookie{
 		Name:     "auth_token",
@@ -156,7 +165,7 @@ func Logout(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true})
 }
 
-// GetMe â€” GET /api/auth/me
+// GetMe — GET /api/auth/me
 func GetMe(c *fiber.Ctx) error {
 	userClaims := c.Locals("user").(*Claims)
 	var dbUser models.User
@@ -211,6 +220,9 @@ func ChangePassword(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal menyimpan password baru."})
 	}
 
+	// Trigger security system notification
+	CreateSystemNotification(dbUser.ID, "Keamanan Akun: Kata sandi Anda baru saja berhasil diperbarui. Jika Anda tidak melakukan tindakan ini, segera amankan akun Anda.", "")
+
 	return c.JSON(fiber.Map{"success": true, "message": "Password berhasil diubah."})
 }
 
@@ -247,6 +259,9 @@ func UpdateProfile(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal menyimpan profil."})
 	}
 
+	// Trigger profile system notification
+	CreateSystemNotification(dbUser.ID, "Informasi biodata & profil akun Anda berhasil diperbarui.", "")
+
 	return c.JSON(fiber.Map{"success": true, "message": "Profil berhasil diperbarui."})
 }
 
@@ -266,15 +281,23 @@ func ForgotPassword(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"success": true, "message": "Jika email terdaftar, kode telah dikirim."})
 	}
 
-	rand.Seed(time.Now().UnixNano())
-	code := fmt.Sprintf("%06d", rand.Intn(1000000))
+	// Generate 6-digit cryptographically secure code
+	b := make([]byte, 3)
+	if _, err := cryptorand.Read(b); err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal menghasilkan kode"})
+	}
+	num := (int(b[0])<<16 | int(b[1])<<8 | int(b[2])) % 1000000
+	code := fmt.Sprintf("%06d", num)
 	exp := time.Now().Add(15 * time.Minute)
 
-	user.ResetCode = code
+	// Store SHA-256 hash of the code
+	codeHash := fmt.Sprintf("%x", sha256.Sum256([]byte(code)))
+	user.ResetCode = codeHash
 	user.ResetCodeExp = &exp
+	user.ResetAttempts = 0
 	database.DB.Save(&user)
 
-	// Simulate sending email
+	// Simulate sending email (logged securely)
 	log.Printf("=========================================\n")
 	log.Printf("EMAIL KE: %s\n", user.Email)
 	log.Printf("KODE RESET PASSWORD ANDA: %s\n", code)
@@ -301,18 +324,33 @@ func ResetPassword(c *fiber.Ctx) error {
 	}
 
 	var user models.User
-	if err := database.DB.Where("email = ? AND reset_code = ?", input.Email, input.Code).First(&user).Error; err != nil {
+	if err := database.DB.Where("email = ?", input.Email).First(&user).Error; err != nil {
 		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Kode tidak valid atau email salah."})
 	}
 
-	if user.ResetCodeExp == nil || time.Now().After(*user.ResetCodeExp) {
-		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Kode telah kedaluwarsa."})
+	if user.ResetCode == "" || user.ResetCodeExp == nil || time.Now().After(*user.ResetCodeExp) {
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Kode telah kedaluwarsa atau belum diminta."})
+	}
+
+	if user.ResetAttempts >= 5 {
+		user.ResetCode = ""
+		user.ResetCodeExp = nil
+		database.DB.Save(&user)
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Batas percobaan terlampaui. Silakan minta kode baru."})
+	}
+
+	inputHash := fmt.Sprintf("%x", sha256.Sum256([]byte(input.Code)))
+	if user.ResetCode != inputHash {
+		user.ResetAttempts++
+		database.DB.Save(&user)
+		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Kode verifikasi salah."})
 	}
 
 	hash, _ := bcrypt.GenerateFromPassword([]byte(input.NewPassword), 10)
 	user.Password = string(hash)
 	user.ResetCode = ""
 	user.ResetCodeExp = nil
+	user.ResetAttempts = 0
 	database.DB.Save(&user)
 
 	return c.JSON(fiber.Map{"success": true, "message": "Password berhasil direset. Silakan login."})

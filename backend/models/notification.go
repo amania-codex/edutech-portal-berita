@@ -12,7 +12,7 @@ type Notification struct {
 	NewsSlug  string `json:"news_slug" gorm:"type:varchar(255)"` // URL referensi
 	IsRead    bool   `json:"is_read" gorm:"default:false"`
 
-	// Relasi virtual
-	SenderName   string `json:"sender_name" gorm:"-"`
-	SenderAvatar string `json:"sender_avatar" gorm:"-"`
+	// Relasi virtual (read-only from joins)
+	SenderName   string `json:"sender_name" gorm:"->;<-:false"`
+	SenderAvatar string `json:"sender_avatar" gorm:"->;<-:false"`
 }

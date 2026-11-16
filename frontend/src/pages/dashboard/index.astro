@@ -10,8 +10,13 @@ if (!isAdmin) return Astro.redirect('/user');
 
 const API_BASE = "http://localhost:3000/api";
 
+const cookie = Astro.request.headers.get('cookie') || '';
+const tokenMatch = cookie.match(/auth_token=([^;]+)/);
+const token = tokenMatch ? tokenMatch[1] : '';
+
 // Fetch stats from Go Fiber backend
 let totalNews = 0, publishedNews = 0, draftNews = 0;
+let totalViews = 0;
 let totalComments = 0, flaggedComments = 0;
 let recentNews: any[] = [];
 let sentimentStats = { positive: 0, neutral: 0, negative: 0 };
@@ -19,7 +24,9 @@ let sentimentStats = { positive: 0, neutral: 0, negative: 0 };
 try {
   const [newsRes, commentsRes] = await Promise.all([
     fetch(`${API_BASE}/news?limit=100`),
-    fetch(`${API_BASE}/comments`),
+    fetch(`${API_BASE}/comments`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    }),
   ]);
 
   if (newsRes.ok) {
@@ -28,6 +35,7 @@ try {
     totalNews = newsList.length;
     publishedNews = newsList.filter((n: any) => n.status === 'published').length;
     draftNews = newsList.filter((n: any) => n.status === 'draft').length;
+    totalViews = newsList.reduce((acc: number, n: any) => acc + (n.viewCount || n.view_count || 0), 0);
     recentNews = newsList.slice(0, 5);
   }
 
@@ -60,7 +68,7 @@ function normalize(a: any) {
 const normalizedRecent = recentNews.map(normalize);
 
 // Calculate donut chart angles
-let conicGradient = 'conic-gradient(#22c55e 0deg 120deg, #94a3b8 120deg 240deg, #ef4444 240deg 360deg)';
+let conicGradient = 'conic-gradient(#94a3b8 0deg 360deg)';
 if (totalComments > 0) {
   const posDeg = Math.round((sentimentStats.positive / totalComments) * 360);
   const neuDeg = Math.round((sentimentStats.neutral / totalComments) * 360);
@@ -84,7 +92,7 @@ if (totalComments > 0) {
       )}
     </div>
 
-    <!-- Stats Grid -->
+    <!-- Stats Grid (4 Columns) -->
     <div class="stats-grid">
       <div class="stat-card stat-blue">
         <div class="stat-icon">
@@ -98,6 +106,19 @@ if (totalComments > 0) {
           <span class="sub-green">{publishedNews} Terbit</span>
           <span class="sub-gray">·</span>
           <span class="sub-orange">{draftNews} Draft</span>
+        </div>
+      </div>
+
+      <div class="stat-card stat-purple">
+        <div class="stat-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        </div>
+        <div class="stat-info">
+          <p class="stat-value">{totalViews}</p>
+          <p class="stat-label">Total Tayangan</p>
+        </div>
+        <div class="stat-sub">
+          <span class="sub-purple">👁 Akumulasi Pembaca</span>
         </div>
       </div>
 
@@ -148,7 +169,11 @@ if (totalComments > 0) {
               <div class="recent-news-item">
                 <div class="rn-img">
                   {article.imageUrl ? (
-                    <img src={article.imageUrl} alt={article.title} />
+                    <img
+                      src={article.imageUrl}
+                      alt={article.title}
+                      onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=400&q=80';"
+                    />
                   ) : (
                     <div class="rn-img-placeholder">📰</div>
                   )}
@@ -203,6 +228,11 @@ if (totalComments > 0) {
                 <span class="legend-pct">{totalComments > 0 ? Math.round(sentimentStats.negative / totalComments * 100) : 0}%</span>
               </div>
             </div>
+            {totalComments === 0 ? (
+              <p class="sentiment-status-note">Belum ada komentar pada berita.</p>
+            ) : sentimentStats.positive === 0 && sentimentStats.negative === 0 ? (
+              <p class="sentiment-status-note note-neutral">ℹ Respon pembaca 100% netral</p>
+            ) : null}
           </div>
           <a href="/dashboard/comments" class="btn-analysis">Lihat Analisis Lengkap →</a>
         </div>
@@ -233,22 +263,25 @@ if (totalComments > 0) {
   .btn-create-news svg { width: 16px; height: 16px; }
   .btn-create-news:hover { background: rgba(255,255,255,0.3); transform: translateY(-1px); }
 
-  .stats-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
 
   .stat-card {
     background: var(--color-bg-card); border: 1px solid var(--color-border);
     border-radius: 12px; padding: 20px;
-    display: flex; flex-direction: column; gap: 10px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    min-height: 140px; box-sizing: border-box;
     position: relative; overflow: hidden; transition: transform 0.15s;
   }
   .stat-card:hover { transform: translateY(-2px); }
   .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
   .stat-blue::before { background: #3b82f6; }
+  .stat-purple::before { background: #8b5cf6; }
   .stat-green::before { background: #22c55e; }
   .stat-orange::before { background: #f97316; }
 
   .stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
   .stat-blue .stat-icon { background: rgba(59,130,246,0.1); color: #3b82f6; }
+  .stat-purple .stat-icon { background: rgba(139,92,246,0.1); color: #8b5cf6; }
   .stat-green .stat-icon { background: rgba(34,197,94,0.1); color: #22c55e; }
   .stat-orange .stat-icon { background: rgba(249,115,22,0.1); color: #f97316; }
   .stat-icon svg { width: 20px; height: 20px; }
@@ -257,6 +290,7 @@ if (totalComments > 0) {
   .stat-label { font-size: 12px; font-weight: 600; color: var(--color-text-muted); margin: 2px 0 0; }
   .stat-sub { display: flex; align-items: center; gap: 6px; font-size: 11.5px; }
   .sub-green { color: #22c55e; font-weight: 600; }
+  .sub-purple { color: #8b5cf6; font-weight: 600; }
   .sub-orange { color: #f97316; font-weight: 600; }
   .sub-red { color: #ef4444; font-weight: 600; }
   .sub-gray { color: var(--color-text-muted); }
@@ -288,7 +322,7 @@ if (totalComments > 0) {
   .rn-edit-btn:hover { background: rgba(230,57,70,0.1); color: var(--color-accent); }
   .empty-state { color: var(--color-text-muted); font-size: 13px; text-align: center; padding: 20px 0; }
 
-  .sentiment-chart { display: flex; flex-direction: column; gap: 20px; }
+  .sentiment-chart { display: flex; flex-direction: column; gap: 16px; }
   .sentiment-donut { width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; display: flex; align-items: center; justify-content: center; position: relative; }
   .sentiment-donut::before { content: ''; position: absolute; width: 80px; height: 80px; background: var(--color-bg-card); border-radius: 50%; }
   .donut-center { position: relative; z-index: 1; text-align: center; }
@@ -303,9 +337,20 @@ if (totalComments > 0) {
   .legend-name { flex: 1; color: var(--color-text-secondary); }
   .legend-count { font-weight: 700; color: var(--color-text-primary); }
   .legend-pct { color: var(--color-text-muted); font-size: 11px; width: 32px; text-align: right; }
-  .btn-analysis { display: block; text-align: center; padding: 10px; background: var(--color-surface); border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--color-accent); margin-top: 16px; transition: background 0.15s; }
+  .sentiment-status-note {
+    margin: 0; text-align: center; font-size: 11.5px; color: var(--color-text-muted);
+    background: var(--color-surface); padding: 8px 12px; border-radius: 8px;
+  }
+  .sentiment-status-note.note-neutral { color: var(--color-text-secondary); font-weight: 500; }
+
+  .btn-analysis { display: block; text-align: center; padding: 10px; background: var(--color-surface); border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--color-accent); margin-top: 10px; transition: background 0.15s; }
   .btn-analysis:hover { background: rgba(230,57,70,0.1); }
 
-  @media (max-width: 1200px) { .dash-lower { grid-template-columns: 1fr; } }
-  @media (max-width: 640px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 1200px) {
+    .dash-lower { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .stats-grid { grid-template-columns: 1fr; }
+  }
 </style>

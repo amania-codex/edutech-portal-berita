@@ -440,16 +440,27 @@ const API_BASE = "http://localhost:3000/api";
     });
   }
 
+  // HTML entity sanitizer to prevent XSS attacks
+  function escapeHTML(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   // Render a single reply
   function renderReply(r) {
-    const name = r.user_name || r.userName || 'Anonim';
-    const content = r.content || '';
+    const rawName = r.user_name || r.userName || 'Anonim';
+    const name = escapeHTML(rawName);
+    const content = escapeHTML(r.content || '');
     const date = r.created_at || r.createdAt || '';
     const formattedDate = date ? new Date(date).toLocaleDateString('id-ID', {
       day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
     }) : '';
     
-    // To identify if current user liked it, we need data. We'll just rely on like_count for now.
     return `
       <div class="reply-item">
         <div class="comment-avatar-sm">${name.charAt(0).toUpperCase()}</div>
@@ -474,8 +485,9 @@ const API_BASE = "http://localhost:3000/api";
 
   // Render a comment element
   function renderComment(c) {
-    const name = c.user_name || c.userName || 'Anonim';
-    const content = c.content || '';
+    const rawName = c.user_name || c.userName || 'Anonim';
+    const name = escapeHTML(rawName);
+    const content = escapeHTML(c.content || '');
     const date = c.created_at || c.createdAt || '';
     const formattedDate = date ? new Date(date).toLocaleDateString('id-ID', {
       day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'

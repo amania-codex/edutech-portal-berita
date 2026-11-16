@@ -12,9 +12,11 @@ type User struct {
 	Name     string `json:"name" gorm:"type:varchar(100);not null"`
 	Email    string `json:"email" gorm:"type:varchar(150);unique;not null"`
 	Password string `json:"-" gorm:"type:varchar(255);not null"`
-	Role     string `json:"role" gorm:"type:varchar(20);default:'user'"`
-	Avatar   string `json:"avatar" gorm:"type:varchar(500)"`
+	Role          string     `json:"role" gorm:"type:varchar(20);default:'user'"`
+	Phone         string     `json:"phone" gorm:"type:varchar(50)"`
+	Avatar        string     `json:"avatar" gorm:"type:varchar(500)"`
 	Bio           string     `json:"bio" gorm:"type:text"`
-	ResetCode     string     `json:"-" gorm:"type:varchar(6)"`
+	ResetCode     string     `json:"-" gorm:"type:varchar(64)"`
 	ResetCodeExp  *time.Time `json:"-"`
+	ResetAttempts int        `json:"-" gorm:"default:0"`
 }

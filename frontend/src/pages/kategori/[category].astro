@@ -10,14 +10,14 @@ const displayCategory = category
   ? category.charAt(0).toUpperCase() + category.slice(1)
   : "Semua";
 
-const API_BASE = "http://localhost:3000/api";
+import { API_BASE } from "../../lib/config";
 
 let articles: any[] = [];
 let trendingNews: any[] = [];
 
 try {
   const [articlesRes, trendingRes] = await Promise.all([
-    fetch(`${API_BASE}/news/category/${displayCategory}`),
+    fetch(`${API_BASE}/news?category=${encodeURIComponent(displayCategory)}`),
     fetch(`${API_BASE}/news/trending?limit=5`),
   ]);
 

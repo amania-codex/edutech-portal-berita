@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Build artifacts
+dist/
+.astro/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+frontend/data/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# User uploads (keep directory with .gitkeep)
+backend/public/uploads/*
+!backend/public/uploads/.gitkeep
+
+# IDE and OS
+.DS_Store
+.idea/
+.vscode/
+Thumbs.db

@@ -20,41 +20,158 @@ try {
 }
 
 const unreadCount = notifs.filter(n => !n.is_read).length;
+
+function formatRelativeTime(dateStr: string): string {
+  if (!dateStr) return "Baru saja";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (diffSec < 60) return "Baru saja";
+  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} menit lalu`;
+  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} jam lalu`;
+  if (diffSec < 172800) return "Kemarin";
+  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 ---
 
 <UserLayout title="Kotak Masuk" activeMenu="inbox">
   <div class="content-wrapper">
     <div class="dash-card">
+      <!-- Card Header -->
       <div class="card-head">
-        <h2 class="dash-card-title">Pemberitahuan Interaksi</h2>
-        {unreadCount > 0 && (
-          <button id="mark-all-read" class="btn-text">Tandai semua dibaca</button>
-        )}
+        <div class="head-info">
+          <h2 class="dash-card-title">Pemberitahuan & Kotak Masuk</h2>
+          {unreadCount > 0 && (
+            <span class="unread-badge" id="inbox-unread-badge">
+              <span id="unread-count">{unreadCount}</span> Baru
+            </span>
+          )}
+        </div>
+
+        <div class="head-actions">
+          {unreadCount > 0 && (
+            <button id="mark-all-read" class="btn-action-text" title="Tandai seluruh pesan telah dibaca">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Tandai Semua Dibaca
+            </button>
+          )}
+
+          {notifs.length > 0 && (
+            <button id="clear-all-notifs" class="btn-action-danger" title="Bersihkan seluruh riwayat pemberitahuan">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+              </svg>
+              Bersihkan
+            </button>
+          )}
+        </div>
       </div>
 
-      <div class="notif-list">
+      <!-- Filter Tabs -->
+      {notifs.length > 0 && (
+        <div class="filter-tabs">
+          <button class="tab-btn active" data-filter="all">Semua ({notifs.length})</button>
+          <button class="tab-btn" data-filter="unread">Belum Dibaca ({unreadCount})</button>
+          <button class="tab-btn" data-filter="comment">Komentar ({notifs.filter(n => n.type === 'reply' || n.type === 'like').length})</button>
+          <button class="tab-btn" data-filter="system">Sistem ({notifs.filter(n => n.type === 'system').length})</button>
+        </div>
+      )}
+
+      <!-- Toast Feedback -->
+      <div class="alert alert-toast" id="notif-toast" style="display:none"></div>
+
+      <!-- Notification List -->
+      <div class="notif-list" id="notif-list">
         {notifs.length === 0 ? (
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-            <p>Kotak masuk Anda kosong.</p>
+          <div class="empty-state" id="notif-empty">
+            <div class="empty-icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+            </div>
+            <h3>Kotak Masuk Anda Bersih</h3>
+            <p>Pemberitahuan interaksi komentar, balasan diskusi, dan informasi sistem akan muncul di sini.</p>
           </div>
         ) : (
-          notifs.map((notif) => (
-            <a href={`/berita/${notif.news_slug}`} class={`notif-item ${notif.is_read ? 'read' : 'unread'}`} data-id={notif.ID}>
-              <div class="notif-icon">
-                {notif.type === 'like' ? (
-                  <svg class="icon-like" viewBox="0 0 24 24" fill="currentColor"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-                ) : (
-                  <svg class="icon-reply" viewBox="0 0 24 24" fill="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-                )}
+          notifs.map((notif) => {
+            const isSystem = notif.type === 'system';
+            const isReply = notif.type === 'reply';
+            const isLike = notif.type === 'like';
+            const targetUrl = notif.news_slug ? `/berita/${notif.news_slug}` : '#';
+
+            return (
+              <div
+                class:list={["notif-card", { unread: !notif.is_read }]}
+                id={`notif-card-${notif.ID || notif.id}`}
+                data-id={notif.ID || notif.id}
+                data-type={notif.type}
+                data-read={notif.is_read ? 'true' : 'false'}
+              >
+                <!-- Icon by Type -->
+                <div class:list={["notif-icon-box", `icon-${notif.type}`]}>
+                  {isLike && (
+                    <svg viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                  )}
+                  {isReply && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                  )}
+                  {isSystem && (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+                      <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                    </svg>
+                  )}
+                </div>
+
+                <!-- Content -->
+                <div class="notif-body">
+                  <div class="notif-header-line">
+                    <span class="notif-type-tag">
+                      {isSystem ? 'Sistem' : isReply ? 'Balasan Komentar' : 'Suka Komentar'}
+                    </span>
+                    <span class="notif-time">{formatRelativeTime(notif.created_at || notif.CreatedAt)}</span>
+                  </div>
+
+                  <p class="notif-message">
+                    {!isSystem && notif.sender_name && (
+                      <strong class="sender-name">{notif.sender_name} </strong>
+                    )}
+                    {notif.message}
+                  </p>
+
+                  {notif.news_slug && (
+                    <a href={targetUrl} class="notif-link-action" data-id={notif.ID || notif.id}>
+                      Lihat Diskusi di Berita →
+                    </a>
+                  )}
+                </div>
+
+                <!-- Right Action -->
+                <div class="notif-card-actions">
+                  {!notif.is_read && <span class="unread-dot" title="Belum dibaca"></span>}
+                  <button
+                    class="btn-delete-notif"
+                    data-id={notif.ID || notif.id}
+                    title="Hapus pemberitahuan ini"
+                    aria-label="Hapus notifikasi"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                      <line x1="18" y1="6" x2="6" y2="18"></line>
+                      <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                  </button>
+                </div>
               </div>
-              <div class="notif-content">
-                <p class="notif-text"><strong>{notif.sender_name}</strong> {notif.message}</p>
-                <span class="notif-time">{new Date(notif.CreatedAt).toLocaleString('id-ID')}</span>
-              </div>
-              {!notif.is_read && <div class="unread-dot"></div>}
-            </a>
-          ))
+            );
+          })
         )}
       </div>
     </div>
@@ -62,54 +179,467 @@ const unreadCount = notifs.filter(n => !n.is_read).length;
 </UserLayout>
 
 <style>
-  .content-wrapper { max-width: 800px; margin: 0 auto; }
-  .card-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid var(--color-border); padding-bottom: 12px; }
-  
-  .btn-text { background: none; border: none; color: #3b82f6; font-size: 13px; font-weight: 600; cursor: pointer; }
-  .btn-text:hover { text-decoration: underline; }
+  .content-wrapper {
+    max-width: 900px;
+    margin: 0 auto;
+  }
 
-  .notif-list { display: flex; flex-direction: column; gap: 12px; }
-  .notif-item { display: flex; align-items: center; gap: 16px; padding: 16px; border-radius: 12px; border: 1px solid var(--color-border); background: var(--color-bg-card); text-decoration: none; transition: background 0.2s; position: relative; }
-  .notif-item:hover { background: var(--color-surface); }
-  
-  .notif-item.unread { background: rgba(59,130,246,0.05); border-color: rgba(59,130,246,0.2); }
-  
-  .notif-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-  .notif-item.unread .notif-icon { background: rgba(59,130,246,0.1); color: #3b82f6; }
-  .notif-item.read .notif-icon { background: var(--color-surface); color: var(--color-text-muted); }
-  
-  .notif-icon svg { width: 20px; height: 20px; }
+  .dash-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
 
-  .notif-content { flex: 1; }
-  .notif-text { margin: 0 0 4px; font-size: 14.5px; color: var(--color-text-primary); line-height: 1.4; }
-  .notif-text strong { font-weight: 600; }
-  .notif-time { font-size: 12px; color: var(--color-text-muted); }
-  
-  .unread-dot { width: 10px; height: 10px; background: #3b82f6; border-radius: 50%; }
+  .card-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
 
-  .empty-state { padding: 40px 20px; text-align: center; color: var(--color-text-muted); }
-  .empty-state svg { width: 48px; height: 48px; opacity: 0.5; margin-bottom: 16px; }
+  .head-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .dash-card-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .unread-badge {
+    font-size: 12px;
+    font-weight: 700;
+    background: var(--color-accent);
+    color: white;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .head-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .btn-action-text {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid rgba(59, 130, 246, 0.25);
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-action-text:hover {
+    background: rgba(59, 130, 246, 0.2);
+  }
+
+  .btn-action-danger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-action-danger:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: #ef4444;
+  }
+
+  /* Filter Tabs */
+  .filter-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 12px;
+  }
+
+  .tab-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 600;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .tab-btn:hover {
+    color: var(--color-text-primary);
+    border-color: var(--color-border-light);
+  }
+
+  .tab-btn.active {
+    background: var(--color-accent);
+    color: white;
+    border-color: var(--color-accent);
+  }
+
+  .alert-toast {
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    background: rgba(34, 197, 94, 0.12);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }
+
+  /* Notification List */
+  .notif-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .notif-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    transition: all 0.2s ease;
+  }
+
+  .notif-card:hover {
+    border-color: rgba(230, 57, 70, 0.4);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  }
+
+  .notif-card.unread {
+    background: rgba(230, 57, 70, 0.04);
+    border-color: rgba(230, 57, 70, 0.25);
+  }
+
+  /* Icon Box */
+  .notif-icon-box {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .notif-icon-box svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .icon-like {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+  }
+
+  .icon-reply {
+    background: rgba(59, 130, 246, 0.12);
+    color: #3b82f6;
+  }
+
+  .icon-system {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+  }
+
+  .notif-body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .notif-header-line {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .notif-type-tag {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  .notif-time {
+    font-size: 11.5px;
+    color: var(--color-text-muted);
+  }
+
+  .notif-message {
+    margin: 0 0 6px;
+    font-size: 14px;
+    color: var(--color-text-primary);
+    line-height: 1.5;
+  }
+
+  .sender-name {
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .notif-link-action {
+    display: inline-block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--color-accent);
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+
+  .notif-link-action:hover {
+    text-decoration: underline;
+  }
+
+  .notif-card-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  .unread-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--color-accent);
+  }
+
+  .btn-delete-notif {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-delete-notif:hover {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+
+  /* Empty State */
+  .empty-state {
+    padding: 60px 20px;
+    text-align: center;
+    color: var(--color-text-muted);
+  }
+
+  .empty-icon-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(230, 57, 70, 0.08);
+    color: var(--color-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+  }
+
+  .empty-icon-wrap svg {
+    width: 30px;
+    height: 30px;
+  }
+
+  .empty-state h3 {
+    margin: 0 0 8px;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .empty-state p {
+    margin: 0 auto;
+    font-size: 13.5px;
+    max-width: 440px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
 </style>
 
 <script is:inline>
-  const markReadBtn = document.getElementById('mark-all-read');
-  if (markReadBtn) {
-    markReadBtn.addEventListener('click', async () => {
+  const API_BASE = 'http://localhost:3000/api';
+  const toast = document.getElementById('notif-toast');
+  const markAllBtn = document.getElementById('mark-all-read');
+  const clearAllBtn = document.getElementById('clear-all-notifs');
+  const unreadCountBadge = document.getElementById('unread-count');
+  const unreadBadgeWrap = document.getElementById('inbox-unread-badge');
+
+  function showToast(msg) {
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.style.display = 'block';
+    setTimeout(() => { toast.style.display = 'none'; }, 3000);
+  }
+
+  function updateUnread(delta) {
+    if (!unreadCountBadge) return;
+    let count = parseInt(unreadCountBadge.textContent || '0');
+    count = Math.max(0, count + delta);
+    unreadCountBadge.textContent = count.toString();
+    if (count === 0 && unreadBadgeWrap) {
+      unreadBadgeWrap.style.display = 'none';
+      if (markAllBtn) markAllBtn.style.display = 'none';
+    }
+  }
+
+  // Mark all as read
+  markAllBtn?.addEventListener('click', async () => {
+    try {
+      const res = await fetch(`${API_BASE}/user/notifications/read-all`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        document.querySelectorAll('.notif-card.unread').forEach(card => {
+          card.classList.remove('unread');
+          card.dataset.read = 'true';
+          const dot = card.querySelector('.unread-dot');
+          if (dot) dot.remove();
+        });
+        if (unreadBadgeWrap) unreadBadgeWrap.style.display = 'none';
+        if (markAllBtn) markAllBtn.style.display = 'none';
+        showToast('Semua pemberitahuan telah ditandai dibaca.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  // Clear all notifications
+  clearAllBtn?.addEventListener('click', async () => {
+    if (!confirm('Apakah Anda yakin ingin membersihkan semua pemberitahuan?')) return;
+    try {
+      const res = await fetch(`${API_BASE}/user/notifications`, {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+      if (res.ok) {
+        const list = document.getElementById('notif-list');
+        if (list) {
+          list.innerHTML = `
+            <div class="empty-state" id="notif-empty">
+              <div class="empty-icon-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="30" height="30">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                  <polyline points="22,6 12,13 2,6"></polyline>
+                </svg>
+              </div>
+              <h3>Kotak Masuk Anda Bersih</h3>
+              <p>Pemberitahuan interaksi komentar, balasan diskusi, dan informasi sistem akan muncul di sini.</p>
+            </div>
+          `;
+        }
+        if (unreadBadgeWrap) unreadBadgeWrap.style.display = 'none';
+        if (markAllBtn) markAllBtn.style.display = 'none';
+        if (clearAllBtn) clearAllBtn.style.display = 'none';
+        showToast('Semua pemberitahuan berhasil dibersihkan.');
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  });
+
+  // Delete single notification
+  document.querySelectorAll('.btn-delete-notif').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
       try {
-        await fetch('http://localhost:3000/api/user/notifications/read-all', { method: 'POST', credentials: 'include' });
-        window.location.reload();
+        const res = await fetch(`${API_BASE}/user/notifications/${id}`, {
+          method: 'DELETE',
+          credentials: 'include'
+        });
+        if (res.ok) {
+          const card = document.getElementById(`notif-card-${id}`);
+          if (card) {
+            const wasUnread = card.dataset.read === 'false';
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(10px)';
+            setTimeout(() => {
+              card.remove();
+              if (wasUnread) updateUnread(-1);
+            }, 200);
+          }
+          showToast('Pemberitahuan berhasil dihapus.');
+        }
       } catch (err) {
         console.error(err);
       }
     });
-  }
+  });
 
-  // Mark single as read when clicked
-  document.querySelectorAll('.notif-item.unread').forEach(item => {
-    item.addEventListener('click', async (e) => {
-      // Allow navigation to happen, but fire request first
-      const id = item.dataset.id;
-      fetch(`http://localhost:3000/api/user/notifications/${id}/read`, { method: 'POST', credentials: 'include' });
+  // Mark single as read when action link clicked
+  document.querySelectorAll('.notif-link-action').forEach(link => {
+    link.addEventListener('click', () => {
+      const id = link.dataset.id;
+      fetch(`${API_BASE}/user/notifications/${id}/read`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+    });
+  });
+
+  // Filter tabs
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      const filter = btn.dataset.filter;
+      document.querySelectorAll('.notif-card').forEach(card => {
+        const type = card.dataset.type;
+        const isRead = card.dataset.read === 'true';
+
+        if (filter === 'all') {
+          card.style.display = 'flex';
+        } else if (filter === 'unread') {
+          card.style.display = !isRead ? 'flex' : 'none';
+        } else if (filter === 'comment') {
+          card.style.display = (type === 'reply' || type === 'like') ? 'flex' : 'none';
+        } else if (filter === 'system') {
+          card.style.display = type === 'system' ? 'flex' : 'none';
+        }
+      });
     });
   });
 </script>

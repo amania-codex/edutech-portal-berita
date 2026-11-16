@@ -1,15 +1,17 @@
-package handlers
+﻿package handlers
 
 import (
 	"news-portal-backend/database"
 	"news-portal-backend/models"
 	"strconv"
+	"strings"
+
 	"gorm.io/gorm"
 
 	"github.com/gofiber/fiber/v2"
 )
 
-// GetComments â€” GET /api/comments
+// GetComments — GET /api/comments
 func GetComments(c *fiber.Ctx) error {
 	var comments []models.Comment
 
@@ -23,7 +25,7 @@ func GetComments(c *fiber.Ctx) error {
 	return c.JSON(comments)
 }
 
-// GetCommentsByNews â€” GET /api/comments/news/:newsId
+// GetCommentsByNews — GET /api/comments/news/:newsId
 func GetCommentsByNews(c *fiber.Ctx) error {
 	newsId := c.Params("newsId")
 	var comments []models.Comment
@@ -34,12 +36,15 @@ func GetCommentsByNews(c *fiber.Ctx) error {
 	return c.JSON(comments)
 }
 
-// CreateComment â€” POST /api/comments
+// CreateComment — POST /api/comments
 func CreateComment(c *fiber.Ctx) error {
+	claims, ok := c.Locals("user").(*Claims)
+	if !ok || claims == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "error": "Autentikasi diperlukan untuk berkomentar."})
+	}
+
 	type Input struct {
 		NewsID   uint   `json:"news_id"`
-		UserID   uint   `json:"user_id"`
-		UserName string `json:"user_name"`
 		Content  string `json:"content"`
 		ParentID *uint  `json:"parent_id"` // Optional
 	}
@@ -48,7 +53,7 @@ func CreateComment(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Format tidak valid."})
 	}
 
-	if len(input.Content) < 3 {
+	if len(strings.TrimSpace(input.Content)) < 3 {
 		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Komentar terlalu pendek."})
 	}
 
@@ -56,8 +61,8 @@ func CreateComment(c *fiber.Ctx) error {
 
 	comment := models.Comment{
 		NewsID:         input.NewsID,
-		UserID:         input.UserID,
-		UserName:       input.UserName,
+		UserID:         claims.UserID,
+		UserName:       claims.Name,
 		Content:        input.Content,
 		Sentiment:      analysis.Sentiment,
 		SentimentScore: analysis.Score,
@@ -73,13 +78,13 @@ func CreateComment(c *fiber.Ctx) error {
 	if input.ParentID != nil {
 		var parent models.Comment
 		if err := database.DB.First(&parent, *input.ParentID).Error; err == nil {
-			if parent.UserID != input.UserID { // Don't notify self
+			if parent.UserID != claims.UserID { // Don't notify self
 				var article models.Article
 				database.DB.First(&article, input.NewsID)
 				
 				notif := models.Notification{
 					UserID:    parent.UserID,
-					SenderID:  input.UserID,
+					SenderID:  claims.UserID,
 					Type:      "reply",
 					Message:   "membalas komentar Anda",
 					CommentID: comment.ID,
@@ -93,7 +98,7 @@ func CreateComment(c *fiber.Ctx) error {
 	return c.Status(201).JSON(fiber.Map{"success": true, "data": comment})
 }
 
-// DeleteComment â€” DELETE /api/comments/:id (admin)
+// DeleteComment — DELETE /api/comments/:id (admin)
 func DeleteComment(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if err := database.DB.Delete(&models.Comment{}, id).Error; err != nil {

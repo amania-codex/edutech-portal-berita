@@ -1,0 +1,1048 @@
+---
+// src/pages/user/tickets.astro — Dashboard Tiket & Event Saya
+import UserLayout from "../../layouts/UserLayout.astro";
+import { getSessionFromRequest } from "../../lib/session";
+import { API_BASE } from "../../lib/config";
+
+const session = await getSessionFromRequest(Astro.request);
+if (!session) return Astro.redirect("/login");
+
+const cookieStr = Astro.request.headers.get("cookie") || "";
+let registrations: any[] = [];
+let errorMsg = "";
+
+try {
+  const res = await fetch(`${API_BASE}/user/tickets`, {
+    headers: { Cookie: cookieStr }
+  });
+  if (res.ok) {
+    const data = await res.json();
+    registrations = data.data || [];
+  } else {
+    errorMsg = "Gagal memuat daftar tiket dari server.";
+  }
+} catch (err) {
+  errorMsg = "Koneksi ke backend belum tersedia.";
+}
+
+// Stats summary
+const totalTickets = registrations.length;
+const verifiedTickets = registrations.filter((r) => r.status === "verified").length;
+const waitingTickets = registrations.filter((r) => r.status === "waiting" || r.status === "pending").length;
+---
+
+<UserLayout title="Tiket & Event Saya" activeMenu="tickets">
+  <div class="tickets-container">
+    <!-- Header Card -->
+    <div class="dash-card header-card">
+      <div class="header-info">
+        <h1 class="dash-card-title">Tiket & Event Saya</h1>
+        <p class="dash-card-subtitle">
+          Kelola tiket seminar dan webinar Anda, pantau status verifikasi, akses tautan ruangan Zoom, serta klaim e-sertifikat dan slide materi pembelajaran.
+        </p>
+      </div>
+
+      <!-- Quick Summary Stats -->
+      <div class="ticket-stats-grid">
+        <div class="t-stat-card">
+          <span class="t-stat-num">{totalTickets}</span>
+          <span class="t-stat-lbl">Total Tiket</span>
+        </div>
+        <div class="t-stat-card active-card">
+          <span class="t-stat-num">{verifiedTickets}</span>
+          <span class="t-stat-lbl">Tiket Aktif / Lolos</span>
+        </div>
+        <div class="t-stat-card waiting-card">
+          <span class="t-stat-num">{waitingTickets}</span>
+          <span class="t-stat-lbl">Menunggu Verifikasi</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filter Pills -->
+    <div class="ticket-filter-bar">
+      <div class="filter-pills" id="ticket-pills">
+        <button class="t-pill active" data-filter="all">Semua ({totalTickets})</button>
+        <button class="t-pill" data-filter="verified">Terverifikasi ({verifiedTickets})</button>
+        <button class="t-pill" data-filter="waiting">Menunggu ({waitingTickets})</button>
+        <button class="t-pill" data-filter="rejected">Ditolak</button>
+      </div>
+
+      <a href="/event" class="btn-browse-events">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Cari Event Baru
+      </a>
+    </div>
+
+    <!-- Ticket List -->
+    {registrations.length === 0 ? (
+      <div class="dash-card empty-card">
+        <div class="empty-icon">🎟️</div>
+        <h3>Belum Ada Tiket Acara</h3>
+        <p>Anda belum terdaftar pada agenda seminar atau workshop mana pun saat ini.</p>
+        <a href="/event" class="btn-primary-empty">Jelajahi Agenda & Webinar EduTech →</a>
+      </div>
+    ) : (
+      <div class="tickets-list" id="tickets-list">
+        {registrations.map((reg) => {
+          const event = reg.event || reg.Event || {};
+          const start = event.startTime || event.start_time ? new Date(event.startTime || event.start_time) : null;
+          const end = event.endTime || event.end_time ? new Date(event.endTime || event.end_time) : null;
+          const isVerified = reg.status === "verified";
+          const isWaiting = reg.status === "waiting" || reg.status === "pending";
+          const isRejected = reg.status === "rejected";
+
+          const dateStr = start ? start.toLocaleDateString("id-ID", {
+            weekday: "long",
+            day: "numeric",
+            month: "long",
+            year: "numeric"
+          }) : "Jadwal Segera Diumumkan";
+
+          const timeStr = start && end ? `${start.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB` : "";
+
+          return (
+            <div class="ticket-card" data-status={reg.status}>
+              <!-- Main Ticket Area (Left) -->
+              <div class="ticket-main">
+                <div class="ticket-top">
+                  <div class="ticket-badges">
+                    {isVerified && <span class="t-badge badge-verified">✓ Tiket Aktif / Terverifikasi</span>}
+                    {isWaiting && <span class="t-badge badge-waiting">⏳ Menunggu Verifikasi Pembayaran</span>}
+                    {isRejected && <span class="t-badge badge-rejected">✕ Pendaftaran Ditolak</span>}
+
+                    <span class="t-badge badge-tier">{reg.tier === "premium" ? "Paket Premium" : "Paket Reguler"}</span>
+                  </div>
+
+                  <span class="reg-date">Didaftarkan: {new Date(reg.CreatedAt || reg.created_at || Date.now()).toLocaleDateString("id-ID")}</span>
+                </div>
+
+                <h3 class="event-title">
+                  <a href={`/event/${event.slug || ''}`}>{event.title || 'Judul Acara Seminar'}</a>
+                </h3>
+
+                <!-- Event Meta Grid -->
+                <div class="event-meta-grid">
+                  <div class="meta-item">
+                    <span class="meta-label">Jadwal Acara</span>
+                    <span class="meta-value">{dateStr} {timeStr ? `(${timeStr})` : ''}</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Lokasi / Platform</span>
+                    <span class="meta-value">{event.venue || 'Zoom Meeting'}</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Nama Peserta</span>
+                    <span class="meta-value">{reg.name} ({reg.email})</span>
+                  </div>
+                  <div class="meta-item">
+                    <span class="meta-label">Total Pembayaran</span>
+                    <span class="meta-value">
+                      {reg.totalAmount > 0 ? `Rp ${Number(reg.totalAmount).toLocaleString("id-ID")}` : 'GRATIS'}
+                    </span>
+                  </div>
+                </div>
+
+                <!-- Info Notices -->
+                {isWaiting && (
+                  <div class="ticket-notice waiting-notice">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                    <span>Bukti pembayaran sedang diverifikasi oleh admin (maksimal 1x24 jam). Tautan Zoom dan sertifikat akan aktif otomatis setelah disetujui.</span>
+                  </div>
+                )}
+
+                {isRejected && (
+                  <div class="ticket-notice rejected-notice">
+                    <span>Mohon maaf, bukti pembayaran tidak dapat divalidasi. Silakan hubungi admin di support@edutech.id untuk bantuan lebih lanjut.</span>
+                  </div>
+                )}
+              </div>
+
+              <!-- Ticket Stub / Perforation (Right) -->
+              <div class="ticket-stub">
+                <div class="stub-notch notch-top"></div>
+                <div class="stub-notch notch-bottom"></div>
+
+                <div class="stub-content">
+                  <span class="stub-label">KODE TIKET</span>
+                  <div class="stub-code-wrap">
+                    <strong class="stub-code">{reg.ticketCode || reg.ticket_code}</strong>
+                    <button type="button" class="btn-copy-code" data-code={reg.ticketCode || reg.ticket_code} title="Salin Kode Tiket">
+                      Salin
+                    </button>
+                  </div>
+
+                  <!-- Barcode Simulation -->
+                  <div class="barcode-graphic" aria-hidden="true">
+                    <span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span>
+                    <span></span><span></span><span></span><span></span><span></span>
+                  </div>
+
+                  <!-- Actions -->
+                  <div class="stub-actions">
+                    {isVerified ? (
+                      <>
+                        <button
+                          type="button"
+                          class="btn-ticket btn-print-ticket"
+                          data-ticket={JSON.stringify({
+                            code: reg.ticketCode || reg.ticket_code,
+                            eventTitle: event.title,
+                            name: reg.name,
+                            email: reg.email,
+                            date: dateStr,
+                            venue: event.venue,
+                            tier: reg.tier
+                          })}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+                            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+                            <rect x="6" y="14" width="12" height="8"></rect>
+                          </svg>
+                          Cetak E-Tiket
+                        </button>
+
+                        {event.certificateLink ? (
+                          <a href={event.certificateLink} target="_blank" rel="noopener noreferrer" class="btn-ticket btn-cert">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <circle cx="12" cy="8" r="7"></circle>
+                              <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+                            </svg>
+                            Klaim Sertifikat
+                          </a>
+                        ) : null}
+
+                        {event.materials && event.materials.length > 0 ? (
+                          <button
+                            type="button"
+                            class="btn-ticket btn-material"
+                            data-materials={JSON.stringify(event.materials)}
+                            data-event-title={event.title}
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                              <polyline points="7 10 12 15 17 10"></polyline>
+                              <line x1="12" y1="15" x2="12" y2="3"></line>
+                            </svg>
+                            Materi & Slide
+                          </button>
+                        ) : null}
+                      </>
+                    ) : (
+                      <span class="status-tip">{isWaiting ? 'Menunggu Approval' : 'Pendaftaran Ditolak'}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+
+  <!-- Print Ticket Modal -->
+  <div id="print-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card print-ticket-card">
+      <div class="ticket-print-header">
+        <div class="print-brand">Edu<span>Tech</span> ID</div>
+        <span class="print-tag">E-TICKET RESMI</span>
+      </div>
+
+      <div class="print-body">
+        <h2 id="print-event-title" class="print-event-title">Judul Acara</h2>
+        <div class="print-grid">
+          <div class="p-item"><span>Nama Peserta:</span><strong id="print-name">-</strong></div>
+          <div class="p-item"><span>Email:</span><strong id="print-email">-</strong></div>
+          <div class="p-item"><span>Jadwal:</span><strong id="print-date">-</strong></div>
+          <div class="p-item"><span>Lokasi/Platform:</span><strong id="print-venue">-</strong></div>
+          <div class="p-item"><span>Jenis Tiket:</span><strong id="print-tier">-</strong></div>
+          <div class="p-item"><span>Status:</span><strong style="color: #2dc653;">TERVERIFIKASI RESMI</strong></div>
+        </div>
+
+        <div class="print-code-box">
+          <span>KODE TIKET UNIK</span>
+          <h1 id="print-code">TIC-XXXXXX</h1>
+        </div>
+      </div>
+
+      <div class="print-modal-actions no-print">
+        <button type="button" class="btn-modal-print" onclick="window.print()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Cetak / Simpan PDF
+        </button>
+        <button type="button" class="btn-modal-close" id="btn-close-print">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Materials Modal -->
+  <div id="material-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <h3 id="mat-event-title" class="modal-mat-title">Materi & Slide Acara</h3>
+      <p class="modal-mat-sub">Unduh slide presentasi dan materi pendukung resmi dari pembicara.</p>
+      
+      <div id="mat-list" class="mat-list"></div>
+
+      <div class="mt-4">
+        <button type="button" class="btn-modal-close" id="btn-close-mat" style="width: 100%;">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Client-side Interactive Logic -->
+  <script is:inline>
+    // Copy Ticket Code
+    document.querySelectorAll('.btn-copy-code').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const code = e.target.getAttribute('data-code');
+        navigator.clipboard.writeText(code).then(() => {
+          const original = e.target.textContent;
+          e.target.textContent = 'Disalin!';
+          setTimeout(() => { e.target.textContent = original; }, 2000);
+        });
+      });
+    });
+
+    // Filter Pills
+    const pills = document.querySelectorAll('#ticket-pills .t-pill');
+    const cards = document.querySelectorAll('.ticket-card');
+
+    pills.forEach(pill => {
+      pill.addEventListener('click', () => {
+        pills.forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+        const filter = pill.getAttribute('data-filter');
+
+        cards.forEach(card => {
+          const status = card.getAttribute('data-status');
+          if (filter === 'all') {
+            card.style.display = 'grid';
+          } else if (filter === 'verified' && status === 'verified') {
+            card.style.display = 'grid';
+          } else if (filter === 'waiting' && (status === 'waiting' || status === 'pending')) {
+            card.style.display = 'grid';
+          } else if (filter === 'rejected' && status === 'rejected') {
+            card.style.display = 'grid';
+          } else {
+            card.style.display = 'none';
+          }
+        });
+      });
+    });
+
+    // Print Modal
+    const printModal = document.getElementById('print-modal');
+    const btnClosePrint = document.getElementById('btn-close-print');
+
+    document.querySelectorAll('.btn-print-ticket').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const data = JSON.parse(btn.getAttribute('data-ticket') || '{}');
+        document.getElementById('print-event-title').textContent = data.eventTitle || 'Judul Acara';
+        document.getElementById('print-name').textContent = data.name || '-';
+        document.getElementById('print-email').textContent = data.email || '-';
+        document.getElementById('print-date').textContent = data.date || '-';
+        document.getElementById('print-venue').textContent = data.venue || '-';
+        document.getElementById('print-tier').textContent = data.tier === 'premium' ? 'Paket Premium' : 'Paket Reguler';
+        document.getElementById('print-code').textContent = data.code || 'TIC-XXXXXX';
+        printModal.style.display = 'flex';
+      });
+    });
+
+    if (btnClosePrint) {
+      btnClosePrint.addEventListener('click', () => {
+        printModal.style.display = 'none';
+      });
+    }
+
+    // Material Modal
+    const matModal = document.getElementById('material-modal');
+    const matList = document.getElementById('mat-list');
+    const matTitle = document.getElementById('mat-event-title');
+    const btnCloseMat = document.getElementById('btn-close-mat');
+
+    document.querySelectorAll('.btn-material').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const materials = JSON.parse(btn.getAttribute('data-materials') || '[]');
+        const eventTitle = btn.getAttribute('data-event-title') || 'Materi Acara';
+        matTitle.textContent = eventTitle;
+        matList.innerHTML = '';
+
+        if (materials.length === 0) {
+          matList.innerHTML = '<p style="color:var(--color-text-muted); text-align:center;">Belum ada berkas materi yang diunggah pemateri.</p>';
+        } else {
+          materials.forEach(m => {
+            const item = document.createElement('div');
+            item.className = 'mat-item-row';
+            item.innerHTML = `
+              <div class="mat-info">
+                <strong>${m.title}</strong>
+                <span>Format: ${m.type === 'video' ? 'Video Rekaman' : 'Dokumen / Slide'}</span>
+              </div>
+              <a href="${m.link || m.filePath || '#'}" target="_blank" rel="noopener noreferrer" class="btn-download-mat">
+                Buka / Unduh ↗
+              </a>
+            `;
+            matList.appendChild(item);
+          });
+        }
+        matModal.style.display = 'flex';
+      });
+    });
+
+    if (btnCloseMat) {
+      btnCloseMat.addEventListener('click', () => {
+        matModal.style.display = 'none';
+      });
+    }
+  </script>
+</UserLayout>
+
+<style>
+  .tickets-container {
+    max-width: 960px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .dash-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: var(--space-6);
+  }
+
+  .header-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .dash-card-title {
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin: 0 0 6px;
+  }
+
+  .dash-card-subtitle {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    margin: 0;
+  }
+
+  /* Summary Stats */
+  .ticket-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-4);
+  }
+
+  .t-stat-card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: var(--space-4);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .t-stat-num {
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    color: var(--color-text-primary);
+  }
+
+  .t-stat-lbl {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
+  .active-card .t-stat-num { color: #2dc653; }
+  .waiting-card .t-stat-num { color: #f4c430; }
+
+  /* Filter Bar */
+  .ticket-filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+  }
+
+  .filter-pills {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+  }
+
+  .t-pill {
+    padding: 7px 14px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: var(--text-xs);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .t-pill.active,
+  .t-pill:hover {
+    background: var(--color-accent);
+    color: #fff;
+    border-color: var(--color-accent);
+  }
+
+  .btn-browse-events {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .btn-browse-events:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
+  }
+
+  /* Ticket Cards (Boarding Pass Layout) */
+  .tickets-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .ticket-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .ticket-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+  }
+
+  .ticket-main {
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .ticket-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .ticket-badges {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .t-badge {
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .badge-verified { background: rgba(45, 198, 83, 0.15); color: #2dc653; border: 1px solid #2dc653; }
+  .badge-waiting { background: rgba(244, 196, 48, 0.15); color: #f4c430; border: 1px solid #f4c430; }
+  .badge-rejected { background: rgba(230, 57, 70, 0.15); color: #e63946; border: 1px solid #e63946; }
+  .badge-tier { background: var(--color-surface); color: var(--color-text-secondary); border: 1px solid var(--color-border); }
+
+  .reg-date {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  .event-title {
+    font-size: var(--text-lg);
+    font-weight: 800;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .event-title a {
+    color: var(--color-text-primary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .event-title a:hover {
+    color: var(--color-accent);
+  }
+
+  .event-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--space-3);
+    padding: var(--space-3);
+    background: var(--color-surface);
+    border-radius: 10px;
+    border: 1px solid var(--color-border);
+  }
+
+  .meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .meta-label {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+
+  .meta-value {
+    font-size: 12px;
+    color: var(--color-text-primary);
+    font-weight: 600;
+  }
+
+  .ticket-notice {
+    padding: var(--space-3);
+    border-radius: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .waiting-notice {
+    background: rgba(244, 196, 48, 0.1);
+    color: #f4c430;
+    border: 1px solid rgba(244, 196, 48, 0.25);
+  }
+
+  .rejected-notice {
+    background: rgba(230, 57, 70, 0.1);
+    color: #e63946;
+    border: 1px solid rgba(230, 57, 70, 0.25);
+  }
+
+  /* Stub / Perforation */
+  .ticket-stub {
+    position: relative;
+    background: var(--color-surface);
+    border-left: 2px dashed var(--color-border);
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .stub-notch {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background: var(--color-bg-primary);
+    border-radius: 50%;
+    left: -10px;
+  }
+
+  .notch-top { top: -10px; }
+  .notch-bottom { bottom: -10px; }
+
+  .stub-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+    align-items: center;
+    text-align: center;
+  }
+
+  .stub-label {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .stub-code-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .stub-code {
+    font-family: monospace;
+    font-size: var(--text-lg);
+    letter-spacing: 2px;
+    color: var(--color-accent);
+  }
+
+  .btn-copy-code {
+    padding: 2px 6px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .barcode-graphic {
+    display: flex;
+    gap: 3px;
+    height: 36px;
+    align-items: stretch;
+    opacity: 0.5;
+  }
+
+  .barcode-graphic span {
+    background: var(--color-text-secondary);
+    border-radius: 1px;
+  }
+
+  .barcode-graphic span:nth-child(even) { width: 4px; }
+  .barcode-graphic span:nth-child(odd) { width: 2px; }
+
+  .stub-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    margin-top: 4px;
+  }
+
+  .btn-ticket {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    text-decoration: none;
+    border: 1px solid var(--color-border);
+    transition: all 0.2s;
+  }
+
+  .btn-print-ticket {
+    background: var(--color-accent);
+    color: #fff;
+    border-color: var(--color-accent);
+  }
+
+  .btn-print-ticket:hover {
+    background: var(--color-accent-hover);
+  }
+
+  .btn-cert {
+    background: rgba(72, 149, 239, 0.15);
+    color: #4895ef;
+    border-color: #4895ef;
+  }
+
+  .btn-material {
+    background: var(--color-bg-card);
+    color: var(--color-text-primary);
+  }
+
+  .status-tip {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  /* Empty State */
+  .empty-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: var(--space-12) var(--space-6);
+    gap: var(--space-3);
+  }
+
+  .empty-icon { font-size: 56px; }
+
+  .empty-card h3 {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .empty-card p {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    margin: 0;
+    max-width: 400px;
+  }
+
+  .btn-primary-empty {
+    margin-top: var(--space-3);
+    padding: 10px 20px;
+    background: var(--color-accent);
+    color: #fff;
+    border-radius: 8px;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  /* Modals */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    padding: var(--space-4);
+  }
+
+  .modal-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: var(--space-6);
+    max-width: 520px;
+    width: 100%;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Print Ticket Layout */
+  .print-ticket-card {
+    border: 2px solid var(--color-accent);
+    background: var(--color-bg-primary);
+  }
+
+  .ticket-print-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid var(--color-border);
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+  }
+
+  .print-brand {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    color: #fff;
+  }
+  .print-brand span { color: var(--color-accent); }
+
+  .print-tag {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--color-accent);
+    background: var(--color-accent-light);
+    padding: 3px 8px;
+    border-radius: 4px;
+  }
+
+  .print-event-title {
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: #fff;
+    margin: 0 0 16px;
+  }
+
+  .print-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    font-size: 12px;
+    margin-bottom: 20px;
+    background: var(--color-surface);
+    padding: 12px;
+    border-radius: 8px;
+  }
+
+  .p-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .p-item span { color: var(--color-text-muted); font-size: 11px; }
+  .p-item strong { color: #fff; }
+
+  .print-code-box {
+    text-align: center;
+    border: 2px dashed var(--color-accent);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+  .print-code-box span { font-size: 10px; color: var(--color-text-muted); font-weight: 700; letter-spacing: 1px; }
+  .print-code-box h1 { margin: 4px 0 0; color: var(--color-accent); font-family: monospace; letter-spacing: 4px; }
+
+  .print-modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .btn-modal-print {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px;
+    background: var(--color-accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .btn-modal-close {
+    padding: 10px 16px;
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  /* Materials modal */
+  .modal-mat-title {
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin: 0 0 4px;
+  }
+
+  .modal-mat-sub {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    margin: 0 0 16px;
+  }
+
+  .mat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .mat-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+  }
+
+  .mat-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .mat-info strong {
+    font-size: 13px;
+    color: var(--color-text-primary);
+  }
+
+  .mat-info span {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  .btn-download-mat {
+    padding: 6px 12px;
+    background: var(--color-accent);
+    color: #fff;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .mt-4 { margin-top: 16px; }
+
+  @media (max-width: 860px) {
+    .ticket-card {
+      grid-template-columns: 1fr;
+    }
+    .ticket-stub {
+      border-left: none;
+      border-top: 2px dashed var(--color-border);
+    }
+    .stub-notch { display: none; }
+  }
+
+  @media print {
+    body * {
+      visibility: hidden;
+    }
+    #print-modal, #print-modal * {
+      visibility: visible;
+    }
+    #print-modal {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 100%;
+      background: #fff !important;
+      color: #000 !important;
+    }
+    .no-print {
+      display: none !important;
+    }
+    .print-ticket-card {
+      border: 2px solid #000 !important;
+      background: #fff !important;
+      box-shadow: none !important;
+    }
+    .print-brand { color: #000 !important; }
+    .print-event-title, .p-item strong { color: #000 !important; }
+    .print-grid { background: #f0f0f0 !important; }
+  }
+</style>

@@ -3,11 +3,12 @@
 export interface Props {
   title: string;
   slug: string;
-
+  excerpt?: string;
   imageUrl?: string;
   category?: string;
   author?: string;
   viewCount?: number;
+  readTime?: number;
   createdAt?: string;
   size?: "sm" | "md" | "lg";
   horizontal?: boolean;
@@ -16,11 +17,12 @@ export interface Props {
 const {
   title,
   slug,
-
+  excerpt,
   imageUrl,
   category,
   author = "Redaksi",
   viewCount = 0,
+  readTime = 5,
   createdAt,
   size = "md",
   horizontal = false,
@@ -52,7 +54,7 @@ const fallbackImage = `https://images.unsplash.com/photo-1504711434969-e33886168
         src={imageUrl || fallbackImage}
         alt={title}
         loading="lazy"
-        onerror={`this.src='${fallbackImage}'`}
+        onerror={`this.onerror=null;this.src='${fallbackImage}';`}
       />
       {category && (
         <span class="card-category badge badge-accent">{category}</span>
@@ -64,10 +66,19 @@ const fallbackImage = `https://images.unsplash.com/photo-1504711434969-e33886168
     <a href={`/berita/${slug}`} class="card-title-link">
       <h3 class="card-title">{title}</h3>
     </a>
+    <p class="card-excerpt">{excerpt || ''}</p>
 
     <div class="card-meta news-meta">
       <span class="dot"></span>
       <span class="meta-time">{timeStr}</span>
+      <span class="meta-sep">·</span>
+      <span class="meta-readtime" title="Estimasi waktu baca">
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        {readTime} mnt
+      </span>
       <span class="meta-sep">·</span>
       <span class="meta-views">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -77,12 +88,12 @@ const fallbackImage = `https://images.unsplash.com/photo-1504711434969-e33886168
         {viewCount}
       </span>
       <span class="meta-sep">·</span>
-      <span class="meta-author">
+      <span class="meta-author" title={author}>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
           <circle cx="12" cy="7" r="4"/>
         </svg>
-        {author}
+        <span class="author-text">{author}</span>
       </span>
     </div>
   </div>
@@ -93,6 +104,7 @@ const fallbackImage = `https://images.unsplash.com/photo-1504711434969-e33886168
     display: flex;
     flex-direction: column;
     gap: var(--space-3);
+    height: 100%;
     transition: transform var(--transition-base);
   }
 
@@ -104,6 +116,7 @@ const fallbackImage = `https://images.unsplash.com/photo-1504711434969-e33886168
     flex-direction: row;
     gap: var(--space-3);
     align-items: flex-start;
+    height: auto;
   }
 
   .news-card.horizontal .card-img-wrap {
@@ -163,6 +176,7 @@ const fallbackImage = `https://images.unsplash.com/photo-1504711434969-e33886168
   .card-body {
     display: flex;
     flex-direction: column;
+    flex: 1;
     gap: var(--space-2);
   }
 
@@ -176,46 +190,107 @@ const fallbackImage = `https://images.unsplash.com/photo-1504711434969-e33886168
     color: var(--color-text-primary);
     line-height: 1.4;
     display: -webkit-box;
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    height: 2.8em;
+    margin: 0;
     transition: color var(--transition-fast);
   }
 
   .size-sm .card-title {
     font-size: var(--text-sm);
     -webkit-line-clamp: 2;
+    height: 2.8em;
   }
 
   .size-lg .card-title {
     font-size: var(--text-xl);
-    -webkit-line-clamp: 3;
+    -webkit-line-clamp: 2;
+    height: 2.8em;
   }
 
   .card-title-link:hover .card-title {
     color: var(--color-accent);
   }
 
+  .card-excerpt {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    min-height: 3em;
+  }
 
   /* Meta */
   .card-meta {
     margin-top: auto;
+    padding-top: var(--space-2);
+    font-size: 11.5px;
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+    width: 100%;
   }
 
   .meta-time {
     color: var(--color-accent);
     font-weight: 600;
+    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .meta-sep {
-    color: var(--color-text-muted);
+    color: var(--color-border-light);
+    flex-shrink: 0;
   }
 
-  .meta-views,
+  .meta-readtime {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  .meta-views {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
   .meta-author {
     display: flex;
     align-items: center;
     gap: 3px;
+    color: var(--color-text-secondary);
+    min-width: 0;
+    flex-shrink: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .author-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+    max-width: 100%;
   }
 
   /* Horizontal variant overrides */

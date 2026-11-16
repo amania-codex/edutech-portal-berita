@@ -1,7 +1,8 @@
-package handlers
+﻿package handlers
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -56,20 +57,37 @@ func UploadImage(c *fiber.Ctx) error {
 		})
 	}
 
-	// Kompresi dan resize (lebar maksimum 1200px)
-	if img.Bounds().Dx() > 1200 {
-		img = imaging.Resize(img, 1200, 0, imaging.Lanczos)
+	// Pastikan direktori tujuan ada
+	uploadDir := "./public/uploads"
+	if err := os.MkdirAll(uploadDir, 0755); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": "Gagal mempersiapkan direktori penyimpanan",
+		})
 	}
 
-	// Format selalu disimpan sebagai JPG untuk kompresi
-	timestamp := time.Now().UnixNano()
-	filename := fmt.Sprintf("%d.jpg", timestamp)
-	savePath := fmt.Sprintf("./public/uploads/%s", filename)
+	// Kompresi dan resize (lebar maksimum 1600px)
+	if img.Bounds().Dx() > 1600 {
+		img = imaging.Resize(img, 1600, 0, imaging.Lanczos)
+	}
 
-	// Simpan dengan kualitas 80
-	if err := imaging.Save(img, savePath, imaging.JPEGQuality(80)); err != nil {
+	timestamp := time.Now().UnixNano()
+	var filename string
+	var savePath string
+	var saveErr error
+
+	if ext == ".png" {
+		filename = fmt.Sprintf("%d.png", timestamp)
+		savePath = filepath.Join(uploadDir, filename)
+		saveErr = imaging.Save(img, savePath)
+	} else {
+		filename = fmt.Sprintf("%d.jpg", timestamp)
+		savePath = filepath.Join(uploadDir, filename)
+		saveErr = imaging.Save(img, savePath, imaging.JPEGQuality(85))
+	}
+
+	if saveErr != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
-			"error": "Gagal menyimpan gambar: " + err.Error(),
+			"error": "Gagal menyimpan gambar: " + saveErr.Error(),
 		})
 	}
 

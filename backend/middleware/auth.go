@@ -9,7 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// Protected â€” JWT Middleware
+// Protected — JWT Middleware
 func Protected() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		tokenString := c.Cookies("auth_token")
@@ -28,7 +28,7 @@ func Protected() fiber.Handler {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return []byte("edutech-super-secret-key-change-in-production-2026"), nil // TODO: Env
+			return handlers.GetJWTSecret(), nil
 		})
 
 		if err != nil || !token.Valid {
@@ -45,7 +45,7 @@ func Protected() fiber.Handler {
 	}
 }
 
-// AdminOnly â€” Role Guard
+// AdminOnly — Role Guard
 func AdminOnly() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		claims, ok := c.Locals("user").(*handlers.Claims)

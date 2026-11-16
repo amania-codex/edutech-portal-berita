@@ -27,11 +27,15 @@ try {
   // If logged in, add to history and check bookmark
   if (session && article) {
     // Record history
-    fetch(`${API_BASE}/user/history`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Cookie': cookieStr },
-      body: JSON.stringify({ news_id: article.ID || article.id })
-    }).catch(e => console.error("History err:", e));
+    try {
+      await fetch(`${API_BASE}/user/history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Cookie': cookieStr },
+        body: JSON.stringify({ news_id: article.ID || article.id })
+      });
+    } catch (e) {
+      console.error("History err:", e);
+    }
   }
 } catch (err) {
   console.error("Failed to fetch from Go Fiber:", err);
@@ -67,6 +71,7 @@ function normalize(a: any) {
     tags: a.tags,
     author: a.author,
     viewCount: a.viewCount || a.view_count,
+    readTime: a.readTime || a.read_time || 5,
     createdAt: a.CreatedAt || a.createdAt || a.created_at,
   };
 }
@@ -146,12 +151,23 @@ const formattedDate = normalizedArticle.createdAt
           </svg>
           <span>{normalizedArticle.viewCount || 0} tayangan</span>
         </div>
+        <div class="meta-item meta-readtime">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          <span>{normalizedArticle.readTime} menit baca</span>
+        </div>
       </div>
 
       <!-- Hero Image -->
       {normalizedArticle.imageUrl && (
         <div class="article-hero-img">
-          <img src={normalizedArticle.imageUrl} alt={normalizedArticle.title} />
+          <img
+            src={normalizedArticle.imageUrl}
+            alt={normalizedArticle.title}
+            onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80';"
+          />
           <p class="img-caption">Foto: {normalizedArticle.title}</p>
         </div>
       )}

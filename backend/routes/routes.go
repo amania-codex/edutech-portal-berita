@@ -1,27 +1,55 @@
 package routes
 
 import (
+	"time"
+
 	"news-portal-backend/handlers"
 	"news-portal-backend/middleware"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/limiter"
 )
 
 func Setup(app *fiber.App) {
 	api := app.Group("/api")
 
+	// Rate limiter for auth endpoints (max 20 requests per minute)
+	authLimiter := limiter.New(limiter.Config{
+		Max:        20,
+		Expiration: 1 * time.Minute,
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"success": false,
+				"error":   "Terlalu banyak percobaan. Silakan coba lagi setelah 1 menit.",
+			})
+		},
+	})
+
+	// Rate limiter for image upload (max 30 uploads per minute)
+	uploadLimiter := limiter.New(limiter.Config{
+		Max:        30,
+		Expiration: 1 * time.Minute,
+		LimitReached: func(c *fiber.Ctx) error {
+			return c.Status(fiber.StatusTooManyRequests).JSON(fiber.Map{
+				"success": false,
+				"error":   "Batas kuota unggah tercapai. Silakan coba sesaat lagi.",
+			})
+		},
+	})
+
 	// Serve uploaded files statically
 	app.Static("/uploads", "./public/uploads")
 
 	// Upload route (protected for all users to allow avatar upload)
-	api.Post("/upload", middleware.Protected(), handlers.UploadImage)
+	api.Post("/upload", uploadLimiter, middleware.Protected(), handlers.UploadImage)
+	api.Post("/upload-proof", uploadLimiter, handlers.UploadImage)
 
 	// Auth routes
-	api.Post("/auth/register", handlers.Register)
-	api.Post("/auth/login", handlers.Login)
+	api.Post("/auth/register", authLimiter, handlers.Register)
+	api.Post("/auth/login", authLimiter, handlers.Login)
 	api.Post("/auth/logout", handlers.Logout)
-	api.Post("/auth/forgot-password", handlers.ForgotPassword)
-	api.Post("/auth/reset-password", handlers.ResetPassword)
+	api.Post("/auth/forgot-password", authLimiter, handlers.ForgotPassword)
+	api.Post("/auth/reset-password", authLimiter, handlers.ResetPassword)
 	api.Get("/auth/me", middleware.Protected(), handlers.GetMe)
 	api.Put("/auth/password", middleware.Protected(), handlers.ChangePassword)
 	api.Put("/auth/profile", middleware.Protected(), handlers.UpdateProfile)
@@ -30,7 +58,10 @@ func Setup(app *fiber.App) {
 	api.Get("/news", handlers.GetNews)
 	api.Get("/news/featured", handlers.GetFeaturedNews)
 	api.Get("/news/trending", handlers.GetTrendingNews)
+	api.Get("/news/popular", handlers.GetPopularNews)
+	api.Get("/news/by-categories", handlers.GetNewsByCategories)
 	api.Get("/news/slug/:slug", handlers.GetNewsBySlug)
+	api.Get("/news/category/:category", handlers.GetNews)
 	api.Get("/news/:id", handlers.GetNewsById)
 	api.Get("/categories", handlers.GetAllCategories)
 	api.Post("/categories", middleware.Protected(), middleware.AdminOnly(), handlers.CreateCategory)
@@ -40,6 +71,13 @@ func Setup(app *fiber.App) {
 	api.Post("/news", middleware.Protected(), middleware.AdminOnly(), handlers.CreateNews)
 	api.Put("/news/:id", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateNews)
 	api.Delete("/news/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteNews)
+
+	// Banner / Poster routes
+	api.Get("/banners", handlers.GetActiveBanners)
+	api.Get("/admin/banners", middleware.Protected(), middleware.AdminOnly(), handlers.GetAllBanners)
+	api.Post("/admin/banners", middleware.Protected(), middleware.AdminOnly(), handlers.CreateBanner)
+	api.Put("/admin/banners/:id/toggle", middleware.Protected(), middleware.AdminOnly(), handlers.ToggleBannerStatus)
+	api.Delete("/admin/banners/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteBanner)
 
 	// Comment routes
 	api.Get("/comments", middleware.Protected(), middleware.AdminOnly(), handlers.GetComments)
@@ -51,10 +89,39 @@ func Setup(app *fiber.App) {
 	// User dashboard routes
 	api.Get("/user/history", middleware.Protected(), handlers.GetReadingHistory)
 	api.Post("/user/history", middleware.Protected(), handlers.AddReadingHistory)
+	api.Delete("/user/history/:id", middleware.Protected(), handlers.DeleteReadingHistoryItem)
+	api.Delete("/user/history", middleware.Protected(), handlers.ClearReadingHistory)
+
 	api.Get("/user/bookmarks", middleware.Protected(), handlers.GetBookmarks)
 	api.Post("/user/bookmarks", middleware.Protected(), handlers.ToggleBookmark)
 	api.Get("/user/bookmarks/:news_id", middleware.Protected(), handlers.CheckBookmark)
+
 	api.Get("/user/notifications", middleware.Protected(), handlers.GetNotifications)
 	api.Post("/user/notifications/read-all", middleware.Protected(), handlers.ReadAllNotifications)
 	api.Post("/user/notifications/:id/read", middleware.Protected(), handlers.ReadNotification)
+	api.Delete("/user/notifications/:id", middleware.Protected(), handlers.DeleteNotification)
+	api.Delete("/user/notifications", middleware.Protected(), handlers.ClearAllNotifications)
+
+	// User Tickets
+	api.Get("/user/tickets", middleware.Protected(), handlers.GetUserTickets)
+
+	// Event routes (Public)
+	api.Get("/events", handlers.GetEvents)
+	api.Get("/events/slug/:slug", handlers.GetEventBySlug)
+	api.Get("/events/:id", handlers.GetEventById)
+	api.Post("/events/:id/register", handlers.RegisterEvent)
+
+	// Bank Account routes
+	api.Get("/bank-accounts", handlers.GetBankAccounts)
+
+	// Admin Event & Registration routes
+	api.Post("/admin/events", middleware.Protected(), middleware.AdminOnly(), handlers.CreateEvent)
+	api.Put("/admin/events/:id", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateEvent)
+	api.Delete("/admin/events/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteEvent)
+
+	api.Get("/admin/registrations", middleware.Protected(), middleware.AdminOnly(), handlers.GetAdminRegistrations)
+	api.Put("/admin/registrations/:id/status", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateRegistrationStatus)
+
+	api.Post("/admin/bank-accounts", middleware.Protected(), middleware.AdminOnly(), handlers.CreateBankAccount)
+	api.Delete("/admin/bank-accounts/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteBankAccount)
 }

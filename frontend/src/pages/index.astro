@@ -1,198 +1,592 @@
 ---
+// src/pages/index.astro — Editorial Layout Ramai ala EduTech.id
 import Layout from "../layouts/Layout.astro";
 import Navbar from "../components/Navbar.astro";
-import NewsTicker from "../components/NewsTicker.astro";
-import HeroBanner from "../components/HeroBanner.astro";
-import FeaturedNews from "../components/FeaturedNews.astro";
-import TrendingNews from "../components/TrendingNews.astro";
-import LatestNewsGrid from "../components/LatestNewsGrid.astro";
 import Footer from "../components/Footer.astro";
 
 const API_BASE = "http://localhost:3000/api";
 
-// Fetch all data in parallel
-let allNews = [];
-let featuredNews = [];
-let trendingNews = [];
+// Fetch data paralel dari backend Go
+let allNews: any[] = [];
+let featuredNews: any[] = [];
+let trendingNews: any[] = [];
+let popularNews: any[] = [];
+let eventsList: any[] = [];
 
 try {
-  const [allRes, featuredRes, trendingRes] = await Promise.all([
-    fetch(`${API_BASE}/news?limit=12`),
-    fetch(`${API_BASE}/news/featured?limit=5`),
-    fetch(`${API_BASE}/news/trending?limit=5`),
+  const [allRes, featuredRes, trendingRes, popularRes, eventsRes] = await Promise.all([
+    fetch(`${API_BASE}/news?limit=30`).catch(() => null),
+    fetch(`${API_BASE}/news/featured?limit=5`).catch(() => null),
+    fetch(`${API_BASE}/news/trending?limit=6`).catch(() => null),
+    fetch(`${API_BASE}/news/popular?limit=8&days=30`).catch(() => null),
+    fetch(`${API_BASE}/events`).catch(() => null),
   ]);
 
-  if (allRes.ok) allNews = await allRes.json();
-  if (featuredRes.ok) featuredNews = await featuredRes.json();
-  if (trendingRes.ok) trendingNews = await trendingRes.json();
+  if (allRes && allRes.ok) allNews = await allRes.json();
+  if (featuredRes && featuredRes.ok) featuredNews = await featuredRes.json();
+  if (trendingRes && trendingRes.ok) trendingNews = await trendingRes.json();
+  if (popularRes && popularRes.ok) popularNews = await popularRes.json();
+  if (eventsRes && eventsRes.ok) eventsList = await eventsRes.json();
 } catch (err) {
-  console.error("Failed to fetch from API:", err);
+  console.error("Failed to fetch from API in index.astro:", err);
 }
 
-// Latest news = all news excluding featured and trending
-const featuredIds = new Set([...featuredNews.map((a: any) => a.ID || a.id), ...trendingNews.map((a: any) => a.ID || a.id)]);
-const latestNews = allNews.filter((a: any) => !featuredIds.has(a.ID || a.id));
+// Helper kalkulasi waktu baca
+function calculateReadTime(text: string): string {
+  if (!text) return "3 menit baca";
+  const words = text.trim().split(/\s+/).length;
+  const minutes = Math.max(1, Math.ceil(words / 180));
+  return `${minutes} menit baca`;
+}
 
-// Normalize function (to handle Go Fiber JSON payload formats like uppercase 'ID' or 'CreatedAt')
+// Helper format tanggal Indonesia
+function formatDateIndo(dateStr: string): string {
+  if (!dateStr) return "Terbaru";
+  const d = new Date(dateStr);
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+  }).format(d);
+}
+
+// Helper format waktu lalu (e.g. 2 jam lalu)
+function timeAgo(dateStr: string): string {
+  if (!dateStr) return "Baru saja";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffHours = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60));
+  if (diffHours <= 0) return "Baru saja";
+  if (diffHours < 24) return `${diffHours} jam lalu`;
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays < 7) return `${diffDays} hari lalu`;
+  return formatDateIndo(dateStr);
+}
+
+// Normalize artikel agar seragam
 function normalize(article: any) {
+  if (!article) return null;
+  const content = article.content || article.Content || article.excerpt || "";
+  const rawImg = article.imageUrl || article.image_url || article.ImageURL || "";
+  const fullImg = rawImg.startsWith("http")
+    ? rawImg
+    : rawImg
+    ? `http://localhost:3000${rawImg}`
+    : "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=700&q=80";
+
   return {
-    id: article.ID || article.id,
-    title: article.title,
-    slug: article.slug,
-    excerpt: article.excerpt,
-    imageUrl: article.imageUrl || article.image_url,
-    category: article.category,
-    author: article.author,
-    viewCount: article.viewCount || article.view_count,
-    createdAt: article.CreatedAt || article.createdAt || article.created_at,
+    id: article.ID || article.id || 0,
+    title: article.title || "Berita EduTech",
+    slug: article.slug || "",
+    excerpt: article.excerpt || article.Excerpt || (content.length > 130 ? content.substring(0, 130) + "..." : content),
+    imageUrl: fullImg,
+    category: article.category || article.Category || "Pendidikan",
+    author: article.author || article.Author || "Tim Redaksi",
+    viewCount: article.viewCount ?? article.view_count ?? article.ViewCount ?? 120,
+    createdAt: article.CreatedAt || article.createdAt || article.created_at || new Date().toISOString(),
+    readTime: calculateReadTime(content),
   };
 }
 
-const normalizedFeatured = featuredNews.map(normalize);
-const normalizedTrending = trendingNews.map(normalize);
-const normalizedLatest = latestNews.length > 0
-  ? latestNews.map(normalize)
-  : allNews.slice(0, 8).map(normalize);
+const listAll = (Array.isArray(allNews) ? allNews : []).map(normalize).filter(Boolean);
+const listFeatured = (Array.isArray(featuredNews) && featuredNews.length > 0 ? featuredNews : listAll.slice(0, 5)).map(normalize).filter(Boolean);
+const listTrending = (Array.isArray(trendingNews) && trendingNews.length > 0 ? trendingNews : listAll.slice(5, 10)).map(normalize).filter(Boolean);
+const listPopular = (Array.isArray(popularNews) && popularNews.length > 0 ? popularNews : listTrending).map(normalize).filter(Boolean);
 
-// Ticker items
-const tickerItems = allNews.slice(0, 6).map((a: any) => ({
-  title: a.title,
-  slug: a.slug,
-}));
+// Hero items
+const heroMain = listFeatured[0] || listAll[0] || {
+  title: "Seniko 2026: Memperkuat Resiliensi Smart City terhadap Ancaman Cyber Warfare",
+  slug: "seniko-2026-resiliensi-smart-city",
+  excerpt: "Kolaborasi akademisi dan praktisi menjadi kunci membangun ekosistem kota cerdas yang aman dan berkelanjutan.",
+  imageUrl: "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=1400&q=85",
+  category: "Teknologi",
+  author: "Redaksi EduTech",
+  createdAt: new Date().toISOString(),
+  readTime: "6 menit baca",
+};
+
+const heroSide1 = listFeatured[1] || listAll[1] || {
+  title: "Universitas Perluas Kolaborasi Internasional dan Program Riset",
+  slug: "universitas-perluas-kolaborasi-riset",
+  imageUrl: "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=700&q=80",
+  category: "Kampus",
+  createdAt: new Date().toISOString(),
+  readTime: "4 menit baca",
+};
+
+const heroSide2 = listFeatured[2] || listAll[2] || {
+  title: "Inovasi Laboratorium Kampus Siap Menjawab Tantangan Industri",
+  slug: "inovasi-laboratorium-kampus-industri",
+  imageUrl: "https://images.unsplash.com/photo-1532094349884-543bc11b234d?auto=format&fit=crop&w=700&q=80",
+  category: "Riset",
+  createdAt: new Date().toISOString(),
+  readTime: "3 menit baca",
+};
+
+// Berita Terbaru (1 Feature + 4 Compact)
+const latestFeature = listAll.find((a: any) => a.id !== heroMain.id && a.id !== heroSide1.id && a.id !== heroSide2.id) || listAll[3] || heroMain;
+const latestCompact = listAll.filter((a: any) => a.id !== heroMain.id && a.id !== heroSide1.id && a.id !== heroSide2.id && a.id !== latestFeature.id).slice(0, 4);
+
+// Riset & Inovasi (3 items)
+const risetArticles = listAll.filter((a: any) => a.category?.toLowerCase() === "riset" || a.category?.toLowerCase() === "teknologi").slice(0, 3);
+const displayRiset = risetArticles.length >= 3 ? risetArticles : listAll.slice(6, 9);
+
+// Event data
+const sampleEvents = [
+  {
+    day: "28",
+    month: "OKT",
+    type: "SEMINAR NASIONAL",
+    title: "Smart City & Cyber Security Forum 2026",
+    location: "Hybrid · Purwokerto & Online",
+    slug: "smart-city-cyber-security-forum-2026",
+    link: "/event"
+  },
+  {
+    day: "04",
+    month: "NOV",
+    type: "CALL FOR PAPERS",
+    title: "Konferensi Nasional Informatika dan Sistem Informasi (KNISI)",
+    location: "Online · Batas abstrak 4 November 2026",
+    slug: "konferensi-nasional-informatika-2026",
+    link: "/event"
+  },
+  {
+    day: "12",
+    month: "NOV",
+    type: "WEBINAR",
+    title: "AI untuk Pembelajaran dan Riset Masa Depan",
+    location: "Online · Gratis dengan registrasi e-sertifikat",
+    slug: "ai-untuk-pembelajaran-riset-masa-depan",
+    link: "/event"
+  }
+];
+
+const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? eventsList.slice(0, 3).map((e: any) => {
+  const d = e.event_date ? new Date(e.event_date) : new Date();
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = new Intl.DateTimeFormat("id-ID", { month: "short" }).format(d).toUpperCase();
+  return {
+    day,
+    month,
+    type: e.is_free ? "WEBINAR GRATIS" : "EVENT UNGGULAN",
+    title: e.title || "Agenda EduTech",
+    location: e.location || (e.is_online ? "Online via Zoom" : "Kampus Terpadu"),
+    slug: e.slug || "",
+    link: `/event/${e.slug || ''}`
+  };
+}) : sampleEvents;
 ---
 
 <Layout
-  title="EduTech News Portal — Berita Pendidikan & Teknologi Terkini"
-  description="Portal berita terdepan untuk informasi seputar pendidikan, teknologi, riset, dan karir akademik Indonesia."
+  title="EduTech.id — Portal Berita Pendidikan, Teknologi & Riset Terkini"
+  description="Portal editorial terdepan untuk informasi seputar pendidikan, teknologi, riset ilmiah, dan agenda akademik Indonesia."
 >
   <Navbar />
-  <NewsTicker articles={tickerItems} />
 
-  <main id="main-content">
-    <!-- Hero Section -->
-    <div class="container section-hero">
-      <HeroBanner />
-    </div>
+  <main class="container page-layout">
+    <!-- ASIDE LEFT: AD RAIL / SPONSOR & CALL FOR PAPERS -->
+    <aside class="ad-rail left-rail" aria-label="Iklan dan Agenda">
+      <div class="vertical-ad ad-purple">
+        <span>CALL FOR PAPERS</span>
+        <strong>Jurnal APJIKOM</strong>
+        <p>Publikasikan karya ilmiah dan riset terbaik Anda di indeks terakreditasi.</p>
+        <a href="/event" style="color:inherit;"><b>SUBMIT NOW ↗</b></a>
+      </div>
+      <div class="vertical-ad ad-blue">
+        <span>SEMINAR NASIONAL</span>
+        <strong>SENIKO 2026</strong>
+        <p>AI • Smart City • Cyber Security • Digital Transformation</p>
+        <a href="/event" style="color:inherit;"><b>DAFTAR SEKARANG</b></a>
+      </div>
+      <div class="vertical-ad ad-violet">
+        <span>CALL FOR PAPERS</span>
+        <strong>Riset & Inovasi</strong>
+        <p>Kesempatan publikasi jurnal nasional dan internasional bereputasi.</p>
+        <a href="/kategori/riset" style="color:inherit;"><b>PELAJARI ↗</b></a>
+      </div>
+    </aside>
 
-    <!-- Featured + Trending (2-column layout) -->
-    <div class="container section-main">
-      <div class="main-layout">
-        <!-- Left: Featured News -->
-        <div class="col-featured">
-          <FeaturedNews featured={normalizedFeatured} />
+    <!-- CENTER: MAIN EDITORIAL CONTENT COLUMN -->
+    <div class="content-column">
+      <!-- BREAKING NEWS TICKER BAR -->
+      <div class="breaking-bar">
+        <span class="breaking-label"><i></i> BREAKING NEWS</span>
+        <div class="ticker-window">
+          <div class="ticker-track" id="tickerTrack">
+            {listAll.slice(0, 6).map((item: any) => (
+              <a href={`/berita/${item.slug}`}>{item.title}</a>
+            ))}
+          </div>
+        </div>
+        <span class="ticker-date">UPDATE TERKINI</span>
+      </div>
+
+      <!-- HERO GRID SECTION -->
+      <section class="hero-grid" aria-label="Berita Utama">
+        <article class="hero-main story searchable" data-category={heroMain.category?.toLowerCase()}>
+          <img src={heroMain.imageUrl} alt={heroMain.title} loading="eager" />
+          <div class="hero-shade"></div>
+          <div class="hero-content">
+            <span class="category-pill cyan">{heroMain.category || 'TEKNOLOGI'}</span>
+            <h1><a href={`/berita/${heroMain.slug}`}>{heroMain.title}</a></h1>
+            <p>{heroMain.excerpt}</p>
+            <div class="story-meta">
+              <span>◉ {heroMain.author}</span>
+              <span>{formatDateIndo(heroMain.createdAt)}</span>
+              <span>{heroMain.readTime}</span>
+            </div>
+          </div>
+          <span class="hero-number">01 <small>/ BERITA UTAMA</small></span>
+        </article>
+
+        <div class="hero-side">
+          <article class="side-feature story searchable" data-category={heroSide1.category?.toLowerCase()}>
+            <img src={heroSide1.imageUrl} alt={heroSide1.title} loading="lazy" />
+            <div class="side-overlay"></div>
+            <div class="side-copy">
+              <span class="category-pill orange">{heroSide1.category || 'KAMPUS'}</span>
+              <h3><a href={`/berita/${heroSide1.slug}`}>{heroSide1.title}</a></h3>
+              <span class="small-meta">{timeAgo(heroSide1.createdAt)} · {heroSide1.readTime}</span>
+            </div>
+          </article>
+
+          <article class="side-feature story searchable" data-category={heroSide2.category?.toLowerCase()}>
+            <img src={heroSide2.imageUrl} alt={heroSide2.title} loading="lazy" />
+            <div class="side-overlay"></div>
+            <div class="side-copy">
+              <span class="category-pill green">{heroSide2.category || 'RISET'}</span>
+              <h3><a href={`/berita/${heroSide2.slug}`}>{heroSide2.title}</a></h3>
+              <span class="small-meta">{timeAgo(heroSide2.createdAt)} · {heroSide2.readTime}</span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ADVERTISEMENT BANNER STRIP -->
+      <div class="ad-banner">
+        <span class="ad-label">ADVERTISEMENT</span>
+        <div class="ad-banner-art">
+          <div>
+            <small>CALL FOR PAPERS & PUBLIKASI</small>
+            <strong>Jurnal APJIKOM 2026</strong>
+            <p>Teknologi Informasi • Sains Data • Sistem Cerdas • Rekayasa Perangkat Lunak</p>
+          </div>
+          <a href="/event" style="color:inherit;">
+            <b>SUBMIT<br />YOUR PAPER ↗</b>
+          </a>
+        </div>
+      </div>
+
+      <!-- BERITA TERBARU SECTION -->
+      <section class="news-section" id="nasional">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">UPDATE PILIHAN</span>
+            <h2>Berita Terbaru</h2>
+          </div>
+          <a href="/kategori/pendidikan">Lihat semua <b>↗</b></a>
         </div>
 
-        <!-- Right: Trending Sidebar -->
-        <aside class="col-trending">
-          <TrendingNews trending={normalizedTrending} />
-        </aside>
+        <div class="latest-layout">
+          <!-- Featured Latest Big Card (Left) -->
+          {latestFeature && (
+            <div class="latest-feature story searchable" data-category={latestFeature.category?.toLowerCase()}>
+              <a class="image-wrap" href={`/berita/${latestFeature.slug}`}>
+                <img src={latestFeature.imageUrl} alt={latestFeature.title} loading="lazy" />
+                <span class="image-tag">{latestFeature.category}</span>
+              </a>
+              <div class="latest-feature-copy">
+                <span class="story-date">{latestFeature.category?.toUpperCase()} <i>•</i> {formatDateIndo(latestFeature.createdAt).toUpperCase()}</span>
+                <h3><a href={`/berita/${latestFeature.slug}`}>{latestFeature.title}</a></h3>
+                <p>{latestFeature.excerpt}</p>
+                <div class="byline">
+                  <span class="avatar">ET</span>
+                  <span>Oleh <b>{latestFeature.author}</b><small>{latestFeature.readTime}</small></span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <!-- Compact List (Right) -->
+          <div class="latest-list">
+            {latestCompact.map((story: any) => (
+              <article class="compact-story story searchable" data-category={story.category?.toLowerCase()}>
+                <img src={story.imageUrl} alt={story.title} loading="lazy" />
+                <div>
+                  <span class="story-date">{story.category?.toUpperCase()} · {timeAgo(story.createdAt).toUpperCase()}</span>
+                  <h3><a href={`/berita/${story.slug}`}>{story.title}</a></h3>
+                  <span class="read-count">◷ {story.readTime}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <!-- TOPIK PILIHAN STRIP -->
+      <section class="topic-strip" id="kampus">
+        <div class="topic-title">
+          <span class="eyebrow">JELAJAHI</span>
+          <h2>Topik Pilihan</h2>
+          <p>Ikuti isu dan perkembangan paling relevan di dunia pendidikan & teknologi.</p>
+        </div>
+        <div class="topic-cards">
+          <a href="/kategori/kampus" class="topic-card topic-campus">
+            <span>01 / AKADEMIK</span>
+            <strong>Kabar Kampus</strong>
+            <b>↗</b>
+          </a>
+          <a href="/kategori/teknologi" class="topic-card topic-tech">
+            <span>02 / DIGITAL</span>
+            <strong>Teknologi & AI</strong>
+            <b>↗</b>
+          </a>
+          <a href="/kategori/riset" class="topic-card topic-research">
+            <span>03 / INOVASI</span>
+            <strong>Riset & Sains</strong>
+            <b>↗</b>
+          </a>
+        </div>
+      </section>
+
+      <!-- POPULER MINGGU INI (TRACK SCROLL) -->
+      <section class="news-section" id="teknologi">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">PILIHAN REDAKSI</span>
+            <h2>Populer Minggu Ini</h2>
+          </div>
+          <div class="section-arrows">
+            <button id="popularPrev" aria-label="Sebelumnya">←</button>
+            <button id="popularNext" aria-label="Berikutnya">→</button>
+          </div>
+        </div>
+
+        <div class="popular-track" id="popularTrack">
+          {listPopular.slice(0, 6).map((pop: any, idx: number) => (
+            <article class="popular-card story searchable" data-category={pop.category?.toLowerCase()}>
+              <div class="popular-image">
+                <img src={pop.imageUrl} alt={pop.title} loading="lazy" />
+                <span>0{idx + 1}</span>
+              </div>
+              <div class="popular-copy">
+                <span class="story-date">{pop.category?.toUpperCase()}</span>
+                <h3><a href={`/berita/${pop.slug}`}>{pop.title}</a></h3>
+                <div class="popular-meta">
+                  {formatDateIndo(pop.createdAt)} <span>•</span> {pop.viewCount} dibaca
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <!-- RISET & INOVASI (3 VISUAL CARDS) -->
+      <section class="news-section" id="riset">
+        <div class="section-heading">
+          <div>
+            <span class="eyebrow">LEBIH DEKAT</span>
+            <h2>Riset & Inovasi</h2>
+          </div>
+          <a href="/kategori/riset">Semua riset <b>↗</b></a>
+        </div>
+
+        <div class="three-news-grid">
+          {displayRiset.map((item: any) => (
+            <article class="visual-card story searchable" data-category={item.category?.toLowerCase()}>
+              <a href={`/berita/${item.slug}`} class="visual-image">
+                <img src={item.imageUrl} alt={item.title} loading="lazy" />
+                <span>{item.category?.toUpperCase()}</span>
+              </a>
+              <div class="visual-copy">
+                <span class="story-date">{formatDateIndo(item.createdAt).toUpperCase()} · {item.readTime.toUpperCase()}</span>
+                <h3><a href={`/berita/${item.slug}`}>{item.title}</a></h3>
+                <p>{item.excerpt}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <!-- AGENDA & EVENT SECTION -->
+      <section class="event-section" id="event">
+        <div class="event-heading">
+          <div>
+            <span class="eyebrow">JANGAN LEWATKAN</span>
+            <h2>Agenda & Event</h2>
+            <p>Konferensi, webinar, lokakarya, dan kegiatan akademik mendatang.</p>
+          </div>
+          <a href="/event">Lihat semua event ↗</a>
+        </div>
+
+        <div class="event-list">
+          {displayEvents.map((evt: any) => (
+            <article class="event-item">
+              <div class="event-date">
+                <strong>{evt.day}</strong>
+                <span>{evt.month}</span>
+              </div>
+              <div class="event-info">
+                <span class="event-type">{evt.type}</span>
+                <h3>{evt.title}</h3>
+                <p>{evt.location}</p>
+              </div>
+              <a href={evt.link} class="event-link">Detail ↗</a>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <!-- CALL FOR PAPERS BANNER BOX -->
+      <section class="callpapers" id="jurnal">
+        <div class="callpapers-glow"></div>
+        <div class="callpapers-copy">
+          <span class="category-pill orange">PUBLIKASI ILMIAH</span>
+          <span class="eyebrow">CALL FOR PAPERS 2026</span>
+          <h2>Punya riset yang layak dibaca dunia?</h2>
+          <p>
+            Kirimkan karya ilmiah terbaik Anda ke jurnal dan forum akademik terakreditasi. Temukan ruang untuk berbagi gagasan dan membangun kolaborasi riset berdampak.
+          </p>
+          <a href="/event" class="primary-btn">
+            Jelajahi Publikasi <span>↗</span>
+          </a>
+        </div>
+        <div class="callpapers-art">
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <div class="paper-card">
+            <span>JOURNAL</span>
+            <strong>APJIKOM</strong>
+            <i>Research • Technology • Innovation</i>
+            <b>2026</b>
+          </div>
+          <div class="floating-chip chip-one">✦ Peer Reviewed</div>
+          <div class="floating-chip chip-two">↗ Open for Submission</div>
+        </div>
+      </section>
+
+      <!-- NEWSLETTER SECTION -->
+      <section class="newsletter" id="newsletter">
+        <div>
+          <span class="eyebrow">NEWSLETTER EDUTECH</span>
+          <h2>Berita penting, langsung ke inbox.</h2>
+          <p>Ringkasan berita pendidikan dan teknologi pilihan redaksi setiap pagi, tanpa spam.</p>
+        </div>
+        <form id="newsletterForm">
+          <label class="sr-only" for="emailInput">Alamat email</label>
+          <input id="emailInput" type="email" placeholder="Alamat email Anda" required />
+          <button type="submit">Berlangganan <span>↗</span></button>
+          <small id="newsletterMessage">Dengan berlangganan, Anda menyetujui kebijakan privasi kami.</small>
+        </form>
+      </section>
+
+      <div class="no-results" id="noResults" hidden>
+        <strong>Berita tidak ditemukan.</strong>
+        <span>Coba gunakan kata kunci atau kategori yang berbeda.</span>
       </div>
     </div>
 
-    <!-- Latest News Grid -->
-    <div class="container section-latest">
-      <LatestNewsGrid articles={normalizedLatest} />
-    </div>
-
-    <!-- Category Quick Links -->
-    <div class="container section-categories">
-      <div class="section-header">
-        <h2>Jelajahi Kategori</h2>
-        <div class="section-line"></div>
+    <!-- ASIDE RIGHT: RIGHT RAIL (TRENDING, ADS & MINI NEWSLETTER) -->
+    <aside class="ad-rail right-rail" aria-label="Iklan dan trending">
+      <div class="vertical-ad ad-orange">
+        <span>EDUTECH UPDATE</span>
+        <strong>Call For Papers</strong>
+        <p>Jadilah bagian dari kemajuan sains dan transformasi digital.</p>
+        <a href="/event" style="color:inherit;"><b>KIRIM ARTIKEL ↗</b></a>
       </div>
-      <div class="category-pills">
-        {["Teknologi", "Pendidikan", "Kampus", "Event", "Riset", "Loker", "Video", "Artikel"].map((cat) => (
-          <a href={`/kategori/${cat.toLowerCase()}`} class="category-pill">
-            {cat}
+
+      <div class="trending-box">
+        <div class="rail-heading">
+          <span class="live-dot"></span>
+          <h3>Trending</h3>
+        </div>
+        {listTrending.slice(0, 5).map((tr: any, idx: number) => (
+          <a href={`/berita/${tr.slug}`} class="trending-item">
+            <b>0{idx + 1}</b>
+            <span>{tr.title}</span>
           </a>
         ))}
       </div>
-    </div>
+
+      <div class="vertical-ad ad-blue">
+        <span>SEMINAR NASIONAL</span>
+        <strong>SENIKO 2026</strong>
+        <p>Smart City • AI • Cyber Security</p>
+        <a href="/event" style="color:inherit;"><b>DAFTAR SEKARANG</b></a>
+      </div>
+
+      <div class="mini-newsletter">
+        <span class="eyebrow">UPDATE HARIAN</span>
+        <h3>Jangan ketinggalan kabar terbaru.</h3>
+        <a href="#newsletter">Gabung newsletter ↗</a>
+      </div>
+    </aside>
   </main>
 
   <Footer />
+
+  <!-- Toast Notification Container -->
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <!-- Back to Top Button -->
+  <button class="back-top" id="backTop" aria-label="Kembali ke atas">↑</button>
 </Layout>
 
-<style>
-  main {
-    min-height: 100vh;
-    padding-bottom: var(--space-8);
+<script is:inline>
+  // Popular track horizontal scrolling
+  const popularTrack = document.getElementById("popularTrack");
+  const popularPrev = document.getElementById("popularPrev");
+  const popularNext = document.getElementById("popularNext");
+
+  if (popularTrack && popularPrev && popularNext) {
+    popularPrev.addEventListener("click", () => {
+      popularTrack.scrollBy({ left: -popularTrack.clientWidth * 0.75, behavior: "smooth" });
+    });
+    popularNext.addEventListener("click", () => {
+      popularTrack.scrollBy({ left: popularTrack.clientWidth * 0.75, behavior: "smooth" });
+    });
   }
 
-  .section-hero {
-    padding-top: var(--space-5);
-    padding-bottom: 0;
+  // Toast helper
+  const toast = document.getElementById("toast");
+  let toastTimer;
+  function showToast(msg) {
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
   }
 
-  .section-main {
-    padding-top: var(--space-6);
+  // Newsletter submission simulation
+  const newsletterForm = document.getElementById("newsletterForm");
+  const emailInput = document.getElementById("emailInput");
+  const newsletterMsg = document.getElementById("newsletterMessage");
+
+  if (newsletterForm && emailInput) {
+    newsletterForm.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const val = emailInput.value.trim();
+      if (!val) return;
+      if (newsletterMsg) {
+        newsletterMsg.textContent = "Terima kasih! Email Anda telah terdaftar.";
+        newsletterMsg.style.color = "#0da4a2";
+      }
+      emailInput.value = "";
+      showToast("Terima kasih sudah berlangganan newsletter!");
+    });
   }
 
-  .main-layout {
-    display: grid;
-    grid-template-columns: 1fr 320px;
-    gap: var(--space-6);
-    align-items: start;
-  }
+  // Back to Top button
+  const backTop = document.getElementById("backTop");
+  if (backTop) {
+    window.addEventListener("scroll", () => {
+      backTop.classList.toggle("visible", window.scrollY > 400);
+    }, { passive: true });
 
-  .col-featured {
-    min-width: 0;
+    backTop.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
   }
-
-  .col-trending {
-    position: sticky;
-    top: calc(var(--navbar-height) + var(--space-4));
-  }
-
-  .section-latest {
-    padding-top: var(--space-6);
-  }
-
-  .section-categories {
-    margin-top: var(--space-10);
-  }
-
-  .category-pills {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-3);
-    margin-top: var(--space-4);
-  }
-
-  .category-pill {
-    padding: var(--space-2) var(--space-5);
-    border: 1px solid var(--color-border-light);
-    border-radius: var(--radius-full);
-    font-size: var(--text-sm);
-    font-weight: 600;
-    color: var(--color-text-secondary);
-    transition: all var(--transition-fast);
-    background: var(--color-bg-card);
-  }
-
-  .category-pill:hover {
-    background: var(--color-accent);
-    border-color: var(--color-accent);
-    color: white;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
-  }
-
-  @media (max-width: 1024px) {
-    .main-layout {
-      grid-template-columns: 1fr;
-    }
-
-    .col-trending {
-      position: static;
-    }
-  }
-
-  @media (max-width: 768px) {
-    .section-hero,
-    .section-main,
-    .section-latest {
-      padding-top: var(--space-4);
-    }
-  }
-</style>
+</script>

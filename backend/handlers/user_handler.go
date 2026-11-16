@@ -18,18 +18,14 @@ func getUserID(c *fiber.Ctx) uint {
 func GetReadingHistory(c *fiber.Ctx) error {
 	userID := getUserID(c)
 
-	var histories []models.ReadingHistory
-	database.DB.Where("user_id = ?", userID).Order("read_at desc").Limit(20).Find(&histories)
-
-	// Populate virtual fields
-	for i, h := range histories {
-		var article models.Article
-		if err := database.DB.Select("title", "slug", "image_url").First(&article, h.NewsID).Error; err == nil {
-			histories[i].NewsTitle = article.Title
-			histories[i].NewsSlug = article.Slug
-			histories[i].NewsImage = article.ImageURL
-		}
-	}
+	histories := make([]models.ReadingHistory, 0)
+	database.DB.Table("reading_histories").
+		Select("reading_histories.*, articles.title as news_title, articles.slug as news_slug, articles.image_url as news_image").
+		Joins("LEFT JOIN articles ON reading_histories.news_id = articles.id").
+		Where("reading_histories.user_id = ? AND reading_histories.deleted_at IS NULL", userID).
+		Order("reading_histories.read_at desc").
+		Limit(30).
+		Scan(&histories)
 
 	return c.JSON(histories)
 }
@@ -67,17 +63,13 @@ func AddReadingHistory(c *fiber.Ctx) error {
 func GetBookmarks(c *fiber.Ctx) error {
 	userID := getUserID(c)
 
-	var bookmarks []models.Bookmark
-	database.DB.Where("user_id = ?", userID).Order("created_at desc").Find(&bookmarks)
-
-	for i, b := range bookmarks {
-		var article models.Article
-		if err := database.DB.Select("title", "slug", "image_url").First(&article, b.NewsID).Error; err == nil {
-			bookmarks[i].NewsTitle = article.Title
-			bookmarks[i].NewsSlug = article.Slug
-			bookmarks[i].NewsImage = article.ImageURL
-		}
-	}
+	bookmarks := make([]models.Bookmark, 0)
+	database.DB.Table("bookmarks").
+		Select("bookmarks.*, articles.title as news_title, articles.slug as news_slug, articles.image_url as news_image").
+		Joins("LEFT JOIN articles ON bookmarks.news_id = articles.id").
+		Where("bookmarks.user_id = ? AND bookmarks.deleted_at IS NULL", userID).
+		Order("bookmarks.created_at desc").
+		Scan(&bookmarks)
 
 	return c.JSON(bookmarks)
 }
@@ -126,18 +118,42 @@ func CheckBookmark(c *fiber.Ctx) error {
 func GetNotifications(c *fiber.Ctx) error {
 	userID := getUserID(c)
 
-	var notifs []models.Notification
-	database.DB.Where("user_id = ?", userID).Order("created_at desc").Find(&notifs)
+	notifs := make([]models.Notification, 0)
+	database.DB.Table("notifications").
+		Select("notifications.*, users.name as sender_name, users.avatar as sender_avatar").
+		Joins("LEFT JOIN users ON notifications.sender_id = users.id").
+		Where("notifications.user_id = ? AND notifications.deleted_at IS NULL", userID).
+		Order("notifications.created_at desc").
+		Scan(&notifs)
 
-	for i, n := range notifs {
-		var sender models.User
-		if err := database.DB.Select("name", "avatar").First(&sender, n.SenderID).Error; err == nil {
-			notifs[i].SenderName = sender.Name
-			notifs[i].SenderAvatar = sender.Avatar
+	for i := range notifs {
+		if notifs[i].Type == "system" || notifs[i].SenderID == 0 {
+			notifs[i].SenderName = "Sistem EduTech"
 		}
 	}
 
 	return c.JSON(notifs)
+}
+
+// DeleteReadingHistoryItem — DELETE /api/user/history/:id
+func DeleteReadingHistoryItem(c *fiber.Ctx) error {
+	userID := getUserID(c)
+	id := c.Params("id")
+
+	var history models.ReadingHistory
+	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&history).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Riwayat tidak ditemukan"})
+	}
+
+	database.DB.Delete(&history)
+	return c.JSON(fiber.Map{"success": true, "message": "Riwayat berhasil dihapus"})
+}
+
+// ClearReadingHistory — DELETE /api/user/history
+func ClearReadingHistory(c *fiber.Ctx) error {
+	userID := getUserID(c)
+	database.DB.Where("user_id = ?", userID).Delete(&models.ReadingHistory{})
+	return c.JSON(fiber.Map{"success": true, "message": "Semua riwayat baca berhasil dibersihkan"})
 }
 
 // ReadNotification — POST /api/user/notifications/:id/read
@@ -162,3 +178,38 @@ func ReadAllNotifications(c *fiber.Ctx) error {
 	database.DB.Model(&models.Notification{}).Where("user_id = ? AND is_read = ?", userID, false).Update("is_read", true)
 	return c.JSON(fiber.Map{"success": true})
 }
+
+// DeleteNotification — DELETE /api/user/notifications/:id
+func DeleteNotification(c *fiber.Ctx) error {
+	userID := getUserID(c)
+	id := c.Params("id")
+
+	var notif models.Notification
+	if err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&notif).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Notifikasi tidak ditemukan"})
+	}
+
+	database.DB.Delete(&notif)
+	return c.JSON(fiber.Map{"success": true, "message": "Notifikasi berhasil dihapus"})
+}
+
+// ClearAllNotifications — DELETE /api/user/notifications
+func ClearAllNotifications(c *fiber.Ctx) error {
+	userID := getUserID(c)
+	database.DB.Where("user_id = ?", userID).Delete(&models.Notification{})
+	return c.JSON(fiber.Map{"success": true, "message": "Semua notifikasi berhasil dibersihkan"})
+}
+
+// Helper to create system notification
+func CreateSystemNotification(userID uint, message string, linkSlug string) error {
+	notif := models.Notification{
+		UserID:   userID,
+		SenderID: 0,
+		Type:     "system",
+		Message:  message,
+		NewsSlug: linkSlug,
+		IsRead:   false,
+	}
+	return database.DB.Create(&notif).Error
+}
+

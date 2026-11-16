@@ -1,0 +1,859 @@
+---
+// src/pages/event/index.astro — Katalog Event, Webinar & Workshop EduTech
+import Layout from "../../layouts/Layout.astro";
+import Navbar from "../../components/Navbar.astro";
+import Footer from "../../components/Footer.astro";
+import { API_BASE } from "../../lib/config";
+
+let events: any[] = [];
+let errorMsg = "";
+
+try {
+  const res = await fetch(`${API_BASE}/events?status=all`);
+  if (res.ok) {
+    const data = await res.json();
+    events = data.data || [];
+  } else {
+    errorMsg = "Gagal memuat daftar acara dari server.";
+  }
+} catch (err: any) {
+  errorMsg = "Koneksi ke backend belum tersedia.";
+}
+
+// Fallback sample data if empty to ensure rich display
+if (events.length === 0 && !errorMsg) {
+  events = [
+    {
+      id: 1,
+      title: "Workshop AI & Future Education: Transformasi Pembelajaran Digital",
+      slug: "workshop-ai-future-education-transformasi-digital",
+      description: "Pelajari implementasi praktis teknologi kecerdasan buatan (AI) terkini dalam pendidikan tinggi dan sekolah menengah.",
+      venue: "Zoom Meeting & Live YouTube",
+      startTime: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+      endTime: new Date(Date.now() + 7 * 24 * 3600 * 1000 + 3 * 3600 * 1000).toISOString(),
+      quota: 150,
+      price: 0,
+      premiumPrice: 50000,
+      imageUrl: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80",
+      status: "published",
+      speakers: [
+        { name: "Dr. Nurul Hidayat, M.Kom.", role: "Pakar AI & Dosen Unsoed" },
+        { name: "Ir. Ahmad Fauzi, S.T.", role: "Head of Tech EduTech" }
+      ]
+    }
+  ];
+}
+
+const totalEvents = events.length;
+const upcomingEvents = events.filter((e) => new Date(e.startTime || e.start_time) > new Date()).length;
+const freeEvents = events.filter((e) => (e.price === 0 && !e.premiumPrice)).length;
+---
+
+<Layout
+  title="Agenda, Webinar & Workshop — EduTech Portal"
+  description="Ikuti webinar, workshop, dan seminar nasional terkini seputar teknologi pendidikan, kurikulum digital, dan kecerdasan buatan."
+>
+  <Navbar />
+
+  <!-- Hero Header -->
+  <header class="event-hero">
+    <div class="container event-hero-inner">
+      <div class="hero-badge">
+        <span class="pulse-dot"></span>
+        <span>Amania EduTech Event Management</span>
+      </div>
+      <h1 class="hero-title">Agenda, Webinar & <span class="text-gradient">Workshop Nasional</span></h1>
+      <p class="hero-desc">
+        Tingkatkan wawasan akademis dan kompetensi digital bersama para narasumber terkemuka, praktisi industri, dan akademisi Indonesia.
+      </p>
+
+      <!-- Stats Bar -->
+      <div class="hero-stats">
+        <div class="stat-box">
+          <span class="stat-num">{totalEvents}</span>
+          <span class="stat-label">Total Acara</span>
+        </div>
+        <div class="stat-sep"></div>
+        <div class="stat-box">
+          <span class="stat-num">{upcomingEvents}</span>
+          <span class="stat-label">Mendatang</span>
+        </div>
+        <div class="stat-sep"></div>
+        <div class="stat-box">
+          <span class="stat-num">E-Sertifikat</span>
+          <span class="stat-label">& Rekaman Materi</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="container event-main">
+    <!-- Filter & Search Bar -->
+    <div class="filter-bar">
+      <div class="filter-pills" id="filter-pills">
+        <button class="pill active" data-filter="all">Semua ({totalEvents})</button>
+        <button class="pill" data-filter="upcoming">Mendatang ({upcomingEvents})</button>
+        <button class="pill" data-filter="free">Gratis</button>
+        <button class="pill" data-filter="premium">Freemium / Premium</button>
+        <button class="pill" data-filter="past">Selesai</button>
+      </div>
+
+      <div class="search-wrap">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="event-search" placeholder="Cari judul event atau pemateri..." />
+      </div>
+    </div>
+
+    <!-- Event Grid -->
+    <div class="event-grid" id="event-grid">
+      {events.map((event) => {
+        const start = new Date(event.startTime || event.start_time);
+        const end = new Date(event.endTime || event.end_time);
+        const isPast = end < new Date();
+        const isFree = (event.price === 0 || !event.price) && !event.premiumPrice;
+        const isFreemium = event.price === 0 && event.premiumPrice > 0;
+        
+        const dateFormatted = start.toLocaleDateString("id-ID", {
+          weekday: "long",
+          day: "numeric",
+          month: "long",
+          year: "numeric"
+        });
+        const timeFormatted = `${start.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB`;
+
+        return (
+          <article
+            class="event-card"
+            data-status={isPast ? "past" : "upcoming"}
+            data-tier={isFree ? "free" : "premium"}
+            data-start={start.toISOString()}
+            data-title={event.title.toLowerCase()}
+          >
+            <!-- Card Image & Overlay -->
+            <div class="card-media">
+              <img
+                src={event.imageUrl || event.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80"}
+                alt={event.title}
+                loading="lazy"
+              />
+              <div class="media-overlay"></div>
+
+              <!-- Price & Status Badges -->
+              <div class="media-badges">
+                {isFree ? (
+                  <span class="badge badge-free">GRATIS</span>
+                ) : isFreemium ? (
+                  <span class="badge badge-freemium">GRATIS + PREMIUM</span>
+                ) : (
+                  <span class="badge badge-paid">Rp {Number(event.price).toLocaleString("id-ID")}</span>
+                )}
+
+                {isPast ? (
+                  <span class="badge badge-past">SELESAI</span>
+                ) : (
+                  <span class="badge badge-upcoming">MENDATANG</span>
+                )}
+              </div>
+
+              <!-- Live Countdown Banner -->
+              {!isPast && (
+                <div class="countdown-strip" data-target={start.toISOString()}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  <span class="countdown-text">Menghitung...</span>
+                </div>
+              )}
+            </div>
+
+            <!-- Card Body -->
+            <div class="card-content">
+              <!-- Schedule & Venue -->
+              <div class="card-schedule">
+                <div class="schedule-item">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                  <span>{dateFormatted}</span>
+                </div>
+                <div class="schedule-item venue">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                  </svg>
+                  <span class="venue-text">{event.venue}</span>
+                </div>
+              </div>
+
+              <!-- Title -->
+              <h2 class="card-title">
+                <a href={`/event/${event.slug}`}>{event.title}</a>
+              </h2>
+
+              <p class="card-excerpt">{event.description ? event.description.substring(0, 110) + '...' : ''}</p>
+
+              <!-- Speakers Section -->
+              {event.speakers && event.speakers.length > 0 && (
+                <div class="card-speakers">
+                  <span class="speakers-label">Pemateri:</span>
+                  <div class="speakers-list">
+                    {event.speakers.slice(0, 2).map((sp: any) => (
+                      <div class="speaker-chip" title={`${sp.name} - ${sp.role || ''}`}>
+                        <div class="speaker-avatar">
+                          {sp.photo ? (
+                            <img src={sp.photo} alt={sp.name} />
+                          ) : (
+                            <span>{sp.name.charAt(0)}</span>
+                          )}
+                        </div>
+                        <span class="speaker-name">{sp.name}</span>
+                      </div>
+                    ))}
+                    {event.speakers.length > 2 && (
+                      <span class="more-speaker">+{event.speakers.length - 2}</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              <!-- Quota Indicator & Action -->
+              <div class="card-footer">
+                <div class="quota-info">
+                  <div class="quota-text">
+                    <span>Kuota Peserta</span>
+                    <strong>{event.quota > 0 ? `${event.quota} Kursi` : 'Terbuka'}</strong>
+                  </div>
+                  {event.quota > 0 && (
+                    <div class="quota-bar">
+                      <div class="quota-fill" style="width: 45%;"></div>
+                    </div>
+                  )}
+                </div>
+
+                <a href={`/event/${event.slug}`} class="btn-detail">
+                  <span>Daftar / Detail</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                    <polyline points="12 5 19 12 12 19"></polyline>
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state" id="empty-state" style="display: none;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+      </svg>
+      <h3>Tidak ada event ditemukan</h3>
+      <p>Coba gunakan kata kunci pencarian lain atau pilih filter yang berbeda.</p>
+    </div>
+  </main>
+
+  <Footer />
+
+  <!-- Client-side Interactive Filtering & Countdown -->
+  <script is:inline>
+    // Live Countdown Timer
+    function updateCountdowns() {
+      const strips = document.querySelectorAll('.countdown-strip');
+      const now = new Date().getTime();
+
+      strips.forEach((strip) => {
+        const targetStr = strip.getAttribute('data-target');
+        if (!targetStr) return;
+        const target = new Date(targetStr).getTime();
+        const diff = target - now;
+        const textEl = strip.querySelector('.countdown-text');
+
+        if (diff <= 0) {
+          textEl.textContent = 'Sedang Berlangsung';
+          strip.classList.add('live');
+        } else {
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+          if (days > 0) {
+            textEl.textContent = `Mulai dlm ${days}h ${hours}j ${minutes}m`;
+          } else {
+            textEl.textContent = `Mulai dlm ${hours}j ${minutes}m ${seconds}s`;
+          }
+        }
+      });
+    }
+
+    setInterval(updateCountdowns, 1000);
+    updateCountdowns();
+
+    // Client Search and Filter
+    const pills = document.querySelectorAll('.filter-pills .pill');
+    const searchInput = document.getElementById('event-search');
+    const cards = document.querySelectorAll('.event-card');
+    const emptyState = document.getElementById('empty-state');
+
+    let currentFilter = 'all';
+    let searchQuery = '';
+
+    function applyFilters() {
+      let visibleCount = 0;
+
+      cards.forEach((card) => {
+        const status = card.getAttribute('data-status');
+        const tier = card.getAttribute('data-tier');
+        const title = card.getAttribute('data-title') || '';
+
+        let matchesFilter = true;
+        if (currentFilter === 'upcoming') matchesFilter = (status === 'upcoming');
+        else if (currentFilter === 'past') matchesFilter = (status === 'past');
+        else if (currentFilter === 'free') matchesFilter = (tier === 'free');
+        else if (currentFilter === 'premium') matchesFilter = (tier === 'premium');
+
+        const matchesSearch = !searchQuery || title.includes(searchQuery.toLowerCase());
+
+        if (matchesFilter && matchesSearch) {
+          card.style.display = 'flex';
+          visibleCount++;
+        } else {
+          card.style.display = 'none';
+        }
+      });
+
+      if (emptyState) {
+        emptyState.style.display = visibleCount === 0 ? 'flex' : 'none';
+      }
+    }
+
+    pills.forEach((pill) => {
+      pill.addEventListener('click', () => {
+        pills.forEach((p) => p.classList.remove('active'));
+        pill.classList.add('active');
+        currentFilter = pill.getAttribute('data-filter') || 'all';
+        applyFilters();
+      });
+    });
+
+    if (searchInput) {
+      searchInput.addEventListener('input', (e) => {
+        searchQuery = e.target.value.trim();
+        applyFilters();
+      });
+    }
+  </script>
+</Layout>
+
+<style>
+  /* Hero Section */
+  .event-hero {
+    background: linear-gradient(180deg, rgba(230, 57, 70, 0.08) 0%, rgba(17, 17, 17, 0) 100%);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-12) 0 var(--space-8);
+    text-align: center;
+  }
+
+  .event-hero-inner {
+    max-width: 820px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 6px 14px;
+    background: var(--color-accent-light);
+    border: 1px solid rgba(230, 57, 70, 0.3);
+    border-radius: 999px;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--color-accent);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--color-accent);
+    border-radius: 50%;
+    animation: pulse 1.8s infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(230, 57, 70, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(230, 57, 70, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(230, 57, 70, 0); }
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .text-gradient {
+    background: linear-gradient(135deg, #e63946 0%, #ff758f 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-desc {
+    font-size: var(--text-md);
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    margin: 0;
+    max-width: 650px;
+  }
+
+  .hero-stats {
+    display: flex;
+    align-items: center;
+    gap: var(--space-6);
+    margin-top: var(--space-4);
+    padding: var(--space-3) var(--space-6);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+  }
+
+  .stat-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+
+  .stat-num {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    color: var(--color-text-primary);
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .stat-sep {
+    width: 1px;
+    height: 28px;
+    background: var(--color-border);
+  }
+
+  /* Main & Filters */
+  .event-main {
+    padding: var(--space-8) 0 var(--space-12);
+  }
+
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-bottom: var(--space-8);
+    flex-wrap: wrap;
+  }
+
+  .filter-pills {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .pill {
+    padding: 8px 16px;
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .pill:hover,
+  .pill.active {
+    background: var(--color-accent);
+    color: #ffffff;
+    border-color: var(--color-accent);
+  }
+
+  .search-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 8px 16px;
+    width: 100%;
+    max-width: 320px;
+    color: var(--color-text-muted);
+  }
+
+  .search-wrap input {
+    background: transparent;
+    border: none;
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    outline: none;
+    width: 100%;
+  }
+
+  /* Event Grid */
+  .event-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: var(--space-6);
+  }
+
+  .event-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  }
+
+  .event-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35);
+    border-color: rgba(230, 57, 70, 0.4);
+  }
+
+  /* Card Media */
+  .card-media {
+    position: relative;
+    height: 190px;
+    overflow: hidden;
+    background: var(--color-surface);
+  }
+
+  .card-media img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+  }
+
+  .event-card:hover .card-media img {
+    transform: scale(1.05);
+  }
+
+  .media-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.7) 100%);
+  }
+
+  .media-badges {
+    position: absolute;
+    top: var(--space-3);
+    left: var(--space-3);
+    right: var(--space-3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 2;
+  }
+
+  .badge {
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  .badge-free {
+    background: #2dc653;
+    color: #ffffff;
+  }
+
+  .badge-freemium {
+    background: #4895ef;
+    color: #ffffff;
+  }
+
+  .badge-paid {
+    background: #f4c430;
+    color: #111111;
+  }
+
+  .badge-upcoming {
+    background: rgba(0, 0, 0, 0.6);
+    color: #ffffff;
+    backdrop-filter: blur(4px);
+  }
+
+  .badge-past {
+    background: rgba(112, 112, 112, 0.7);
+    color: #ffffff;
+  }
+
+  .countdown-strip {
+    position: absolute;
+    bottom: var(--space-3);
+    left: var(--space-3);
+    right: var(--space-3);
+    background: rgba(17, 17, 17, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    padding: 6px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #f4c430;
+    font-size: 12px;
+    font-weight: 700;
+    z-index: 2;
+  }
+
+  .countdown-strip.live {
+    background: rgba(230, 57, 70, 0.9);
+    color: #ffffff;
+    border-color: #e63946;
+  }
+
+  /* Card Content */
+  .card-content {
+    padding: var(--space-5);
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    gap: var(--space-3);
+  }
+
+  .card-schedule {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: var(--color-text-secondary);
+  }
+
+  .schedule-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .schedule-item.venue {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  .card-title {
+    font-size: var(--text-md);
+    font-weight: 700;
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  .card-title a {
+    color: var(--color-text-primary);
+    text-decoration: none;
+    transition: color 0.2s ease;
+  }
+
+  .card-title a:hover {
+    color: var(--color-accent);
+  }
+
+  .card-excerpt {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* Speakers */
+  .card-speakers {
+    margin-top: auto;
+    padding-top: var(--space-3);
+    border-top: 1px dashed var(--color-border);
+  }
+
+  .speakers-label {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+
+  .speakers-list {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .speaker-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--color-surface);
+    padding: 3px 8px 3px 4px;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+  }
+
+  .speaker-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--color-accent);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+  }
+
+  .speaker-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .speaker-name {
+    font-size: 11px;
+    color: var(--color-text-primary);
+    font-weight: 500;
+    white-space: nowrap;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .more-speaker {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-weight: 600;
+  }
+
+  /* Card Footer */
+  .card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-top: var(--space-3);
+    border-top: 1px solid var(--color-border);
+  }
+
+  .quota-info {
+    flex: 1;
+  }
+
+  .quota-text {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--color-text-muted);
+    margin-bottom: 4px;
+  }
+
+  .quota-text strong {
+    color: var(--color-text-primary);
+  }
+
+  .quota-bar {
+    height: 4px;
+    background: var(--color-surface);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .quota-fill {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 999px;
+  }
+
+  .btn-detail {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: var(--color-accent);
+    color: #ffffff;
+    border-radius: 8px;
+    font-size: var(--text-xs);
+    font-weight: 700;
+    text-decoration: none;
+    transition: background 0.2s ease, transform 0.2s ease;
+    white-space: nowrap;
+  }
+
+  .btn-detail:hover {
+    background: var(--color-accent-hover);
+    transform: translateX(2px);
+  }
+
+  /* Empty State */
+  .empty-state {
+    padding: var(--space-12) var(--space-4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-2);
+    color: var(--color-text-muted);
+  }
+
+  .empty-state h3 {
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  @media (max-width: 768px) {
+    .filter-bar {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .search-wrap {
+      max-width: 100%;
+    }
+    .hero-stats {
+      width: 100%;
+      justify-content: space-around;
+    }
+  }
+</style>

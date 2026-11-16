@@ -1,0 +1,317 @@
+---
+// PopularPost.astro — Trending post dengan nomor urut dan progress bar
+// Terinspirasi dari full-trending-overlay.php (widget fto) edutechid.com
+// Menampilkan 6 artikel populer berdasarkan viewCount dengan nomor 01-06
+
+export interface Article {
+  id: number;
+  title: string;
+  slug: string;
+  imageUrl?: string;
+  author?: string;
+  viewCount?: number;
+  createdAt?: string;
+  category?: string;
+}
+
+export interface Props {
+  articles?: Article[];
+  title?: string;
+}
+
+const { articles = [], title = "Trending Post" } = Astro.props;
+
+function timeAgo(dateStr: string): string {
+  if (!dateStr) return "Baru saja";
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diff = now.getTime() - date.getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  if (days === 0) return "Hari ini";
+  if (days < 7) return `${days} hari lalu`;
+  if (days < 30) return `${Math.floor(days / 7)} minggu lalu`;
+  return `${Math.floor(days / 30)} bulan lalu`;
+}
+
+const maxViews = articles.reduce((max, a) => Math.max(max, a.viewCount || 0), 1);
+const fallbackImg = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80";
+---
+
+<section class="popular-section" aria-labelledby="popular-heading">
+  <div class="popular-header">
+    <h2 id="popular-heading" class="popular-title">
+      <span class="popular-title-bar"></span>
+      {title}
+    </h2>
+    <span class="popular-badge">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>
+      30 hari terakhir
+    </span>
+  </div>
+
+  {articles.length === 0 ? (
+    <p class="popular-empty">Belum ada data trending.</p>
+  ) : (
+    <div class="popular-list">
+      {articles.slice(0, 6).map((article, index) => {
+        const num = index < 9 ? `0${index + 1}` : `${index + 1}`;
+        const barWidth = maxViews > 0 ? Math.round((article.viewCount || 0) / maxViews * 100) : 0;
+        return (
+          <a href={`/berita/${article.slug}`} class="popular-item">
+            <div class="popular-thumb">
+              <img
+                src={article.imageUrl || fallbackImg}
+                alt=""
+                loading="lazy"
+                aria-hidden="true"
+                onerror={`this.onerror=null;this.src='${fallbackImg}';`}
+              />
+            </div>
+            <div class="popular-content">
+              <div class="popular-inner">
+                <div class="popular-number">
+                  <span>{num}</span>
+                </div>
+                <div class="popular-post">
+                  <div class="popular-meta">
+                    <span class="popular-time">{timeAgo(article.createdAt || '')}</span>
+                  </div>
+                  <p class="popular-item-title">{article.title}</p>
+                  <div class="popular-item-meta">
+                    <span class="popular-views">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                      {(article.viewCount || 0).toLocaleString('id-ID')}
+                    </span>
+                    <span class="popular-author">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                      {article.author || 'Redaksi'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <!-- Progress bar seperti bar_1 - bar_6 di beritaxx -->
+              <div class="popular-bar-wrap">
+                <div class="popular-bar" style={`width: ${barWidth}%`}></div>
+              </div>
+            </div>
+          </a>
+        );
+      })}
+    </div>
+  )}
+</section>
+
+<style>
+  .popular-section {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+
+  /* Header */
+  .popular-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
+  }
+
+  .popular-title {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin: 0;
+    letter-spacing: -0.2px;
+  }
+
+  .popular-title-bar {
+    display: inline-block;
+    width: 4px;
+    height: 18px;
+    background: var(--color-accent);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .popular-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    background: var(--color-surface);
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--color-border);
+  }
+
+  .popular-badge svg {
+    width: 12px;
+    height: 12px;
+    opacity: 0.7;
+  }
+
+  .popular-empty {
+    padding: var(--space-8);
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+    margin: 0;
+  }
+
+  /* List */
+  .popular-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Item */
+  .popular-item {
+    display: flex;
+    gap: 0;
+    text-decoration: none;
+    transition: background var(--transition-fast);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .popular-item:last-child {
+    border-bottom: none;
+  }
+
+  .popular-item:hover {
+    background: var(--color-bg-hover);
+  }
+
+  /* Thumbnail */
+  .popular-thumb {
+    flex-shrink: 0;
+    width: 80px;
+    height: 76px;
+    overflow: hidden;
+    background: var(--color-surface);
+  }
+
+  .popular-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform var(--transition-slow);
+  }
+
+  .popular-item:hover .popular-thumb img {
+    transform: scale(1.08);
+  }
+
+  /* Content */
+  .popular-content {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .popular-inner {
+    display: flex;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+    flex: 1;
+  }
+
+  /* Number (seperti fto_number) */
+  .popular-number {
+    flex-shrink: 0;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--color-border-light);
+    line-height: 1;
+    min-width: 28px;
+    text-align: right;
+  }
+
+  .popular-item:nth-child(1) .popular-number { color: var(--color-accent); }
+  .popular-item:nth-child(2) .popular-number { color: #e76f51; }
+  .popular-item:nth-child(3) .popular-number { color: var(--color-gold, #f4a261); }
+
+  /* Post content */
+  .popular-post {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .popular-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+  }
+
+  .popular-time {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-weight: 500;
+  }
+
+  .popular-item-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 0;
+    transition: color var(--transition-fast);
+  }
+
+  .popular-item:hover .popular-item-title {
+    color: var(--color-accent);
+  }
+
+  .popular-item-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    flex-wrap: wrap;
+  }
+
+  .popular-views,
+  .popular-author {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+  }
+
+  .popular-views svg,
+  .popular-author svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  /* Progress bar (seperti bar_1 - bar_6 di beritaxx) */
+  .popular-bar-wrap {
+    height: 2px;
+    background: var(--color-border);
+    margin: 0 var(--space-3);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+
+  .popular-bar {
+    height: 100%;
+    background: linear-gradient(to right, var(--color-accent), #e76f51);
+    border-radius: 1px;
+    transition: width 0.6s ease;
+  }
+</style>

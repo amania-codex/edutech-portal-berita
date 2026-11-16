@@ -96,7 +96,12 @@ const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loke
                   <td class="td-news">
                     <div class="td-news-inner">
                       {article.imageUrl ? (
-                        <img src={article.imageUrl} alt={article.title} class="td-thumb" />
+                        <img
+                          src={article.imageUrl}
+                          alt={article.title}
+                          class="td-thumb"
+                          onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=400&q=80';"
+                        />
                       ) : (
                         <div class="td-thumb td-thumb-placeholder">📰</div>
                       )}

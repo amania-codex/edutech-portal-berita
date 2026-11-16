@@ -1,13 +1,22 @@
 ﻿package handlers
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
-// SentimentAnalysis â€” Port dari TypeScript sentimentAnalysis.ts
-// MVC: Business logic / utility layer
+// SentimentAnalysis — Business logic / sentiment & toxic comment filter
+// Uses regex word boundaries to prevent substring false-positives.
+
+var flaggedWords = []string{
+	"anjing", "babi", "bangsat", "goblok", "idiot", "bodoh sekali", "kafir", "laknat",
+	"bunuh", "hancur", "serang", "kebencian", "rasis", "diskriminasi",
+	"fuck", "shit", "asshole", "bastard", "bitch",
+}
 
 var positiveWords = []string{
 	"bagus", "baik", "hebat", "mantap", "keren", "luar biasa", "terima kasih", "sip", "setuju",
-	"benar", "tepat", "informatif", "bermanfaat", "sangat", "senang", "puas", "suka", "bangga",
+	"benar", "tepat", "informatif", "bermanfaat", "senang", "puas", "suka", "bangga",
 	"inspiratif", "menarik", "berguna", "terbaik", "sempurna", "lanjutkan", "terimakasih",
 	"memuaskan", "berkualitas", "profesional", "recommended", "wow", "amazing", "good", "great",
 	"excellent", "helpful", "informative", "best", "love", "useful",
@@ -21,11 +30,7 @@ var negativeWords = []string{
 	"bad", "terrible", "awful", "wrong", "fake", "useless", "worst",
 }
 
-var flaggedWords = []string{
-	"anjing", "babi", "bangsat", "goblok", "idiot", "bodoh sekali", "kafir", "laknat",
-	"bunuh", "mati", "hancur", "serang", "kebencian", "rasis", "diskriminasi",
-	"fuck", "shit", "ass", "bastard", "hate", "kill",
-}
+var negations = []string{"tidak", "bukan", "kurang", "jangan", "tak", "gak", "nggak"}
 
 type SentimentResult struct {
 	Sentiment string  `json:"sentiment"`
@@ -33,27 +38,51 @@ type SentimentResult struct {
 	IsFlagged bool    `json:"is_flagged"`
 }
 
+func buildWordPattern(words []string) *regexp.Regexp {
+	var escaped []string
+	for _, w := range words {
+		escaped = append(escaped, regexp.QuoteMeta(w))
+	}
+	return regexp.MustCompile(`(?i)\b(` + strings.Join(escaped, "|") + `)\b`)
+}
+
+var (
+	flaggedRegex  = buildWordPattern(flaggedWords)
+	positiveRegex = buildWordPattern(positiveWords)
+	negativeRegex = buildWordPattern(negativeWords)
+	negationRegex = buildWordPattern(negations)
+)
+
 func AnalyzeSentiment(text string) SentimentResult {
 	lower := strings.ToLower(text)
 
+	// Check flagged inappropriate words
+	isFlagged := flaggedRegex.MatchString(lower)
+
+	// Tokenize words
+	words := strings.Fields(regexp.MustCompile(`[^\w\s]`).ReplaceAllString(lower, " "))
+
 	positiveScore := 0
 	negativeScore := 0
-	isFlagged := false
 
-	for _, w := range flaggedWords {
-		if strings.Contains(lower, w) {
-			isFlagged = true
-			break
+	for i, w := range words {
+		isNegated := false
+		if i > 0 && negationRegex.MatchString(words[i-1]) {
+			isNegated = true
 		}
-	}
-	for _, w := range positiveWords {
-		if strings.Contains(lower, w) {
-			positiveScore++
-		}
-	}
-	for _, w := range negativeWords {
-		if strings.Contains(lower, w) {
-			negativeScore++
+
+		if positiveRegex.MatchString(w) {
+			if isNegated {
+				negativeScore++ // e.g. "tidak bagus" -> negative
+			} else {
+				positiveScore++
+			}
+		} else if negativeRegex.MatchString(w) {
+			if isNegated {
+				positiveScore++ // e.g. "tidak buruk" -> positive
+			} else {
+				negativeScore++
+			}
 		}
 	}
 

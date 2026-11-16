@@ -1,0 +1,1460 @@
+---
+// src/pages/event/[slug].astro — Halaman Detail Event & Registrasi Peserta
+import Layout from "../../layouts/Layout.astro";
+import Navbar from "../../components/Navbar.astro";
+import Footer from "../../components/Footer.astro";
+import { API_BASE, BACKEND_URL } from "../../lib/config";
+import { getSessionFromRequest } from "../../lib/session";
+
+const { slug } = Astro.params;
+const session = await getSessionFromRequest(Astro.request);
+
+let event: any = null;
+let registeredCount = 0;
+let isQuotaFull = false;
+
+try {
+  const res = await fetch(`${API_BASE}/events/slug/${slug}`);
+  if (res.ok) {
+    const data = await res.json();
+    event = data.data;
+    registeredCount = data.registered_count || 0;
+    isQuotaFull = data.is_quota_full || false;
+  }
+} catch (err) {
+  console.error("Failed to fetch event detail:", err);
+}
+
+// Fallback if not found / backend offline
+if (!event) {
+  if (slug === "workshop-ai-future-education-transformasi-digital") {
+    event = {
+      id: 1,
+      title: "Workshop AI & Future Education: Transformasi Pembelajaran Digital",
+      slug: "workshop-ai-future-education-transformasi-digital",
+      description: `Perkembangan pesat teknologi Kecerdasan Buatan (Artificial Intelligence / Generative AI) telah merevolusi metode pembelajaran, riset ilmiah, dan manajemen institusi pendidikan tinggi maupun sekolah.\n\nDalam workshop interaktif ini, Anda akan mempelajari:\n1. Implementasi Generative AI dalam perencanaan materi ajar dan silabus modern.\n2. Otomatisasi evaluasi pembelajaran serta etika penggunaan AI bagi mahasiswa dan akademisi.\n3. Studi kasus integrasi AI dalam penelitian dan penyusunan publikasi ilmiah terindeks.\n4. Praktik hands-on penggunaan prompt engineering untuk efisiensi riset.\n\nWorkshop ini dirancang bagi Dosen, Guru, Peneliti, Mahasiswa Pascasarjana, dan Praktisi Pendidikan yang ingin mengadopsi teknologi AI secara bertanggung jawab dan berdaya guna tinggi.`,
+      venue: "Zoom Meeting & Live Streaming YouTube",
+      startTime: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
+      endTime: new Date(Date.now() + 7 * 24 * 3600 * 1000 + 3 * 3600 * 1000).toISOString(),
+      quota: 150,
+      price: 0,
+      premiumPrice: 50000,
+      certificateLink: "https://edutech.id/certificates/ai-future-education",
+      imageUrl: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80",
+      status: "published",
+      speakers: [
+        {
+          name: "Dr. Nurul Hidayat, M.Kom.",
+          role: "Pakar Kecerdasan Buatan & Dosen Universitas Jenderal Soedirman",
+          photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80"
+        },
+        {
+          name: "Ir. Ahmad Fauzi, S.T., M.T.",
+          role: "Head of Technology Edutech ID",
+          photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80"
+        }
+      ],
+      materials: [
+        {
+          title: "Slide Presentasi Pengenalan AI dalam Kurikulum",
+          type: "file",
+          link: "https://example.com/slides-ai-education.pdf"
+        }
+      ],
+      bankAccounts: [
+        {
+          bankName: "BCA",
+          accountNumber: "12424124",
+          accountHolder: "PT Edutech",
+          logo: "https://upload.wikimedia.org/wikipedia/commons/5/5c/Bank_Central_Asia.svg"
+        }
+      ]
+    };
+  } else {
+    return Astro.redirect("/event");
+  }
+}
+
+const start = new Date(event.startTime || event.start_time);
+const end = new Date(event.endTime || event.end_time);
+const isPast = end < new Date();
+const isFree = (event.price === 0 || !event.price) && !event.premiumPrice;
+const hasPremium = event.premiumPrice && event.premiumPrice > 0;
+
+const dateFormatted = start.toLocaleDateString("id-ID", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric"
+});
+const timeFormatted = `${start.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB`;
+
+// Sisa kuota
+const remainingQuota = event.quota > 0 ? Math.max(0, event.quota - registeredCount) : 999;
+const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount / event.quota) * 100)) : 0;
+---
+
+<Layout
+  title={`${event.title} — Agenda & Workshop EduTech`}
+  description={event.description ? event.description.substring(0, 150) : event.title}
+  image={event.imageUrl}
+>
+  <Navbar />
+
+  <!-- Breadcrumb -->
+  <div class="breadcrumb-bar">
+    <div class="container breadcrumb-inner">
+      <a href="/" class="bc-link">Beranda</a>
+      <span class="bc-sep">/</span>
+      <a href="/event" class="bc-link">Event & Webinar</a>
+      <span class="bc-sep">/</span>
+      <span class="bc-current">{event.title}</span>
+    </div>
+  </div>
+
+  <main class="container event-detail-container">
+    <!-- Top Hero Banner Section -->
+    <header class="detail-header">
+      <div class="header-badges">
+        {isFree ? (
+          <span class="badge badge-free">GRATIS</span>
+        ) : hasPremium ? (
+          <span class="badge badge-freemium">GRATIS & PREMIUM</span>
+        ) : (
+          <span class="badge badge-paid">Rp {Number(event.price).toLocaleString("id-ID")}</span>
+        )}
+        <span class={`badge ${isPast ? 'badge-past' : 'badge-status'}`}>
+          {isPast ? 'ACARA SELESAI' : 'MENDATANG'}
+        </span>
+        <span class="badge badge-venue">
+          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+            <circle cx="12" cy="10" r="3"></circle>
+          </svg>
+          {event.venue}
+        </span>
+      </div>
+
+      <h1 class="event-title">{event.title}</h1>
+
+      <!-- Countdown Widget -->
+      {!isPast && (
+        <div class="hero-countdown" id="hero-countdown" data-target={start.toISOString()}>
+          <div class="cd-title">
+            <span class="live-dot"></span>
+            <span>Waktu Menuju Pelaksanaan Acara:</span>
+          </div>
+          <div class="cd-boxes">
+            <div class="cd-box"><span class="cd-num" id="cd-days">00</span><span class="cd-lbl">Hari</span></div>
+            <div class="cd-colon">:</div>
+            <div class="cd-box"><span class="cd-num" id="cd-hours">00</span><span class="cd-lbl">Jam</span></div>
+            <div class="cd-colon">:</div>
+            <div class="cd-box"><span class="cd-num" id="cd-minutes">00</span><span class="cd-lbl">Menit</span></div>
+            <div class="cd-colon">:</div>
+            <div class="cd-box"><span class="cd-num" id="cd-seconds">00</span><span class="cd-lbl">Detik</span></div>
+          </div>
+        </div>
+      )}
+    </header>
+
+    <!-- 2 Column Layout -->
+    <div class="detail-layout">
+      <!-- Left Content (68%) -->
+      <div class="detail-main">
+        <!-- Event Poster Image -->
+        <div class="event-poster">
+          <img
+            src={event.imageUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80"}
+            alt={event.title}
+          />
+        </div>
+
+        <!-- Schedule & Location Info Card -->
+        <section class="info-card">
+          <div class="info-grid">
+            <div class="info-item">
+              <div class="info-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+              </div>
+              <div class="info-text">
+                <span class="info-label">Hari & Tanggal</span>
+                <span class="info-val">{dateFormatted}</span>
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div class="info-text">
+                <span class="info-label">Waktu Pelaksanaan</span>
+                <span class="info-val">{timeFormatted}</span>
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                  <circle cx="12" cy="10" r="3"></circle>
+                </svg>
+              </div>
+              <div class="info-text">
+                <span class="info-label">Tempat / Platform</span>
+                <span class="info-val">{event.venue}</span>
+              </div>
+            </div>
+
+            <div class="info-item">
+              <div class="info-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </div>
+              <div class="info-text">
+                <span class="info-label">Kapasitas Peserta</span>
+                <span class="info-val">{event.quota > 0 ? `${event.quota} Orang` : 'Terbuka'}</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Description Section -->
+        <section class="content-section">
+          <h2 class="section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+              <line x1="16" y1="13" x2="8" y2="13"></line>
+              <line x1="16" y1="17" x2="8" y2="17"></line>
+              <polyline points="10 9 9 9 8 9"></polyline>
+            </svg>
+            Deskripsi & Silabus Acara
+          </h2>
+          <div class="description-body">
+            {event.description.split("\n").map((para: string) => (
+              para.trim() ? <p>{para}</p> : <br />
+            ))}
+          </div>
+        </section>
+
+        <!-- Speakers Section -->
+        {event.speakers && event.speakers.length > 0 && (
+          <section class="content-section">
+            <h2 class="section-title">
+              <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              Narasumber & Pembicara
+            </h2>
+            <div class="speakers-grid">
+              {event.speakers.map((sp: any) => (
+                <div class="speaker-card">
+                  <div class="sp-avatar-wrap">
+                    {sp.photo ? (
+                      <img src={sp.photo} alt={sp.name} />
+                    ) : (
+                      <div class="sp-placeholder">{sp.name.charAt(0)}</div>
+                    )}
+                  </div>
+                  <div class="sp-details">
+                    <h3 class="sp-name">{sp.name}</h3>
+                    <p class="sp-role">{sp.role || "Narasumber Ahli"}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <!-- Facilities & Benefits -->
+        <section class="content-section">
+          <h2 class="section-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            Fasilitas & Keuntungan Peserta
+          </h2>
+          <div class="benefit-grid">
+            <div class="benefit-item">
+              <div class="benefit-icon">🏆</div>
+              <div class="benefit-text">
+                <h4>E-Sertifikat Resmi</h4>
+                <p>Sertifikat ber-SKP/bernomor resmi yang dapat diverifikasi online.</p>
+              </div>
+            </div>
+            <div class="benefit-item">
+              <div class="benefit-icon">📑</div>
+              <div class="benefit-text">
+                <h4>Materi Slide Lengkap</h4>
+                <p>Dokumen paparan materi presentasi pemateri dalam format PDF.</p>
+              </div>
+            </div>
+            <div class="benefit-item">
+              <div class="benefit-icon">🎥</div>
+              <div class="benefit-text">
+                <h4>Rekaman Video Acara</h4>
+                <p>Dapat diputar ulang kapan saja untuk belajar mandiri.</p>
+              </div>
+            </div>
+            <div class="benefit-item">
+              <div class="benefit-icon">💬</div>
+              <div class="benefit-text">
+                <h4>Sesi Q&A & Diskusi</h4>
+                <p>Tanya jawab langsung interaktif bersama para pakar terkemuka.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Right Column: Registration Card (Sticky) -->
+      <aside class="detail-sidebar">
+        <div class="register-card" id="register-box">
+          <div class="reg-header">
+            <span class="reg-label">Pendaftaran Peserta</span>
+            <div class="price-display">
+              {isFree ? (
+                <span class="free-text">GRATIS</span>
+              ) : hasPremium ? (
+                <div>
+                  <span class="free-pill">Tersedia Opsi Gratis</span>
+                  <div class="premium-price">Premium: <strong>Rp {Number(event.premiumPrice).toLocaleString("id-ID")}</strong></div>
+                </div>
+              ) : (
+                <span class="paid-price">Rp {Number(event.price).toLocaleString("id-ID")}</span>
+              )}
+            </div>
+          </div>
+
+          <!-- Quota Info -->
+          {event.quota > 0 && (
+            <div class="reg-quota">
+              <div class="quota-labels">
+                <span>Status Kuota</span>
+                <strong>{remainingQuota} kursi tersisa ({quotaPercent}% terisi)</strong>
+              </div>
+              <div class="quota-track">
+                <div class="quota-bar-fill" style={`width: ${quotaPercent}%;`}></div>
+              </div>
+            </div>
+          )}
+
+          {isPast ? (
+            <div class="closed-notice">
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+              <span>Pendaftaran telah ditutup karena acara sudah berlangsung.</span>
+            </div>
+          ) : isQuotaFull ? (
+            <div class="closed-notice full">
+              <span>Mohon maaf, kuota peserta telah terpenuhi penuh.</span>
+            </div>
+          ) : (
+            <form id="reg-form" class="reg-form" data-event-id={event.id}>
+              <!-- Tier Selection if Freemium -->
+              {hasPremium && (
+                <div class="form-group">
+                  <label class="form-label">Pilihan Paket Tiket</label>
+                  <div class="tier-options">
+                    <label class="tier-option active" id="tier-free-label">
+                      <input type="radio" name="tier" value="free" checked />
+                      <div class="tier-desc">
+                        <span class="tier-title">Reguler (Gratis)</span>
+                        <span class="tier-sub">Akses webinar live Zoom</span>
+                      </div>
+                    </label>
+
+                    <label class="tier-option" id="tier-premium-label">
+                      <input type="radio" name="tier" value="premium" />
+                      <div class="tier-desc">
+                        <span class="tier-title">Premium (Rp {Number(event.premiumPrice).toLocaleString("id-ID")})</span>
+                        <span class="tier-sub">Akses live + E-Sertifikat + Rekaman & Slide</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <!-- Form Fields -->
+              <div class="form-group">
+                <label for="reg-name" class="form-label">Nama Lengkap & Gelar *</label>
+                <input
+                  type="text"
+                  id="reg-name"
+                  required
+                  placeholder="Contoh: Dr. Budi Santoso, M.Pd"
+                  value={session?.name || ""}
+                />
+              </div>
+
+              <div class="form-group">
+                <label for="reg-email" class="form-label">Alamat Email *</label>
+                <input
+                  type="email"
+                  id="reg-email"
+                  required
+                  placeholder="nama@email.com"
+                  value={session?.email || ""}
+                />
+                <span class="form-tip">Tiket dan link Zoom akan dikirimkan ke email ini.</span>
+              </div>
+
+              <div class="form-group">
+                <label for="reg-phone" class="form-label">No. WhatsApp / HP *</label>
+                <input
+                  type="tel"
+                  id="reg-phone"
+                  required
+                  placeholder="081234567890"
+                />
+              </div>
+
+              <!-- Bank Account Section (Shown if tier is premium / paid) -->
+              <div id="bank-section" class="bank-section" style={hasPremium ? "display: none;" : (isFree ? "display: none;" : "display: block;")}>
+                <div class="bank-card">
+                  <div class="bank-title">Transfer Pembayaran Tiket</div>
+                  {event.bankAccounts && event.bankAccounts.length > 0 ? (
+                    event.bankAccounts.map((b: any) => (
+                      <div class="bank-item">
+                        <div class="bank-meta">
+                          <span class="bank-name">{b.bankName}</span>
+                          <span class="bank-holder">a.n {b.accountHolder}</span>
+                        </div>
+                        <div class="bank-acc-row">
+                          <strong class="bank-acc-num" id={`acc-${b.id}`}>{b.accountNumber}</strong>
+                          <button type="button" class="btn-copy" data-acc={b.accountNumber}>Salin</button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div class="bank-item">
+                      <div class="bank-meta">
+                        <span class="bank-name">Bank Central Asia (BCA)</span>
+                        <span class="bank-holder">a.n PT Edutech</span>
+                      </div>
+                      <div class="bank-acc-row">
+                        <strong class="bank-acc-num">12424124</strong>
+                        <button type="button" class="btn-copy" data-acc="12424124">Salin</button>
+                      </div>
+                    </div>
+                  )}
+
+                  <!-- Payment Proof Upload -->
+                  <div class="form-group mt-3">
+                    <label class="form-label">Unggah Bukti Transfer *</label>
+                    <input type="file" id="reg-proof" accept="image/*" />
+                    <input type="hidden" id="proof-url" />
+                    <div id="proof-preview" class="proof-preview" style="display: none;">
+                      <img id="proof-img" src="" alt="Bukti Transfer" />
+                      <span class="proof-name">Bukti transfer terunggah</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button type="submit" id="btn-submit-reg" class="btn-submit">
+                <span>Kirim Pendaftaran & Ambil Tiket</span>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+              </button>
+
+              <p class="reg-footer-note">
+                🔒 Data Anda aman dan terlindungi oleh sistem enkripsi EduTech ID.
+              </p>
+            </form>
+          )}
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Success Modal -->
+  <div id="success-modal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-icon">🎉</div>
+      <h2 class="modal-title">Pendaftaran Berhasil!</h2>
+      <p class="modal-desc">
+        Selamat, pendaftaran Anda untuk event <strong>{event.title}</strong> telah kami terima.
+      </p>
+
+      <div class="ticket-box">
+        <span class="ticket-lbl">Kode Tiket Anda:</span>
+        <strong class="ticket-code" id="modal-ticket-code">TIC-XXXXXX</strong>
+        <span class="ticket-status-badge" id="modal-ticket-status">Terverifikasi</span>
+      </div>
+
+      <div class="modal-actions">
+        <a href="/user/tickets" class="btn-modal-primary">Lihat Tiket Saya</a>
+        <button type="button" id="btn-close-modal" class="btn-modal-secondary">Tutup</button>
+      </div>
+    </div>
+  </div>
+
+  <Footer />
+
+  <!-- Interactive JavaScript Logic -->
+  <script is:inline define:vars={{ premiumPrice: event.premiumPrice, hasPremium, isFree }}>
+    // Live Hero Countdown
+    const heroCd = document.getElementById('hero-countdown');
+    if (heroCd) {
+      const targetTime = new Date(heroCd.getAttribute('data-target')).getTime();
+      function tick() {
+        const now = new Date().getTime();
+        const diff = targetTime - now;
+        if (diff <= 0) {
+          heroCd.innerHTML = "<div class='cd-live-badge'>🔴 ACARA SEDANG BERLANGSUNG</div>";
+          return;
+        }
+        const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+        document.getElementById('cd-days').textContent = String(d).padStart(2, '0');
+        document.getElementById('cd-hours').textContent = String(h).padStart(2, '0');
+        document.getElementById('cd-minutes').textContent = String(m).padStart(2, '0');
+        document.getElementById('cd-seconds').textContent = String(s).padStart(2, '0');
+      }
+      setInterval(tick, 1000);
+      tick();
+    }
+
+    // Copy Account Number
+    document.querySelectorAll('.btn-copy').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const acc = e.target.getAttribute('data-acc');
+        navigator.clipboard.writeText(acc).then(() => {
+          const original = e.target.textContent;
+          e.target.textContent = 'Tersalin!';
+          setTimeout(() => { e.target.textContent = original; }, 2000);
+        });
+      });
+    });
+
+    // Tier Selector Toggle
+    const tierInputs = document.querySelectorAll('input[name="tier"]');
+    const bankSection = document.getElementById('bank-section');
+    tierInputs.forEach(input => {
+      input.addEventListener('change', (e) => {
+        document.querySelectorAll('.tier-option').forEach(l => l.classList.remove('active'));
+        e.target.closest('.tier-option').classList.add('active');
+        if (e.target.value === 'premium') {
+          if (bankSection) bankSection.style.display = 'block';
+        } else {
+          if (bankSection) bankSection.style.display = 'none';
+        }
+      });
+    });
+
+    // Upload Payment Proof
+    const proofInput = document.getElementById('reg-proof');
+    const proofUrlInput = document.getElementById('proof-url');
+    const proofPreview = document.getElementById('proof-preview');
+    const proofImg = document.getElementById('proof-img');
+
+    if (proofInput) {
+      proofInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        try {
+          proofInput.disabled = true;
+          const res = await fetch('/api/upload-proof', {
+            method: 'POST',
+            body: formData,
+          });
+          const data = await res.json();
+          if (res.ok && data.url) {
+            proofUrlInput.value = data.url;
+            proofImg.src = data.url;
+            proofPreview.style.display = 'flex';
+          } else {
+            alert(data.error || 'Gagal mengunggah bukti pembayaran.');
+          }
+        } catch (err) {
+          alert('Terjadi kesalahan saat mengunggah bukti pembayaran.');
+        } finally {
+          proofInput.disabled = false;
+        }
+      });
+    }
+
+    // Form Registration Submit
+    const regForm = document.getElementById('reg-form');
+    const submitBtn = document.getElementById('btn-submit-reg');
+    const successModal = document.getElementById('success-modal');
+    const modalTicketCode = document.getElementById('modal-ticket-code');
+    const modalTicketStatus = document.getElementById('modal-ticket-status');
+
+    if (regForm) {
+      regForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const eventId = regForm.getAttribute('data-event-id');
+        const name = document.getElementById('reg-name').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
+        const phone = document.getElementById('reg-phone').value.trim();
+        
+        let tier = 'free';
+        const checkedTier = document.querySelector('input[name="tier"]:checked');
+        if (checkedTier) tier = checkedTier.value;
+
+        const paymentProof = proofUrlInput ? proofUrlInput.value : '';
+
+        if (tier === 'premium' && !paymentProof) {
+          alert('Harap unggah bukti transfer pembayaran Anda untuk paket Premium.');
+          return;
+        }
+
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span>Memproses Pendaftaran...</span>';
+
+        try {
+          const res = await fetch(`/api/events/${eventId}/register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name,
+              email,
+              phone,
+              tier,
+              payment_proof: paymentProof,
+              total_amount: tier === 'premium' ? (premiumPrice || 50000) : 0,
+            })
+          });
+
+          const result = await res.json();
+          if (res.ok && result.success) {
+            modalTicketCode.textContent = result.ticket_code;
+            modalTicketStatus.textContent = result.status === 'verified' ? 'Tiket Terbit (Terverifikasi)' : 'Menunggu Verifikasi Pembayaran';
+            successModal.style.display = 'flex';
+            regForm.reset();
+          } else {
+            alert(result.error || 'Gagal melakukan pendaftaran. Silakan coba kembali.');
+          }
+        } catch (err) {
+          alert('Terjadi kendala jaringan saat menghubungi server.');
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<span>Kirim Pendaftaran & Ambil Tiket</span>';
+        }
+      });
+    }
+
+    // Close Modal
+    const btnCloseModal = document.getElementById('btn-close-modal');
+    if (btnCloseModal) {
+      btnCloseModal.addEventListener('click', () => {
+        successModal.style.display = 'none';
+      });
+    }
+  </script>
+</Layout>
+
+<style>
+  /* Breadcrumb */
+  .breadcrumb-bar {
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-3) 0;
+    font-size: var(--text-xs);
+  }
+
+  .breadcrumb-inner {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--color-text-muted);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .bc-link {
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .bc-link:hover {
+    color: var(--color-accent);
+  }
+
+  .bc-sep {
+    color: var(--color-border);
+  }
+
+  .bc-current {
+    color: var(--color-text-primary);
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Detail Header */
+  .detail-header {
+    padding: var(--space-8) 0 var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-3);
+  }
+
+  .header-badges {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    padding: 4px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .badge-free { background: #2dc653; color: #fff; }
+  .badge-freemium { background: #4895ef; color: #fff; }
+  .badge-paid { background: #f4c430; color: #111; }
+  .badge-status { background: rgba(230, 57, 70, 0.2); color: var(--color-accent); border: 1px solid var(--color-accent); }
+  .badge-past { background: var(--color-border); color: var(--color-text-muted); }
+  .badge-venue {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .event-title {
+    font-size: clamp(1.8rem, 3.5vw, 2.75rem);
+    font-weight: 800;
+    line-height: 1.25;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  /* Countdown Widget */
+  .hero-countdown {
+    margin-top: var(--space-3);
+    padding: var(--space-4) var(--space-6);
+    background: linear-gradient(135deg, rgba(230, 57, 70, 0.12) 0%, rgba(20, 20, 20, 0.6) 100%);
+    border: 1px solid rgba(230, 57, 70, 0.3);
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-6);
+    flex-wrap: wrap;
+  }
+
+  .cd-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    background: #e63946;
+    border-radius: 50%;
+    animation: blink 1.5s infinite;
+  }
+
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .cd-boxes {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .cd-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    min-width: 54px;
+  }
+
+  .cd-num {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    color: #f4c430;
+    font-family: monospace;
+  }
+
+  .cd-lbl {
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
+  .cd-colon {
+    font-size: var(--text-lg);
+    font-weight: 800;
+    color: var(--color-text-muted);
+  }
+
+  /* 2 Column Layout */
+  .detail-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: var(--space-8);
+    padding-bottom: var(--space-12);
+    align-items: start;
+  }
+
+  /* Left Main */
+  .detail-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .event-poster {
+    border-radius: 16px;
+    overflow: hidden;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+  }
+
+  .event-poster img {
+    width: 100%;
+    max-height: 480px;
+    object-fit: cover;
+    display: block;
+  }
+
+  /* Info Card */
+  .info-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: var(--space-5);
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--space-5);
+  }
+
+  .info-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .info-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--color-accent-light);
+    color: var(--color-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .info-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .info-label {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  .info-val {
+    font-size: var(--text-sm);
+    color: var(--color-text-primary);
+    font-weight: 700;
+  }
+
+  /* Content Sections */
+  .content-section {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 14px;
+    padding: var(--space-6);
+  }
+
+  .section-title {
+    font-size: var(--text-lg);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 var(--space-5);
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .section-title svg {
+    color: var(--color-accent);
+  }
+
+  .description-body {
+    font-size: var(--text-base);
+    line-height: 1.8;
+    color: var(--color-text-secondary);
+  }
+
+  .description-body p {
+    margin-bottom: var(--space-3);
+  }
+
+  /* Speakers */
+  .speakers-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: var(--space-4);
+  }
+
+  .speaker-card {
+    display: flex;
+    align-items: center;
+    gap: var(--space-4);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: var(--space-4);
+  }
+
+  .sp-avatar-wrap {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    overflow: hidden;
+    background: var(--color-accent);
+    flex-shrink: 0;
+  }
+
+  .sp-avatar-wrap img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .sp-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 24px;
+    font-weight: 800;
+  }
+
+  .sp-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .sp-name {
+    font-size: var(--text-md);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .sp-role {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  /* Benefits */
+  .benefit-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: var(--space-4);
+  }
+
+  .benefit-item {
+    display: flex;
+    gap: var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    padding: var(--space-4);
+  }
+
+  .benefit-icon {
+    font-size: 24px;
+  }
+
+  .benefit-text h4 {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-primary);
+    margin: 0 0 4px;
+  }
+
+  .benefit-text p {
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  /* Right Sidebar */
+  .detail-sidebar {
+    position: sticky;
+    top: calc(var(--navbar-height) + 20px);
+  }
+
+  .register-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: var(--space-6);
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+  }
+
+  .reg-header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .reg-label {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
+  .free-text {
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    color: #2dc653;
+  }
+
+  .free-pill {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #4895ef;
+    background: rgba(72, 149, 239, 0.15);
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-bottom: 4px;
+  }
+
+  .premium-price {
+    font-size: var(--text-md);
+    color: var(--color-text-secondary);
+  }
+
+  .premium-price strong {
+    color: #f4c430;
+    font-size: var(--text-xl);
+  }
+
+  .paid-price {
+    font-size: var(--text-2xl);
+    font-weight: 800;
+    color: #f4c430;
+  }
+
+  /* Quota */
+  .reg-quota {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .quota-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  .quota-labels strong {
+    color: var(--color-text-primary);
+  }
+
+  .quota-track {
+    height: 6px;
+    background: var(--color-surface);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .quota-bar-fill {
+    height: 100%;
+    background: var(--color-accent);
+    border-radius: 999px;
+  }
+
+  /* Form */
+  .reg-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+  }
+
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .form-label {
+    font-size: var(--text-xs);
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .form-group input[type="text"],
+  .form-group input[type="email"],
+  .form-group input[type="tel"] {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--color-text-primary);
+    font-size: var(--text-sm);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input:focus {
+    border-color: var(--color-accent);
+  }
+
+  .form-tip {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  /* Tier selector */
+  .tier-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .tier-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .tier-option.active {
+    border-color: #4895ef;
+    background: rgba(72, 149, 239, 0.1);
+  }
+
+  .tier-option input {
+    margin-top: 3px;
+  }
+
+  .tier-desc {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tier-title {
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-primary);
+  }
+
+  .tier-sub {
+    font-size: 11px;
+    color: var(--color-text-muted);
+  }
+
+  /* Bank Section */
+  .bank-section {
+    padding: var(--space-3);
+    background: rgba(244, 196, 48, 0.08);
+    border: 1px solid rgba(244, 196, 48, 0.3);
+    border-radius: 10px;
+  }
+
+  .bank-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #f4c430;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+  }
+
+  .bank-item {
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .bank-meta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--color-text-muted);
+  }
+
+  .bank-acc-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .bank-acc-num {
+    font-size: var(--text-md);
+    color: var(--color-text-primary);
+    letter-spacing: 1px;
+    font-family: monospace;
+  }
+
+  .btn-copy {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  .proof-preview {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+  }
+
+  .proof-preview img {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+  }
+
+  .proof-name {
+    font-size: 12px;
+    color: #2dc653;
+    font-weight: 600;
+  }
+
+  .mt-3 { margin-top: 12px; }
+
+  /* Submit Button */
+  .btn-submit {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: 12px 20px;
+    background: var(--color-accent);
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+
+  .btn-submit:hover {
+    background: var(--color-accent-hover);
+    transform: translateY(-2px);
+  }
+
+  .reg-footer-note {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    text-align: center;
+    margin: 0;
+  }
+
+  .closed-notice {
+    padding: var(--space-6);
+    background: var(--color-surface);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-2);
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
+  }
+
+  /* Modal */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999;
+    padding: var(--space-4);
+  }
+
+  .modal-card {
+    background: var(--color-bg-card);
+    border: 1px solid var(--color-border);
+    border-radius: 16px;
+    padding: var(--space-8);
+    max-width: 440px;
+    width: 100%;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--space-4);
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5);
+  }
+
+  .modal-icon { font-size: 48px; }
+
+  .modal-title {
+    font-size: var(--text-xl);
+    font-weight: 800;
+    color: var(--color-text-primary);
+    margin: 0;
+  }
+
+  .modal-desc {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  .ticket-box {
+    background: var(--color-surface);
+    border: 2px dashed var(--color-accent);
+    border-radius: 12px;
+    padding: var(--space-4);
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .ticket-lbl {
+    font-size: 11px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
+  .ticket-code {
+    font-size: var(--text-2xl);
+    color: var(--color-accent);
+    font-family: monospace;
+    letter-spacing: 2px;
+  }
+
+  .ticket-status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    background: rgba(45, 198, 83, 0.15);
+    color: #2dc653;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 999px;
+    margin-top: 4px;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: var(--space-3);
+    width: 100%;
+    margin-top: var(--space-2);
+  }
+
+  .btn-modal-primary {
+    flex: 1;
+    padding: 10px;
+    background: var(--color-accent);
+    color: #fff;
+    border-radius: 8px;
+    font-size: var(--text-sm);
+    font-weight: 700;
+    text-decoration: none;
+  }
+
+  .btn-modal-secondary {
+    padding: 10px 16px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    border-radius: 8px;
+    font-size: var(--text-sm);
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  @media (max-width: 992px) {
+    .detail-layout {
+      grid-template-columns: 1fr;
+    }
+    .detail-sidebar {
+      position: static;
+    }
+  }
+</style>

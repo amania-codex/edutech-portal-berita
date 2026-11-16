@@ -1,409 +1,433 @@
 ---
-// HeroBanner.astro - Main featured event/conference banner
+// HeroBanner.astro - Dynamic Photo Poster / Banner Component
+export interface Props {
+  banners?: any[];
+}
+
+const API_BASE = "http://localhost:3000/api";
+let activeBanners: any[] = Astro.props.banners || [];
+
+if (!activeBanners || activeBanners.length === 0) {
+  try {
+    const res = await fetch(`${API_BASE}/banners`);
+    if (res.ok) {
+      activeBanners = await res.json();
+    }
+  } catch (err) {
+    console.error("Failed to fetch active banners:", err);
+  }
+}
+
+// Fallback jika database belum ada banner aktif sama sekali
+if (!activeBanners || activeBanners.length === 0) {
+  activeBanners = [
+    {
+      id: 1,
+      title: "SENIKO 2026 - Seminar Nasional Informatika dan Komputer: Memperkuat Resiliensi Smart City",
+      image_url: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1600&q=80",
+      target_url: "https://seniko.id",
+      is_active: true,
+    },
+  ];
+}
 ---
 
-<section class="hero-banner" aria-label="Banner Utama">
-  <div class="hero-inner">
-    <!-- Top Labels -->
-    <div class="hero-top">
-      <div class="hero-badge-left">
-        <div class="accredited-badge">
-          <span class="badge-sinta">TERAKREDITASI</span>
-          <span class="badge-sinta-level">SINTA 2</span>
-          <span class="badge-sub">Prinsip Indeksasi Scopus</span>
-        </div>
-      </div>
-      <div class="hero-top-center">
-        <h1 class="hero-title">
-          SENIKO<span class="hero-year">.2026</span>
-        </h1>
-        <p class="hero-subtitle">Seminar Nasional Informatika dan Komputer</p>
-      </div>
-      <div class="hero-badge-right">
-        <div class="journal-badge">
-          <span class="journal-label">JURNAL TEKNIK</span>
-          <span class="journal-name">INFORMATIKA</span>
-          <span class="journal-abbr">(JUTIF)</span>
-          <span class="journal-accredited">TERAKREDITASI SINTA 2</span>
-        </div>
-      </div>
-    </div>
+<section class="hero-poster-container" aria-label="Poster Utama Portal Berita">
+  <div class="poster-slider" id="poster-slider">
+    {activeBanners.map((banner: any, index: number) => {
+      const fullImgUrl = banner.image_url?.startsWith("http")
+        ? banner.image_url
+        : `http://localhost:3000${banner.image_url}`;
 
-    <!-- Theme Text -->
-    <div class="hero-theme">
-      <p class="theme-label">TATA KELOLA SISTEM INFORMASI CERDAS:</p>
-      <h2 class="theme-main">
-        MEMPERKUAT RESILIENSI SMART CITY<br/>
-        TERHADAP ANCAMAN CYBER WARFARE
-      </h2>
-    </div>
+      return (
+        <div class={`poster-slide ${index === 0 ? "active" : ""}`} data-index={index}>
+          <a
+            href={banner.target_url || "#"}
+            target={banner.target_url ? "_blank" : "_self"}
+            rel="noopener noreferrer"
+            class="poster-card"
+          >
+            <div class="poster-image-wrap">
+              <img
+                src={fullImgUrl}
+                alt={banner.title}
+                class="poster-img"
+                loading={index === 0 ? "eager" : "lazy"}
+                onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1600&q=80';"
+              />
+              <div class="poster-overlay"></div>
+            </div>
 
-    <!-- Info Row -->
-    <div class="hero-info">
-      <div class="info-item">
-        <div class="info-icon">📅</div>
-        <div>
-          <div class="info-label">SABTU</div>
-          <div class="info-value">24 OKTOBER 2026</div>
-          <div class="info-sub">08.00 WIB - SELESAI</div>
+            <!-- Poster Caption / Details -->
+            <div class="poster-content">
+              <div class="poster-badge-row">
+                <span class="poster-badge">
+                  <span class="badge-pulse"></span>
+                  EVENT & POSTER TERKINI
+                </span>
+                {banner.target_url && (
+                  <span class="poster-cta-pill">
+                    Buka Tautan
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="12" height="12">
+                      <path d="M5 12h14M12 5l7 7-7 7" />
+                    </svg>
+                  </span>
+                )}
+              </div>
+
+              <h2 class="poster-title">{banner.title}</h2>
+            </div>
+          </a>
         </div>
-      </div>
-      <div class="info-divider"></div>
-      <div class="info-item">
-        <div class="info-icon">📍</div>
-        <div>
-          <div class="info-label">LOKASI</div>
-          <div class="info-value">PURWOKERTO</div>
-          <div class="info-sub">HYBRID CONFERENCE (OFFLINE & ONLINE)</div>
+      );
+    })}
+
+    <!-- Navigation Controls (if multiple banners) -->
+    {activeBanners.length > 1 && (
+      <>
+        <button class="slider-btn prev-btn" id="slider-prev" aria-label="Poster Sebelumnya">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="15 18 9 12 15 6"></polyline>
+          </svg>
+        </button>
+        <button class="slider-btn next-btn" id="slider-next" aria-label="Poster Selanjutnya">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </button>
+
+        <div class="slider-dots" id="slider-dots">
+          {activeBanners.map((_: any, idx: number) => (
+            <button
+              class={`dot-btn ${idx === 0 ? "active" : ""}`}
+              data-slide={idx}
+              aria-label={`Ke slide ${idx + 1}`}
+            ></button>
+          ))}
         </div>
-      </div>
-      <div class="info-divider"></div>
-      <div class="info-item">
-        <div class="info-icon">👥</div>
-        <div>
-          <div class="info-label">TARGET PESERTA</div>
-          <div class="info-value">250+</div>
-          <div class="info-sub">PESERTA NASIONAL</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Hashtags -->
-    <div class="hero-hashtags">
-      <span>#SENIKO2026</span>
-      <span>#SmartCity</span>
-      <span>#AI</span>
-      <span>#CyberResilience</span>
-      <span>#DigitalTransformation</span>
-      <span>#IndonesiaSmartFuture</span>
-    </div>
-
-    <!-- Footer Row -->
-    <div class="hero-footer">
-      <div class="organizer">
-        <span class="org-label">PENYELENGGARA:</span>
-        <span class="org-name">PROGRAM STUDI INFORMATIKA · FAKULTAS TEKNIK · UNIVERSITAS JENDERAL SOEDIRMAN</span>
-      </div>
-      <div class="hero-logos">
-        <div class="logo-pill">JUTIF</div>
-        <div class="logo-pill accent">SENIKO 2026</div>
-        <div class="logo-pill">MITRA PERGURUAN TINGGI NASIONAL</div>
-      </div>
-      <div class="hero-contact">
-        <span>🌐 https://seniko.id</span>
-        <span>📧 admin@seniko.id</span>
-        <span>📱 085111346465</span>
-      </div>
-    </div>
-
-    <!-- Gradient overlay for depth -->
-    <div class="hero-overlay" aria-hidden="true"></div>
-    <!-- Background grid effect -->
-    <div class="hero-grid-bg" aria-hidden="true"></div>
+      </>
+    )}
   </div>
 </section>
 
 <style>
-  .hero-banner {
+  .hero-poster-container {
     position: relative;
-    background: linear-gradient(135deg, #0a0e1a 0%, #0d1b2a 30%, #1a2a4a 60%, #0d1b2a 100%);
-    border: 1px solid rgba(72, 149, 239, 0.2);
+    width: 100%;
+    margin-bottom: var(--space-6);
     border-radius: var(--radius-lg);
     overflow: hidden;
-    margin-bottom: var(--space-6);
-    box-shadow: var(--shadow-lg), 0 0 40px rgba(72, 149, 239, 0.1);
+    box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+    background: #0b0f19;
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
-  .hero-grid-bg {
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(72, 149, 239, 0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(72, 149, 239, 0.05) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none;
-  }
-
-  .hero-overlay {
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(ellipse at 50% 50%, rgba(72, 149, 239, 0.08) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  .hero-inner {
+  .poster-slider {
     position: relative;
+    width: 100%;
+    aspect-ratio: 21 / 9;
+    min-height: 240px;
+    max-height: 480px;
+  }
+
+  .poster-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.6s;
     z-index: 1;
-    padding: var(--space-6) var(--space-8);
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-4);
   }
 
-  /* Top Row */
-  .hero-top {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: start;
-    gap: var(--space-4);
-  }
-
-  .accredited-badge, .journal-badge {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: var(--text-xs);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .accredited-badge {
-    border: 2px solid var(--color-gold);
-    border-radius: var(--radius-md);
-    padding: var(--space-2) var(--space-3);
-    background: rgba(244, 196, 48, 0.05);
-    color: var(--color-gold);
-    align-self: start;
-    max-width: 180px;
-  }
-
-  .badge-sinta-level {
-    font-size: var(--text-xl);
-    color: var(--color-gold);
-  }
-
-  .badge-sub {
-    font-size: 10px;
-    opacity: 0.8;
-  }
-
-  .hero-top-center {
-    text-align: center;
-  }
-
-  .hero-title {
-    font-size: clamp(2.5rem, 6vw, 4rem);
-    font-weight: 900;
-    letter-spacing: -2px;
-    color: white;
-    text-shadow: 0 0 30px rgba(72, 149, 239, 0.5);
-    line-height: 1;
-  }
-
-  .hero-year {
-    color: var(--color-gold);
-  }
-
-  .hero-subtitle {
-    font-size: var(--text-sm);
-    color: rgba(255, 255, 255, 0.7);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    margin-top: 4px;
-  }
-
-  .journal-badge {
-    text-align: right;
-    align-self: start;
-    border: 2px solid rgba(72, 149, 239, 0.5);
-    border-radius: var(--radius-md);
-    padding: var(--space-2) var(--space-3);
-    color: var(--color-blue);
-    background: rgba(72, 149, 239, 0.05);
-    margin-left: auto;
-    max-width: 180px;
-  }
-
-  .journal-name {
-    font-size: var(--text-lg);
-  }
-
-  /* Theme */
-  .hero-theme {
-    text-align: center;
-    padding: var(--space-4) 0;
-    border-top: 1px solid rgba(255,255,255,0.08);
-    border-bottom: 1px solid rgba(255,255,255,0.08);
-  }
-
-  .theme-label {
-    font-size: var(--text-sm);
-    color: rgba(255,255,255,0.6);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    margin-bottom: var(--space-2);
-  }
-
-  .theme-main {
-    font-size: clamp(1.2rem, 3vw, 2rem);
-    font-weight: 900;
-    color: white;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
-    line-height: 1.25;
-    text-shadow: 0 2px 20px rgba(0,0,0,0.5);
-  }
-
-  /* Info Row */
-  .hero-info {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: var(--space-6);
-    flex-wrap: wrap;
-  }
-
-  .info-item {
-    display: flex;
-    align-items: center;
-    gap: var(--space-3);
-    text-align: left;
-  }
-
-  .info-icon {
-    font-size: 1.5rem;
-  }
-
-  .info-label {
-    font-size: 10px;
-    color: rgba(255,255,255,0.5);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-weight: 600;
-  }
-
-  .info-value {
-    font-size: var(--text-base);
-    font-weight: 800;
-    color: white;
-    letter-spacing: 0.02em;
-  }
-
-  .info-sub {
-    font-size: 10px;
-    color: rgba(255,255,255,0.6);
-    margin-top: 1px;
-  }
-
-  .info-divider {
-    width: 1px;
-    height: 40px;
-    background: rgba(255,255,255,0.15);
-  }
-
-  /* Hashtags */
-  .hero-hashtags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-    justify-content: center;
-  }
-
-  .hero-hashtags span {
-    font-size: var(--text-xs);
-    color: var(--color-blue);
-    font-weight: 600;
-    opacity: 0.85;
-    letter-spacing: 0.02em;
-    cursor: pointer;
-    transition: opacity var(--transition-fast);
-  }
-
-  .hero-hashtags span:hover {
+  .poster-slide.active {
     opacity: 1;
-    text-decoration: underline;
+    visibility: visible;
+    z-index: 2;
   }
 
-  /* Footer Row */
-  .hero-footer {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-4);
-    flex-wrap: wrap;
-    padding-top: var(--space-3);
-    border-top: 1px solid rgba(255,255,255,0.08);
+  .poster-card {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: relative;
+    text-decoration: none;
+    overflow: hidden;
   }
 
-  .organizer {
+  .poster-image-wrap {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .poster-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .poster-card:hover .poster-img {
+    transform: scale(1.03);
+  }
+
+  .poster-overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      rgba(10, 14, 26, 0.98) 0%,
+      rgba(10, 14, 26, 0.85) 45%,
+      rgba(10, 14, 26, 0.35) 75%,
+      transparent 100%
+    );
+    pointer-events: none;
+  }
+
+  /* Content */
+  .poster-content {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: var(--space-6) var(--space-8);
+    z-index: 3;
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 12px;
+    max-width: 860px;
   }
 
-  .org-label {
-    font-size: 9px;
-    color: rgba(255,255,255,0.4);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    font-weight: 700;
-  }
-
-  .org-name {
-    font-size: var(--text-xs);
-    color: rgba(255,255,255,0.7);
-    font-weight: 500;
-  }
-
-  .hero-logos {
+  .poster-badge-row {
     display: flex;
     align-items: center;
-    gap: var(--space-2);
+    gap: 12px;
   }
 
-  .logo-pill {
-    padding: 4px 12px;
-    border-radius: var(--radius-full);
-    border: 1px solid rgba(255,255,255,0.2);
-    font-size: 10px;
-    font-weight: 700;
-    color: rgba(255,255,255,0.7);
-    letter-spacing: 0.05em;
+  .poster-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--color-accent);
+    color: white;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
+    padding: 5px 12px;
+    border-radius: 9999px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 10px rgba(230, 57, 70, 0.5);
   }
 
-  .logo-pill.accent {
+  .badge-pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: white;
+    box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7);
+    }
+    70% {
+      transform: scale(1);
+      box-shadow: 0 0 0 6px rgba(255, 255, 255, 0);
+    }
+    100% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
+    }
+  }
+
+  .poster-cta-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: 9999px;
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    transition: all 0.2s;
+  }
+
+  .poster-card:hover .poster-cta-pill {
+    background: white;
+    color: #0f172a;
+  }
+
+  .poster-title {
+    color: #ffffff;
+    font-size: clamp(1.25rem, 2.8vw, 2.2rem);
+    font-weight: 800;
+    line-height: 1.35;
+    margin: 0;
+    text-shadow: 0 3px 14px rgba(0, 0, 0, 0.95);
+    max-width: 90%;
+  }
+
+  /* Slider Controls */
+  .slider-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.2s;
+    backdrop-filter: blur(4px);
+  }
+
+  .slider-btn svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .slider-btn:hover {
     background: var(--color-accent);
     border-color: var(--color-accent);
-    color: white;
+    transform: translateY(-50%) scale(1.05);
   }
 
-  .hero-contact {
+  .prev-btn { left: 16px; }
+  .next-btn { right: 16px; }
+
+  .slider-dots {
+    position: absolute;
+    bottom: 16px;
+    right: 24px;
     display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 10px;
-    color: rgba(255,255,255,0.5);
+    align-items: center;
+    gap: 8px;
+    z-index: 10;
+  }
+
+  .dot-btn {
+    width: 10px;
+    height: 10px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.4);
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s;
+    padding: 0;
+  }
+
+  .dot-btn.active {
+    width: 26px;
+    background: var(--color-accent);
   }
 
   @media (max-width: 768px) {
-    .hero-inner {
+    .poster-slider {
+      aspect-ratio: 16 / 10;
+      min-height: 200px;
+    }
+
+    .poster-content {
       padding: var(--space-4);
+      gap: 6px;
     }
 
-    .hero-top {
-      grid-template-columns: 1fr;
-      text-align: center;
+    .poster-title {
+      font-size: 1rem;
+      max-width: 100%;
     }
 
-    .accredited-badge, .journal-badge {
-      display: none;
+    .slider-btn {
+      width: 34px;
+      height: 34px;
     }
 
-    .hero-footer {
-      flex-direction: column;
-      align-items: flex-start;
-    }
-
-    .info-divider {
-      display: none;
-    }
-
-    .hero-info {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: var(--space-3);
+    .slider-btn svg {
+      width: 16px;
+      height: 16px;
     }
   }
 </style>
+
+<script is:inline>
+  (function () {
+    const slides = document.querySelectorAll('.poster-slide');
+    const dots = document.querySelectorAll('.dot-btn');
+    const prevBtn = document.getElementById('slider-prev');
+    const nextBtn = document.getElementById('slider-next');
+
+    if (slides.length <= 1) return;
+
+    let currentIndex = 0;
+    let timer = null;
+
+    function goToSlide(index) {
+      slides[currentIndex]?.classList.remove('active');
+      dots[currentIndex]?.classList.remove('active');
+
+      currentIndex = (index + slides.length) % slides.length;
+
+      slides[currentIndex]?.classList.add('active');
+      dots[currentIndex]?.classList.add('active');
+    }
+
+    function startAutoSlide() {
+      stopAutoSlide();
+      timer = setInterval(() => {
+        goToSlide(currentIndex + 1);
+      }, 5000);
+    }
+
+    function stopAutoSlide() {
+      if (timer) clearInterval(timer);
+    }
+
+    if (prevBtn) {
+      prevBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        goToSlide(currentIndex - 1);
+        startAutoSlide();
+      });
+    }
+
+    if (nextBtn) {
+      nextBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        goToSlide(currentIndex + 1);
+        startAutoSlide();
+      });
+    }
+
+    dots.forEach((dot) => {
+      dot.addEventListener('click', (e) => {
+        e.preventDefault();
+        const slideIndex = parseInt(dot.getAttribute('data-slide') || '0', 10);
+        goToSlide(slideIndex);
+        startAutoSlide();
+      });
+    });
+
+    const slider = document.getElementById('poster-slider');
+    if (slider) {
+      slider.addEventListener('mouseenter', stopAutoSlide);
+      slider.addEventListener('mouseleave', startAutoSlide);
+    }
+
+    startAutoSlide();
+  })();
+</script>

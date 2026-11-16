@@ -8,13 +8,19 @@ if (session.role !== 'admin') return Astro.redirect('/user');
 
 const API_BASE = "http://localhost:3000/api";
 
+const cookie = Astro.request.headers.get('cookie') || '';
+const tokenMatch = cookie.match(/auth_token=([^;]+)/);
+const token = tokenMatch ? tokenMatch[1] : '';
+
 let allComments: any[] = [];
 let sentimentStats = { positive: 0, neutral: 0, negative: 0 };
 let flaggedCount = 0;
 let totalComments = 0;
 
 try {
-  const res = await fetch(`${API_BASE}/comments`);
+  const res = await fetch(`${API_BASE}/comments`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
   if (res.ok) {
     const data = await res.json();
     allComments = Array.isArray(data) ? data : (data.data || data.comments || []);

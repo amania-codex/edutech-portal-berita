@@ -1,4 +1,4 @@
-package handlers
+﻿package handlers
 
 import (
 	"news-portal-backend/database"
