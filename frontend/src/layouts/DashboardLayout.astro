@@ -394,11 +394,18 @@ const { title = 'Dashboard', activeMenu = '' } = Astro.props;
 
       // Populate user info in sidebar and header
       const avatarInitial = (user.name || 'U').charAt(0).toUpperCase();
-      const el = (id) => document.getElementById(id);
-      if (el('sidebarAvatar')) el('sidebarAvatar').textContent = avatarInitial;
-      if (el('sidebarName'))  el('sidebarName').textContent  = user.name || '';
-      if (el('sidebarRole'))  el('sidebarRole').textContent  = user.role === 'admin' ? 'Admin' : 'User';
-      if (el('headerAvatar')) { el('headerAvatar').textContent = avatarInitial; el('headerAvatar').title = user.name || ''; }
+      const sidebarAvatar = document.getElementById('sidebarAvatar');
+      const sidebarName = document.getElementById('sidebarName');
+      const sidebarRole = document.getElementById('sidebarRole');
+      const headerAvatar = document.getElementById('headerAvatar');
+
+      if (sidebarAvatar) sidebarAvatar.textContent = avatarInitial;
+      if (sidebarName) sidebarName.textContent = user.name || '';
+      if (sidebarRole) sidebarRole.textContent = user.role === 'admin' ? 'Admin' : 'User';
+      if (headerAvatar) {
+        headerAvatar.textContent = avatarInitial;
+        headerAvatar.title = user.name || '';
+      }
     } catch {
       window.location.href = '/login';
     }
@@ -411,12 +418,12 @@ const { title = 'Dashboard', activeMenu = '' } = Astro.props;
   const logoutBtn = document.getElementById('logout-btn');
 
   function openSidebar() {
-    sidebar.classList.add('open');
-    overlay.classList.add('open');
+    if (sidebar) sidebar.classList.add('open');
+    if (overlay) overlay.classList.add('open');
   }
   function closeSidebar() {
-    sidebar.classList.remove('open');
-    overlay.classList.remove('open');
+    if (sidebar) sidebar.classList.remove('open');
+    if (overlay) overlay.classList.remove('open');
   }
 
   if (menuBtn) menuBtn.addEventListener('click', openSidebar);

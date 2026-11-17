@@ -362,10 +362,16 @@ const unreadNotifCount = 0;
       const user = await res.json();
 
       const avatarInitial = (user.name || 'U').charAt(0).toUpperCase();
-      const el = (id) => document.getElementById(id);
-      if (el('sidebarAvatar')) el('sidebarAvatar').textContent = avatarInitial;
-      if (el('sidebarName'))  el('sidebarName').textContent  = user.name || 'Pengguna';
-      if (el('headerAvatar')) { el('headerAvatar').textContent = avatarInitial; el('headerAvatar').title = user.name || ''; }
+      const sidebarAvatar = document.getElementById('sidebarAvatar');
+      const sidebarName = document.getElementById('sidebarName');
+      const headerAvatar = document.getElementById('headerAvatar');
+
+      if (sidebarAvatar) sidebarAvatar.textContent = avatarInitial;
+      if (sidebarName) sidebarName.textContent = user.name || 'Pengguna';
+      if (headerAvatar) {
+        headerAvatar.textContent = avatarInitial;
+        headerAvatar.title = user.name || '';
+      }
     } catch {
       window.location.href = '/login';
     }
