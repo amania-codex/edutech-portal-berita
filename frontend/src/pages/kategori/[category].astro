@@ -1,4 +1,12 @@
 ---
+export async function getStaticPaths() {
+  const categories = [
+    'pendidikan', 'kampus', 'teknologi', 'riset',
+    'artikel', 'headline', 'internasional', 'opini', 'karir', 'semua'
+  ];
+  return categories.map(cat => ({ params: { category: cat } }));
+}
+
 import Layout from "../../layouts/Layout.astro";
 import Navbar from "../../components/Navbar.astro";
 import NewsCard from "../../components/NewsCard.astro";
@@ -15,17 +23,7 @@ import { API_BASE } from "../../lib/config";
 let articles: any[] = [];
 let trendingNews: any[] = [];
 
-try {
-  const [articlesRes, trendingRes] = await Promise.all([
-    fetch(`${API_BASE}/news?category=${encodeURIComponent(displayCategory)}`),
-    fetch(`${API_BASE}/news/trending?limit=5`),
-  ]);
 
-  if (articlesRes.ok) articles = await articlesRes.json();
-  if (trendingRes.ok) trendingNews = await trendingRes.json();
-} catch (err) {
-  console.error("Failed to fetch:", err);
-}
 
 function normalize(a: any) {
   return {

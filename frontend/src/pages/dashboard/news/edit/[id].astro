@@ -1,26 +1,23 @@
 ---
+export async function getStaticPaths() {
+  return [{ params: { id: '_placeholder' } }];
+}
+
 import DashboardLayout from '../../../../layouts/DashboardLayout.astro';
-import { getSessionFromRequest } from '../../../../lib/session';
 
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect('/login');
-if (session.role !== 'admin') return Astro.redirect('/user');
+const article: any = {
+  id: 0,
+  title: '',
+  slug: '',
+  content: '',
+  status: 'draft',
+  category: '',
+  tags: '',
+  image_url: '',
+  is_featured: false,
+};
 
-const { id } = Astro.params;
-const API_BASE = 'http://localhost:3000/api';
-let article: any = null;
-try {
-  const res = await fetch(`${API_BASE}/news/${id}`);
-  if (res.ok) {
-    const raw = await res.json();
-    article = {
-      id: raw.ID || raw.id, title: raw.title, slug: raw.slug, content: raw.content || '',
-      image_url: raw.imageUrl || raw.image_url || '', category: raw.category,
-      tags: raw.tags || '', status: raw.status, is_featured: raw.is_featured || raw.isFeatured || 0
-    };
-  }
-} catch(e) {}
-if (!article) return Astro.redirect('/dashboard/news');
+const API_BASE = "http://localhost:3000/api";
 ---
 
 <DashboardLayout title="Edit Berita" activeMenu="news">

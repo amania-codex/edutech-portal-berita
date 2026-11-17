@@ -1,15 +1,11 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
-import { getSessionFromRequest } from '../../lib/session';
-
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect('/login');
 
 const user = {
-  id: session.userId,
-  name: session.name || 'User',
-  email: session.email || '',
-  role: session.role || 'user',
+  id: 0,
+  name: 'Admin',
+  email: 'admin@edutech.id',
+  role: 'admin',
   avatar: null as string | null,
   created_at: new Date().toISOString(),
   bio: 'Pengguna portal berita EduTech.'

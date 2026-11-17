@@ -1,53 +1,28 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
-import { getSessionFromRequest } from '../../lib/session';
 
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect('/login');
-if (session.role !== 'admin') return Astro.redirect('/user');
-
-const API_BASE = "http://localhost:3000/api";
-
-const cookie = Astro.request.headers.get('cookie') || '';
-const tokenMatch = cookie.match(/auth_token=([^;]+)/);
-const token = tokenMatch ? tokenMatch[1] : '';
-
-let allComments: any[] = [];
-let sentimentStats = { positive: 0, neutral: 0, negative: 0 };
-let flaggedCount = 0;
-let totalComments = 0;
-
-try {
-  const res = await fetch(`${API_BASE}/comments`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  });
-  if (res.ok) {
-    const data = await res.json();
-    allComments = Array.isArray(data) ? data : (data.data || data.comments || []);
-    totalComments = allComments.length;
-    flaggedCount = allComments.filter((c: any) => c.is_flagged === 1 || c.is_flagged === true).length;
-    sentimentStats.positive = allComments.filter((c: any) => c.sentiment === 'positive').length;
-    sentimentStats.neutral = allComments.filter((c: any) => c.sentiment === 'neutral').length;
-    sentimentStats.negative = allComments.filter((c: any) => c.sentiment === 'negative').length;
-  }
-} catch (err) {
-  console.error("Failed to fetch comments:", err);
-}
+const allComments: any[] = [];
+const sentimentStats = { positive: 0, neutral: 0, negative: 0 };
+const flaggedCount = 0;
+const totalComments = 0;
 
 function normalizeComment(c: any) {
   return {
     id: c.ID || c.id,
     content: c.content,
-    sentiment: c.sentiment || 'neutral',
+    sentiment: c.sentiment || "neutral",
     sentiment_score: c.sentiment_score || c.sentimentScore || 0,
     is_flagged: c.is_flagged || c.isFlagged || 0,
-    user_name: c.user_name || c.userName || c.user?.name || 'Anonim',
-    news_title: c.news_title || c.newsTitle || c.news?.title || '-',
-    created_at: c.created_at || c.createdAt || c.CreatedAt,
+    user_name: c.user_name || c.userName || c.user?.name || "Anonim",
+    news_title: c.news_title || c.newsTitle || c.news?.title || "-",
+    news_id: c.news_id || c.newsId || 0,
+    created_at: c.CreatedAt || c.created_at || c.createdAt || "",
   };
 }
 
-const comments = allComments.map(normalizeComment);
+const normalizedComments = allComments.map(normalizeComment);
+const comments = normalizedComments;
+const API_BASE = "http://localhost:3000/api";
 ---
 
 <DashboardLayout title="Analisis Komentar" activeMenu="comments">

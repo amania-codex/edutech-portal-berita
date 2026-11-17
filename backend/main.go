@@ -1,4 +1,4 @@
-﻿package main
+package main
 
 import (
 	"log"
@@ -18,8 +18,9 @@ func main() {
 	})
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins:     "http://localhost:4321", // Astro dev server
+		AllowOrigins:     "http://localhost:4321,http://localhost:4322,http://127.0.0.1:4321,http://127.0.0.1:4322,http://localhost:80,http://localhost",
 		AllowHeaders:     "Origin, Content-Type, Accept, Authorization",
+		AllowMethods:     "GET, POST, PUT, DELETE, OPTIONS",
 		AllowCredentials: true,
 	}))
 

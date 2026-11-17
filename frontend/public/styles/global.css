@@ -102,18 +102,6 @@ body.dark, html.dark {
   --color-border-light: #1b2c40;
 }
 
-body.dark .site-header,
-body.dark .search-panel {
-  background: #101e31;
-}
-
-body.dark .brand-name {
-  color: #f2f6fb;
-}
-
-body.dark .header-ad strong {
-  color: #e6edf7;
-}
 
 body.dark .topic-strip,
 body.dark .newsletter,
@@ -2569,29 +2557,148 @@ p {
 .callpapers-copy h2,
 .callpapers-copy p,
 .topic-card strong,
-.topic-card span,
-.topline,
-.topline a,
-.site-header,
-.site-header .brand-name,
-.site-header .header-ad strong,
-.main-nav .nav-inner > a,
-.site-footer,
-.site-footer h4,
-.site-footer p,
-.site-footer a,
-.site-footer span {
+.topic-card span {
   color: inherit !important;
 }
 
 .hero-main h1,
 .hero-main h1 a,
 .hero-side h3,
-.hero-side h3 a,
-.site-header .brand-name,
-.site-footer .brand-name,
-.site-footer h4 {
+.hero-side h3 a {
   color: #ffffff !important;
+}
+
+/* ========================================================
+   HEADER, NAVBAR & FOOTER — FORMAT GELAP PERMANEN
+   Tampil 100% IDENTIK di Mode Terang maupun Mode Gelap
+   ======================================================== */
+
+/* --- TOPLINE BAR --- */
+.topline,
+html .topline,
+body .topline,
+html.dark .topline,
+body.dark .topline {
+  background: #091b31 !important;
+  color: #c7d3e4 !important;
+  border-bottom: 1px solid #18283b !important;
+}
+
+.topline #todayDate,
+.topline .topline-inner,
+.topline .top-links,
+.topline .top-links a {
+  color: #c7d3e4 !important;
+}
+
+.topline .top-links a:hover {
+  color: #ffffff !important;
+}
+
+.topline .social-dot {
+  color: #c7d3e4 !important;
+  border: 1px solid #516176 !important;
+  background: transparent !important;
+}
+
+/* --- SITE HEADER --- */
+.site-header,
+html .site-header,
+body .site-header,
+html.dark .site-header,
+body.dark .site-header {
+  background: #0e1e33 !important;
+  color: #e6edf7 !important;
+  border-bottom: 1px solid #1c2e46 !important;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Brand Logo (Header & Footer) */
+.brand-name,
+.site-header .brand-name,
+.brand .brand-name,
+.site-footer .brand-name {
+  color: #ffffff !important;
+}
+
+.brand-name > span,
+.site-header .brand-name > span,
+.brand .brand-name > span,
+.site-footer .brand-name > span {
+  color: #11a8a7 !important;
+}
+
+.brand-name small,
+.site-header .brand-name small,
+.brand .brand-name small,
+.site-footer .brand-name small {
+  color: #ff8b3d !important;
+}
+
+.brand-mark,
+.site-header .brand-mark,
+.site-footer .brand-mark {
+  background: #071528 !important;
+  border: 1px solid #1f334d !important;
+}
+
+/* Header Ad / Info Area */
+.site-header .header-ad {
+  border-left: 1px solid #223752 !important;
+}
+
+.site-header .header-ad .ad-label {
+  color: #718399 !important;
+}
+
+.site-header .header-ad strong {
+  color: #f0f4fa !important;
+}
+
+.site-header .header-ad span,
+.site-header .header-ad > span:last-child {
+  color: #9aaabe !important;
+}
+
+/* Header Action Buttons */
+.site-header .header-actions button,
+.site-header .mobile-menu {
+  background: #091524 !important;
+  border: 1px solid #223752 !important;
+  color: #e6edf7 !important;
+}
+
+.site-header .header-actions button:hover,
+.site-header .mobile-menu:hover {
+  background: #13243a !important;
+  border-color: #19c8c3 !important;
+  color: #ffffff !important;
+}
+
+.site-header .auth-btn-pill {
+  background: #174b89 !important;
+  color: #ffffff !important;
+}
+
+.site-header .auth-btn-pill span,
+.site-header .auth-btn-pill #authBtnText {
+  color: #ffffff !important;
+}
+
+.site-header .auth-avatar-pill {
+  background: #11a8a7 !important;
+  color: #ffffff !important;
+}
+
+/* --- MAIN NAV --- */
+.main-nav,
+html .main-nav,
+body .main-nav,
+html.dark .main-nav,
+body.dark .main-nav {
+  background: #0b1a2d !important;
+  border-top: 1px solid #18283b !important;
+  border-bottom: 1px solid #18283b !important;
 }
 
 .main-nav .nav-inner > a {
@@ -2603,8 +2710,75 @@ p {
   color: #19c8c3 !important;
 }
 
-.main-nav .nav-special {
+.main-nav .nav-inner > a.active:after {
+  background: #11a8a7 !important;
+}
+
+.main-nav .nav-special,
+.main-nav .nav-special span {
   color: #ff8c42 !important;
+}
+
+/* --- SEARCH PANEL --- */
+.search-panel,
+html .search-panel,
+body .search-panel,
+html.dark .search-panel,
+body.dark .search-panel {
+  background: #0e1e33 !important;
+  border-bottom: 1px solid #1c2e46 !important;
+}
+
+.search-panel .search-inner input {
+  background: #091524 !important;
+  border: 1px solid #223752 !important;
+  color: #ffffff !important;
+}
+
+.search-panel .search-inner input::placeholder {
+  color: #718399 !important;
+}
+
+.search-panel .search-inner button#searchSubmit {
+  background: #174b89 !important;
+  color: #ffffff !important;
+}
+
+.search-panel .search-inner button#searchClose {
+  background: transparent !important;
+  border: 1px solid #223752 !important;
+  color: #9aaabe !important;
+}
+
+/* --- SITE FOOTER --- */
+.site-footer,
+html .site-footer,
+body .site-footer,
+html.dark .site-footer,
+body.dark .site-footer {
+  background: #071528 !important;
+  color: #d8e3f1 !important;
+  border-top: 1px solid #18283b !important;
+}
+
+.site-footer .footer-brand p {
+  color: #91a2b8 !important;
+}
+
+.site-footer .footer-social a {
+  border: 1px solid #314057 !important;
+  background: transparent !important;
+  color: #c7d3e4 !important;
+}
+
+.site-footer .footer-social a:hover {
+  background: #0e9e9e !important;
+  border-color: #0e9e9e !important;
+  color: #ffffff !important;
+}
+
+.site-footer .footer-column h4 {
+  color: #ffffff !important;
 }
 
 .site-footer .footer-column a {
@@ -2617,6 +2791,8 @@ p {
 
 .site-footer .footer-bottom,
 .site-footer .footer-bottom span {
+  border-top: 1px solid #233249 !important;
   color: #7f91a7 !important;
 }
+
 

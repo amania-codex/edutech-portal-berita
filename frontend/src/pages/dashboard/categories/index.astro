@@ -1,21 +1,12 @@
 ---
-import DashboardLayout from '../../../layouts/DashboardLayout.astro';
-import { getSessionFromRequest } from '../../../lib/session';
 
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect('/login');
-if (session.role !== 'admin') return Astro.redirect('/user');
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+
+
 
 const API_BASE = 'http://localhost:3000/api';
-let categories = [];
-try {
-  const res = await fetch(`${API_BASE}/categories`);
-  if (res.ok) {
-    categories = await res.json();
-  }
-} catch (err) {
-  console.error("Failed to fetch categories", err);
-}
+let categories: any[] = [];
+
 ---
 
 <DashboardLayout title="Kelola Kategori" activeMenu="categories">

@@ -1,27 +1,18 @@
 ---
+
 import Layout from "../layouts/Layout.astro";
 import Navbar from "../components/Navbar.astro";
 import NewsCard from "../components/NewsCard.astro";
 import TrendingNews from "../components/TrendingNews.astro";
 import Footer from "../components/Footer.astro";
 
-const q = Astro.url.searchParams.get('q') || '';
+const q = ''; // read client-side from URLSearchParams
 const API_BASE = "http://localhost:3000/api";
 
 let articles: any[] = [];
 let trendingNews: any[] = [];
 
-try {
-  const [articlesRes, trendingRes] = await Promise.all([
-    fetch(`${API_BASE}/news?q=${encodeURIComponent(q)}`),
-    fetch(`${API_BASE}/news/trending?limit=5`),
-  ]);
 
-  if (articlesRes.ok) articles = await articlesRes.json();
-  if (trendingRes.ok) trendingNews = await trendingRes.json();
-} catch (err) {
-  console.error("Failed to fetch:", err);
-}
 
 function normalize(a: any) {
   return {

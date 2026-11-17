@@ -1,18 +1,10 @@
 ---
-import { getSessionFromRequest } from '../lib/session';
-
 export interface Props {
   title?: string;
   activeMenu?: string;
 }
 
 const { title = 'Dashboard', activeMenu = '' } = Astro.props;
-
-const session = await getSessionFromRequest(Astro.request);
-if (!session) {
-  return Astro.redirect('/login');
-}
-const isAdmin = session.role === 'admin';
 ---
 
 <!doctype html>
@@ -51,10 +43,10 @@ const isAdmin = session.role === 'admin';
 
       <!-- User Info -->
       <div class="sidebar-user">
-        <div class="sidebar-avatar">{session.name.charAt(0).toUpperCase()}</div>
+        <div class="sidebar-avatar" id="sidebarAvatar">?</div>
         <div class="sidebar-user-info">
-          <p class="sidebar-user-name">{session.name}</p>
-          <span class="sidebar-role-badge">Admin</span>
+          <p class="sidebar-user-name" id="sidebarName">Memuat...</p>
+          <span class="sidebar-role-badge" id="sidebarRole">—</span>
         </div>
       </div>
 
@@ -131,7 +123,7 @@ const isAdmin = session.role === 'admin';
           <a href="/" class="header-action-btn" title="Lihat Portal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           </a>
-          <div class="header-avatar" title={session.name}>{session.name.charAt(0).toUpperCase()}</div>
+          <div class="header-avatar" id="headerAvatar" title="">?</div>
         </div>
       </header>
 
@@ -391,11 +383,32 @@ const isAdmin = session.role === 'admin';
 </style>
 
 <script>
-  const sidebar = document.getElementById('sidebar')!;
-  const overlay = document.getElementById('sidebar-overlay')!;
-  const menuBtn = document.getElementById('header-menu-btn')!;
-  const closeBtn = document.getElementById('sidebar-close')!;
-  const logoutBtn = document.getElementById('logout-btn')!;
+  const API_GO = 'http://localhost:3000/api';
+
+  // Client-side auth guard
+  (async () => {
+    try {
+      const res = await fetch(`${API_GO}/auth/profile`, { credentials: 'include' });
+      if (!res.ok) { window.location.href = '/login'; return; }
+      const user = await res.json();
+
+      // Populate user info in sidebar and header
+      const avatarInitial = (user.name || 'U').charAt(0).toUpperCase();
+      const el = (id) => document.getElementById(id);
+      if (el('sidebarAvatar')) el('sidebarAvatar').textContent = avatarInitial;
+      if (el('sidebarName'))  el('sidebarName').textContent  = user.name || '';
+      if (el('sidebarRole'))  el('sidebarRole').textContent  = user.role === 'admin' ? 'Admin' : 'User';
+      if (el('headerAvatar')) { el('headerAvatar').textContent = avatarInitial; el('headerAvatar').title = user.name || ''; }
+    } catch {
+      window.location.href = '/login';
+    }
+  })();
+
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const menuBtn = document.getElementById('header-menu-btn');
+  const closeBtn = document.getElementById('sidebar-close');
+  const logoutBtn = document.getElementById('logout-btn');
 
   function openSidebar() {
     sidebar.classList.add('open');
@@ -406,14 +419,16 @@ const isAdmin = session.role === 'admin';
     overlay.classList.remove('open');
   }
 
-  menuBtn.addEventListener('click', openSidebar);
-  closeBtn.addEventListener('click', closeSidebar);
-  overlay.addEventListener('click', closeSidebar);
+  if (menuBtn) menuBtn.addEventListener('click', openSidebar);
+  if (closeBtn) closeBtn.addEventListener('click', closeSidebar);
+  if (overlay) overlay.addEventListener('click', closeSidebar);
 
-  logoutBtn.addEventListener('click', async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    window.location.href = '/';
-  });
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      await fetch(`${API_GO}/auth/logout`, { method: 'POST', credentials: 'include' });
+      window.location.href = '/';
+    });
+  }
 
   // Theme Toggle
   const themeToggle = document.getElementById('theme-toggle');

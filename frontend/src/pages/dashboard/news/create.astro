@@ -1,10 +1,8 @@
 ---
-import DashboardLayout from '../../../layouts/DashboardLayout.astro';
-import { getSessionFromRequest } from '../../../lib/session';
 
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect('/login');
-if (session.role !== 'admin') return Astro.redirect('/user');
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+
+
 ---
 
 <DashboardLayout title="Tulis Berita Baru" activeMenu="create-news">

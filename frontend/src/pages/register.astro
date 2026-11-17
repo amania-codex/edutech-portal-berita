@@ -1,13 +1,10 @@
 ---
+
 import Layout from '../layouts/Layout.astro';
 import Navbar from '../components/Navbar.astro';
 import Footer from '../components/Footer.astro';
-import { getSessionFromRequest } from '../lib/session';
 
-const session = await getSessionFromRequest(Astro.request);
-if (session) {
-  return Astro.redirect('/dashboard');
-}
+
 ---
 
 <Layout title="Daftar — EduTech News Portal" description="Buat akun EduTech baru">
@@ -260,8 +257,9 @@ if (session) {
     (regBtn.querySelector('.btn-loading') as HTMLElement).style.display = 'flex';
 
     try {
-      const res = await fetch('/api/auth/register', {
+      const res = await fetch('http://localhost:3000/api/auth/register', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),
       });

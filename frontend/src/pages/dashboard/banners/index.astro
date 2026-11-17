@@ -1,33 +1,9 @@
 ---
 import DashboardLayout from '../../../layouts/DashboardLayout.astro';
-import { getSessionFromRequest } from '../../../lib/session';
 
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect('/login');
-if (session.role !== 'admin') return Astro.redirect('/user');
-
-const cookie = Astro.request.headers.get('cookie') || '';
-const tokenMatch = cookie.match(/auth_token=([^;]+)/);
-const token = tokenMatch ? tokenMatch[1] : '';
-
-const API_BASE = 'http://localhost:3000/api';
-let banners: any[] = [];
-
-try {
-  const res = await fetch(`${API_BASE}/admin/banners`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-  if (res.ok) {
-    banners = await res.json();
-  }
-} catch (err) {
-  console.error('Failed to fetch banners:', err);
-}
-
-const activeCount = banners.filter((b) => b.is_active).length;
-const inactiveCount = banners.length - activeCount;
+const banners: any[] = [];
+const activeCount = 0;
+const inactiveCount = 0;
 ---
 
 <DashboardLayout title="Kelola Poster" activeMenu="banners">

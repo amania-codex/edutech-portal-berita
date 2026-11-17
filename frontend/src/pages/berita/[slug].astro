@@ -1,13 +1,22 @@
 ---
+export async function getStaticPaths() {
+  const API = "http://localhost:3000/api";
+  try {
+    const res = await fetch(`${API}/news?limit=1000&status=published`);
+    if (res.ok) {
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : (data.data || data.articles || []);
+      return list.map((a: any) => ({ params: { slug: String(a.slug || a.Slug || '') } })).filter((x: any) => x.params.slug);
+    }
+  } catch (e) { console.error('getStaticPaths berita:', e); }
+  return [];
+}
+
 import Layout from "../../layouts/Layout.astro";
 import Navbar from "../../components/Navbar.astro";
 import TrendingNews from "../../components/TrendingNews.astro";
 import Footer from "../../components/Footer.astro";
 import Comments from "../../components/Comments.astro";
-import { getSessionFromRequest } from '../../lib/session';
-
-const session = await getSessionFromRequest(Astro.request);
-const cookieStr = Astro.request.headers.get('cookie') || '';
 
 const { slug } = Astro.params;
 const API_BASE = "http://localhost:3000/api";
@@ -20,43 +29,15 @@ try {
     fetch(`${API_BASE}/news/slug/${slug}`),
     fetch(`${API_BASE}/news/trending?limit=5`),
   ]);
-
   if (articleRes.ok) article = await articleRes.json();
   if (trendingRes.ok) trendingNews = await trendingRes.json();
-
-  // If logged in, add to history and check bookmark
-  if (session && article) {
-    // Record history
-    try {
-      await fetch(`${API_BASE}/user/history`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Cookie': cookieStr },
-        body: JSON.stringify({ news_id: article.ID || article.id })
-      });
-    } catch (e) {
-      console.error("History err:", e);
-    }
-  }
 } catch (err) {
-  console.error("Failed to fetch from Go Fiber:", err);
+  console.error("Failed to fetch:", err);
 }
 
 let isBookmarked = false;
-if (session && article) {
-  try {
-    const res = await fetch(`${API_BASE}/user/bookmarks/${article.ID || article.id}`, {
-      headers: { 'Cookie': cookieStr }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      isBookmarked = data.bookmarked;
-    }
-  } catch (err) { console.error(err); }
-}
 
-if (!article) {
-  return Astro.redirect("/404");
-}
+// If article not found, show 404 page content
 
 // Normalize Go Fiber response (handles GORM uppercase fields)
 function normalize(a: any) {

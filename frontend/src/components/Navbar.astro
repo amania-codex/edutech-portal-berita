@@ -1,8 +1,5 @@
 ---
-// Navbar.astro — Edutech-portal-ramai editorial style
-import { getSessionFromRequest } from '../lib/session';
-
-const session = await getSessionFromRequest(Astro.request);
+// Navbar.astro — Edutech-portal-ramai editorial style (SSG-compatible)
 
 const todayStr = new Intl.DateTimeFormat("id-ID", {
   weekday: "long",
@@ -46,16 +43,10 @@ const currentPath = Astro.url.pathname;
       <button id="searchToggle" aria-label="Cari berita" title="Cari">⌕</button>
       <button id="themeToggle" aria-label="Ubah tema" title="Ganti Mode Gelap/Terang">☾</button>
       
-      {session ? (
-        <a href="/dashboard" class="auth-btn-pill" title="Ke Dashboard">
-          <span class="auth-avatar-pill">{session.name.charAt(0).toUpperCase()}</span>
-          <span>Dashboard</span>
-        </a>
-      ) : (
-        <a href="/login" class="auth-btn-pill" title="Masuk">
-          <span>Masuk</span>
-        </a>
-      )}
+      <!-- Auth button: shown/hidden by client-side JS -->
+      <a href="/login" class="auth-btn-pill" id="authBtn" title="Masuk">
+        <span id="authBtnText">Masuk</span>
+      </a>
     </div>
   </div>
 
@@ -68,9 +59,7 @@ const currentPath = Astro.url.pathname;
       <a href="/kategori/riset" class={currentPath === '/kategori/riset' ? 'active' : ''}>Riset</a>
       <a href="/event" class={currentPath.startsWith('/event') ? 'active' : ''}>Event & Webinar</a>
       <a href="/kategori/artikel" class={currentPath === '/kategori/artikel' ? 'active' : ''}>Artikel</a>
-      {session && (
-        <a href="/user/tickets" class={currentPath === '/user/tickets' ? 'active' : ''}>Tiket Saya</a>
-      )}
+      <a href="/user/tickets" class={`nav-ticket-link ${currentPath === '/user/tickets' ? 'active' : ''}`} id="ticketNavLink" style="display:none">Tiket Saya</a>
       <a href="/kategori/headline" class="nav-special">Advertorial <span>↗</span></a>
       <a href="/#kontak">Kontak</a>
     </div>
@@ -145,4 +134,34 @@ const currentPath = Astro.url.pathname;
       }
     });
   }
+
+  // Client-side auth check: call http://localhost:3000/api/auth/profile to see if user is logged in
+  (async function checkAuth() {
+    try {
+      const res = await fetch('http://localhost:3000/api/auth/profile', { credentials: 'include' });
+      const authBtn = document.getElementById('authBtn');
+      const authBtnText = document.getElementById('authBtnText');
+      const ticketLink = document.getElementById('ticketNavLink');
+
+      if (res.ok) {
+        const data = await res.json();
+        const user = data.user || data;
+        const initial = (user.name || 'U').charAt(0).toUpperCase();
+
+        if (authBtn) {
+          authBtn.href = '/dashboard';
+          authBtn.title = 'Ke Dashboard';
+        }
+        if (authBtnText) {
+          authBtnText.textContent = initial + ' Dashboard';
+        }
+        if (ticketLink) {
+          ticketLink.style.display = '';
+        }
+      }
+      // If not ok (401/403), keep default "Masuk" link
+    } catch (e) {
+      // Network error or backend down — keep "Masuk" link
+    }
+  })();
 </script>

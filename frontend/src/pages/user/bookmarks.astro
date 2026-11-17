@@ -1,23 +1,12 @@
 ---
-import UserLayout from '../../layouts/UserLayout.astro';
-import { getSessionFromRequest } from '../../lib/session';
 
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect('/login');
+import UserLayout from '../../layouts/UserLayout.astro';
+
 
 const API_BASE = "http://localhost:3000/api";
 let bookmarkItems: any[] = [];
 
-try {
-  const res = await fetch(`${API_BASE}/user/bookmarks`, {
-    headers: { 'Cookie': Astro.request.headers.get('cookie') || '' }
-  });
-  if (res.ok) {
-    bookmarkItems = await res.json();
-  }
-} catch(err) {
-  console.error("Gagal mengambil bookmarks", err);
-}
+
 
 const fallbackImg = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80";
 

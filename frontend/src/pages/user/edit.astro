@@ -1,28 +1,13 @@
 ---
 import UserLayout from '../../layouts/UserLayout.astro';
-import { getSessionFromRequest } from '../../lib/session';
 
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect('/login');
-if (session.role === 'admin') return Astro.redirect('/dashboard');
-
-const cookie = Astro.request.headers.get('cookie') || '';
-let userData = null;
-try {
-  const res = await fetch('http://localhost:3000/api/auth/me', {
-    headers: { cookie }
-  });
-  if (res.ok) userData = await res.json();
-} catch (e) {
-  console.error("Error fetching user data", e);
-}
+let userData: any = { name: "User", email: "user@edutech.id", phone: "", bio: "", avatar_url: "" };
 
 const user = {
-  id: session.userId,
-  name: userData?.name || session.name || 'User',
-  email: userData?.email || session.email || '',
-  avatar: userData?.avatar || '',
-  bio: userData?.bio || ''
+  name: 'User',
+  email: 'user@edutech.id',
+  avatar: '',
+  bio: ''
 };
 ---
 
@@ -197,8 +182,9 @@ const user = {
     const avatar = avatarUrlInput.value;
 
     try {
-      const res = await fetch('/api/auth/profile', {
+      const res = await fetch('http://localhost:3000/api/auth/profile', {
         method: 'PUT',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, bio, avatar })
       });

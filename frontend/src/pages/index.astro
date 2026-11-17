@@ -13,23 +13,7 @@ let trendingNews: any[] = [];
 let popularNews: any[] = [];
 let eventsList: any[] = [];
 
-try {
-  const [allRes, featuredRes, trendingRes, popularRes, eventsRes] = await Promise.all([
-    fetch(`${API_BASE}/news?limit=30`).catch(() => null),
-    fetch(`${API_BASE}/news/featured?limit=5`).catch(() => null),
-    fetch(`${API_BASE}/news/trending?limit=6`).catch(() => null),
-    fetch(`${API_BASE}/news/popular?limit=8&days=30`).catch(() => null),
-    fetch(`${API_BASE}/events`).catch(() => null),
-  ]);
 
-  if (allRes && allRes.ok) allNews = await allRes.json();
-  if (featuredRes && featuredRes.ok) featuredNews = await featuredRes.json();
-  if (trendingRes && trendingRes.ok) trendingNews = await trendingRes.json();
-  if (popularRes && popularRes.ok) popularNews = await popularRes.json();
-  if (eventsRes && eventsRes.ok) eventsList = await eventsRes.json();
-} catch (err) {
-  console.error("Failed to fetch from API in index.astro:", err);
-}
 
 // Helper kalkulasi waktu baca
 function calculateReadTime(text: string): string {

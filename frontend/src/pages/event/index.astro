@@ -1,4 +1,5 @@
 ---
+
 // src/pages/event/index.astro — Katalog Event, Webinar & Workshop EduTech
 import Layout from "../../layouts/Layout.astro";
 import Navbar from "../../components/Navbar.astro";
@@ -8,17 +9,7 @@ import { API_BASE } from "../../lib/config";
 let events: any[] = [];
 let errorMsg = "";
 
-try {
-  const res = await fetch(`${API_BASE}/events?status=all`);
-  if (res.ok) {
-    const data = await res.json();
-    events = data.data || [];
-  } else {
-    errorMsg = "Gagal memuat daftar acara dari server.";
-  }
-} catch (err: any) {
-  errorMsg = "Koneksi ke backend belum tersedia.";
-}
+
 
 // Fallback sample data if empty to ensure rich display
 if (events.length === 0 && !errorMsg) {

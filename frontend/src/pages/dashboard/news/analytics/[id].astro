@@ -1,60 +1,31 @@
 ---
-import DashboardLayout from '../../../../layouts/DashboardLayout.astro';
-import { getSessionFromRequest } from '../../../../lib/session';
-
-const session = await getSessionFromRequest(Astro.request);
-if (!session || session.role !== 'admin') return Astro.redirect('/dashboard');
-
-const { id } = Astro.params;
-const API_BASE = 'http://localhost:3000/api';
-
-let article: any = null;
-let comments: any[] = [];
-
-try {
-  const [articleRes, commentsRes] = await Promise.all([
-    fetch(`${API_BASE}/news/${id}`),
-    fetch(`${API_BASE}/comments/news/${id}`),
-  ]);
-  if (articleRes.ok) {
-    const raw = await articleRes.json();
-    article = {
-      id: raw.ID || raw.id,
-      title: raw.title,
-      slug: raw.slug,
-      category: raw.category,
-      author: raw.author,
-      status: raw.status,
-      viewCount: raw.viewCount || raw.view_count || 0,
-      imageUrl: raw.imageUrl || raw.image_url || '',
-      tags: raw.tags || '',
-      isFeatured: raw.isFeatured || raw.is_featured || false,
-      isTrending: raw.isTrending || raw.is_trending || false,
-      createdAt: raw.CreatedAt || raw.createdAt || raw.created_at,
-      updatedAt: raw.UpdatedAt || raw.updatedAt || raw.updated_at,
-    };
-  }
-  if (commentsRes.ok) {
-    const raw = await commentsRes.json();
-    comments = Array.isArray(raw) ? raw : [];
-  }
-} catch (err) {
-  console.error('Failed to fetch analytics data:', err);
+export async function getStaticPaths() {
+  return [{ params: { id: '_placeholder' } }];
 }
 
-if (!article) return Astro.redirect('/dashboard/news');
+import DashboardLayout from '../../../../layouts/DashboardLayout.astro';
 
-const formattedCreated = article.createdAt
-  ? new Date(article.createdAt).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  : '-';
-
-const formattedUpdated = article.updatedAt
-  ? new Date(article.updatedAt).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-  : '-';
-
-const commentCount = comments.length;
-const approvedComments = comments.filter((c: any) => c.status === 'approved' || !c.status).length;
-const pendingComments = comments.filter((c: any) => c.status === 'pending').length;
+const article: any = {
+  id: 0,
+  title: 'Memuat Analitik...',
+  slug: '',
+  category: '-',
+  author: 'Redaksi',
+  status: 'draft',
+  viewCount: 0,
+  imageUrl: '',
+  tags: '',
+  isFeatured: false,
+  isTrending: false,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+const comments: any[] = [];
+const commentCount = 0;
+const approvedComments = 0;
+const pendingComments = 0;
+const formattedCreated = '-';
+const formattedUpdated = '-';
 ---
 
 <DashboardLayout title={`Analisis: ${article.title}`} activeMenu="news">

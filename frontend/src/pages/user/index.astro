@@ -1,30 +1,16 @@
 ---
 import UserLayout from '../../layouts/UserLayout.astro';
-import { getSessionFromRequest } from '../../lib/session';
 
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect('/login');
-if (session.role === 'admin') return Astro.redirect('/dashboard');
-
-const cookie = Astro.request.headers.get('cookie') || '';
-let userData = null;
-try {
-  const res = await fetch('http://localhost:3000/api/auth/me', {
-    headers: { cookie }
-  });
-  if (res.ok) userData = await res.json();
-} catch (e) {
-  console.error("Error fetching user data", e);
-}
+let userData: any = { name: "User", email: "user@edutech.id", phone: "", bio: "", avatar_url: "", role: "user" };
 
 const user = {
-  id: session.userId,
-  name: userData?.name || session.name || 'User',
-  email: userData?.email || session.email || '',
-  role: userData?.role || session.role || 'user',
-  avatar: userData?.avatar || null,
-  created_at: userData?.created_at || new Date().toISOString(),
-  bio: userData?.bio?.trim() || ''
+  id: 0,
+  name: 'User',
+  email: 'user@edutech.id',
+  role: 'user',
+  avatar: null as string | null,
+  created_at: new Date().toISOString(),
+  bio: ''
 };
 ---
 

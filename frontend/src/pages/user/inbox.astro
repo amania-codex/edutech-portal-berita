@@ -1,23 +1,12 @@
 ---
-import UserLayout from '../../layouts/UserLayout.astro';
-import { getSessionFromRequest } from '../../lib/session';
 
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect('/login');
+import UserLayout from '../../layouts/UserLayout.astro';
+
 
 const API_BASE = "http://localhost:3000/api";
 let notifs: any[] = [];
 
-try {
-  const res = await fetch(`${API_BASE}/user/notifications`, {
-    headers: { 'Cookie': Astro.request.headers.get('cookie') || '' }
-  });
-  if (res.ok) {
-    notifs = await res.json();
-  }
-} catch(err) {
-  console.error("Gagal mengambil notifikasi", err);
-}
+
 
 const unreadCount = notifs.filter(n => !n.is_read).length;
 

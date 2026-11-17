@@ -1,34 +1,21 @@
 ---
+
 // src/pages/user/tickets.astro — Dashboard Tiket & Event Saya
 import UserLayout from "../../layouts/UserLayout.astro";
-import { getSessionFromRequest } from "../../lib/session";
 import { API_BASE } from "../../lib/config";
 
-const session = await getSessionFromRequest(Astro.request);
-if (!session) return Astro.redirect("/login");
 
-const cookieStr = Astro.request.headers.get("cookie") || "";
 let registrations: any[] = [];
 let errorMsg = "";
 
-try {
-  const res = await fetch(`${API_BASE}/user/tickets`, {
-    headers: { Cookie: cookieStr }
-  });
-  if (res.ok) {
-    const data = await res.json();
-    registrations = data.data || [];
-  } else {
-    errorMsg = "Gagal memuat daftar tiket dari server.";
-  }
-} catch (err) {
-  errorMsg = "Koneksi ke backend belum tersedia.";
-}
+
 
 // Stats summary
 const totalTickets = registrations.length;
 const verifiedTickets = registrations.filter((r) => r.status === "verified").length;
 const waitingTickets = registrations.filter((r) => r.status === "waiting" || r.status === "pending").length;
+
+let tickets: any[] = [];
 ---
 
 <UserLayout title="Tiket & Event Saya" activeMenu="tickets">
