@@ -7,7 +7,6 @@ import (
 
 	"news-portal-backend/models"
 
-	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -74,17 +73,6 @@ func Connect() {
 		return
 	}
 
-	// Seed admin user
-	var count int64
-	DB.Model(&models.User{}).Where("email = ?", "admin@edutech.id").Count(&count)
-	if count == 0 {
-		hash, _ := bcrypt.GenerateFromPassword([]byte("admin123"), 10)
-		DB.Create(&models.User{
-			Name:     "Administrator",
-			Email:    "admin@edutech.id",
-			Password: string(hash),
-			Role:     "admin",
-		})
-		log.Println("Admin user seeded.")
-	}
+	// Seed admin user from seeder.go
+	SeedAdmin()
 }
