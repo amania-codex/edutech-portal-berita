@@ -36,5 +36,6 @@ await Promise.all(Array.from({ length: 24 }, async () => {
 
 console.log(`Berita terbit: ${news}, file diperiksa: ${urls.size}, gagal: ${bad.length}`);
 bad.slice(0, 20).forEach((b) => console.log('  ✗ ' + b));
+if (process.env.GITHUB_ACTIONS) console.log(`::${bad.length || news < MIN ? 'error' : 'notice'}::Berita ${news}, file ${urls.size}, gagal ${bad.length}%0A${bad.slice(0, 10).join('%0A')}`);
 if (news < MIN) console.log(`  ✗ jumlah berita kurang dari ${MIN}`);
 process.exit(bad.length || news < MIN ? 1 : 0);

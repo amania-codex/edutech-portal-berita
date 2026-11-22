@@ -231,4 +231,5 @@ check('logout menghapus cookie', /auth_token=;/.test((await call('POST', '/api/a
 
 console.log(`\nLULUS ${pass}, GAGAL ${failures.length}`);
 failures.forEach((f) => console.log('  ✗ ' + f));
+if (process.env.GITHUB_ACTIONS) console.log(`::${failures.length ? 'error' : 'notice'}::API lulus ${pass}, gagal ${failures.length}%0A${failures.join('%0A')}`);
 process.exit(failures.length ? 1 : 0);

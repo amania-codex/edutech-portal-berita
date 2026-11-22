@@ -66,20 +66,23 @@ jobs:
         env:
           MIN_NEWS: 2817
         run: |
-          grep SeedNews /tmp/server.log
+          grep SeedNews /tmp/server.log || true
+          echo "::notice::$(grep SeedNews /tmp/server.log | tail -1)"
           node tools/check-images.mjs
 
       - name: Uji seluruh fitur API
+        if: ${{ !cancelled() }}
         working-directory: backend
         run: node tools/smoke-test.mjs
 
       - name: Bangun frontend dari backend asli
+        if: ${{ !cancelled() }}
         working-directory: frontend
         run: |
           npm ci
           npx astro build > /tmp/build.log 2>&1 || { tail -40 /tmp/build.log; exit 1; }
           tail -3 /tmp/build.log
-          n=$(ls dist/berita | wc -l); echo "halaman berita: $n"; test "$n" -ge 2817
+          n=$(ls dist/berita | wc -l); echo "halaman berita: $n"; echo "::notice::Halaman berita terbangun: $n"; test "$n" -ge 2817
           test -f dist/kategori/pendidikan/index.html
           test -f dist/kategori/jateng-diy/2/index.html
           test -f dist/404.html
@@ -97,4 +100,7 @@ jobs:
 
       - name: Log backend
         if: failure()
-        run: tail -n 120 /tmp/server.log || true
+        run: |
+          tail -n 120 /tmp/server.log || true
+          echo "::error::$(grep -iE "error|panic|fatal|gagal" /tmp/server.log | tail -8 | cut -c1-300 | tr "
+" "|")"
