@@ -1,4 +1,4 @@
-﻿package models
+package models
 
 import (
 	"time"
@@ -11,7 +11,7 @@ type Banner struct {
 	Title     string         `json:"title"`
 	ImageUrl  string         `json:"image_url"`
 	TargetUrl string         `json:"target_url"`
-	IsActive  bool           `gorm:"default:true" json:"is_active"`
+	IsActive  bool           `gorm:"not null" json:"is_active"` // tanpa default:true, agar false tidak diabaikan GORM
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`

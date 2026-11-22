@@ -130,6 +130,15 @@ check('hitung tayangan', (await call('POST', `/api/news/${art.ID}/view`)).status
 check('tayangan draft ditolak', (await call('POST', `/api/news/${draftArt.ID}/view`)).status === 404);
 check('tayangan id ngawur ditolak', (await call('POST', '/api/news/abc/view')).status === 404);
 
+// ---------- SQL injection lewat parameter ID ----------
+for (const path of ['/api/news/1=1', '/api/news/id=id', `/api/news/${encodeURIComponent('1=1 OR 1=1')}`, '/api/news/(select(1))', '/api/events/1=1', '/api/comments/news/1=1']) {
+  check(`ID bukan angka ditolak: ${path}`, (await call('GET', path)).status === 404);
+}
+check('ID bukan angka ditolak (daftar event)', (await call('POST', '/api/events/1=1/register', { body: { name: 'x', email: 'x@contoh.id' } })).status === 404);
+for (const path of ['/api/news/1=1', '/api/comments/1=1', '/api/categories/1=1', '/api/admin/events/1=1', '/api/admin/banners/1=1']) {
+  check(`hapus dengan ID bukan angka ditolak: ${path}`, (await call('DELETE', path, { cookie: admin })).status === 404);
+}
+
 // ---------- sunting ----------
 r = await call('PUT', `/api/news/${art.ID}`, { cookie: admin, body: { title: `${title} Baru`, content: '<p>Pendek &amp; padat</p>', slug: `slug-baru-${run}`, category: `Kedua ${run}`, tags: 'a, b', status: 'published', imageUrl: up.data.url, isFeatured: true, isTrending: false } });
 check('sunting berita', r.status === 200, r.data);

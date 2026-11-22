@@ -13,6 +13,9 @@ import (
 func Setup(app *fiber.App) {
 	api := app.Group("/api")
 
+	// ID wajib angka (:id<int>). GORM memperlakukan ID berupa teks sebagai potongan SQL mentah,
+	// jadi tanpa batasan ini parameter URL bisa dipakai untuk SQL injection.
+
 	// Rate limiter for auth endpoints (max 20 requests per minute)
 	authLimiter := limiter.New(limiter.Config{
 		Max:        20,
@@ -67,17 +70,17 @@ func Setup(app *fiber.App) {
 	api.Get("/news/by-categories", handlers.GetNewsByCategories)
 	api.Get("/news/resolve/:slug", handlers.ResolveNewsSlug)
 	api.Get("/news/slug/:slug", handlers.GetNewsBySlug)
-	api.Post("/news/:id/view", viewLimiter, handlers.TrackNewsView)
+	api.Post("/news/:id<int>/view", viewLimiter, handlers.TrackNewsView)
 	api.Get("/news/category/:category", handlers.GetNews)
-	api.Get("/news/:id", handlers.GetNewsById)
+	api.Get("/news/:id<int>", handlers.GetNewsById)
 	api.Get("/categories", handlers.GetAllCategories)
 	api.Post("/categories", middleware.Protected(), middleware.AdminOnly(), handlers.CreateCategory)
-	api.Put("/categories/:id", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateCategory)
-	api.Delete("/categories/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteCategory)
+	api.Put("/categories/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateCategory)
+	api.Delete("/categories/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteCategory)
 	// News routes (Admin)
 	api.Post("/news", middleware.Protected(), middleware.AdminOnly(), handlers.CreateNews)
-	api.Put("/news/:id", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateNews)
-	api.Delete("/news/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteNews)
+	api.Put("/news/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateNews)
+	api.Delete("/news/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteNews)
 
 	api.Get("/admin/stats", middleware.Protected(), middleware.AdminOnly(), handlers.GetAdminStats)
 
@@ -85,30 +88,30 @@ func Setup(app *fiber.App) {
 	api.Get("/banners", handlers.GetActiveBanners)
 	api.Get("/admin/banners", middleware.Protected(), middleware.AdminOnly(), handlers.GetAllBanners)
 	api.Post("/admin/banners", middleware.Protected(), middleware.AdminOnly(), handlers.CreateBanner)
-	api.Put("/admin/banners/:id/toggle", middleware.Protected(), middleware.AdminOnly(), handlers.ToggleBannerStatus)
-	api.Delete("/admin/banners/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteBanner)
+	api.Put("/admin/banners/:id<int>/toggle", middleware.Protected(), middleware.AdminOnly(), handlers.ToggleBannerStatus)
+	api.Delete("/admin/banners/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteBanner)
 
 	// Comment routes
 	api.Get("/comments", middleware.Protected(), middleware.AdminOnly(), handlers.GetComments)
-	api.Get("/comments/news/:newsId", handlers.GetCommentsByNews)
+	api.Get("/comments/news/:newsId<int>", handlers.GetCommentsByNews)
 	api.Post("/comments", middleware.Protected(), handlers.CreateComment)
-	api.Post("/comments/:id/like", middleware.Protected(), handlers.LikeComment)
-	api.Delete("/comments/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteComment)
+	api.Post("/comments/:id<int>/like", middleware.Protected(), handlers.LikeComment)
+	api.Delete("/comments/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteComment)
 
 	// User dashboard routes
 	api.Get("/user/history", middleware.Protected(), handlers.GetReadingHistory)
 	api.Post("/user/history", middleware.Protected(), handlers.AddReadingHistory)
-	api.Delete("/user/history/:id", middleware.Protected(), handlers.DeleteReadingHistoryItem)
+	api.Delete("/user/history/:id<int>", middleware.Protected(), handlers.DeleteReadingHistoryItem)
 	api.Delete("/user/history", middleware.Protected(), handlers.ClearReadingHistory)
 
 	api.Get("/user/bookmarks", middleware.Protected(), handlers.GetBookmarks)
 	api.Post("/user/bookmarks", middleware.Protected(), handlers.ToggleBookmark)
-	api.Get("/user/bookmarks/:news_id", middleware.Protected(), handlers.CheckBookmark)
+	api.Get("/user/bookmarks/:news_id<int>", middleware.Protected(), handlers.CheckBookmark)
 
 	api.Get("/user/notifications", middleware.Protected(), handlers.GetNotifications)
 	api.Post("/user/notifications/read-all", middleware.Protected(), handlers.ReadAllNotifications)
-	api.Post("/user/notifications/:id/read", middleware.Protected(), handlers.ReadNotification)
-	api.Delete("/user/notifications/:id", middleware.Protected(), handlers.DeleteNotification)
+	api.Post("/user/notifications/:id<int>/read", middleware.Protected(), handlers.ReadNotification)
+	api.Delete("/user/notifications/:id<int>", middleware.Protected(), handlers.DeleteNotification)
 	api.Delete("/user/notifications", middleware.Protected(), handlers.ClearAllNotifications)
 
 	// User Tickets
@@ -117,20 +120,20 @@ func Setup(app *fiber.App) {
 	// Event routes (Public)
 	api.Get("/events", handlers.GetEvents)
 	api.Get("/events/slug/:slug", handlers.GetEventBySlug)
-	api.Get("/events/:id", handlers.GetEventById)
-	api.Post("/events/:id/register", handlers.RegisterEvent)
+	api.Get("/events/:id<int>", handlers.GetEventById)
+	api.Post("/events/:id<int>/register", handlers.RegisterEvent)
 
 	// Bank Account routes
 	api.Get("/bank-accounts", handlers.GetBankAccounts)
 
 	// Admin Event & Registration routes
 	api.Post("/admin/events", middleware.Protected(), middleware.AdminOnly(), handlers.CreateEvent)
-	api.Put("/admin/events/:id", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateEvent)
-	api.Delete("/admin/events/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteEvent)
+	api.Put("/admin/events/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateEvent)
+	api.Delete("/admin/events/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteEvent)
 
 	api.Get("/admin/registrations", middleware.Protected(), middleware.AdminOnly(), handlers.GetAdminRegistrations)
-	api.Put("/admin/registrations/:id/status", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateRegistrationStatus)
+	api.Put("/admin/registrations/:id<int>/status", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateRegistrationStatus)
 
 	api.Post("/admin/bank-accounts", middleware.Protected(), middleware.AdminOnly(), handlers.CreateBankAccount)
-	api.Delete("/admin/bank-accounts/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteBankAccount)
+	api.Delete("/admin/bank-accounts/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteBankAccount)
 }

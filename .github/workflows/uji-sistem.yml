@@ -88,6 +88,7 @@ jobs:
           test -f dist/404.html
 
       - name: Backend bisa dinyalakan ulang (migrasi kedua kali)
+        if: ${{ !cancelled() }}
         working-directory: backend
         run: |
           pkill -f /tmp/server || true
