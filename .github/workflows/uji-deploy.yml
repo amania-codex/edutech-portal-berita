@@ -45,7 +45,7 @@ jobs:
 
       - name: Tanpa .env harus berhenti sebelum mengubah apa pun
         run: |
-          ! bash deploy/deploy.sh > /tmp/o.txt 2>&1
+          if bash deploy/deploy.sh > /tmp/o.txt 2>&1; then echo "seharusnya gagal"; exit 1; fi
           grep "backend/.env belum ada" /tmp/o.txt
 
       - name: Port milik aplikasi lain harus ditolak
@@ -64,9 +64,9 @@ jobs:
           ADMIN_PASSWORD=kata-sandi-uji-panjang
           EOF
           sed -i 's/^ *//' backend/.env
-          ! bash deploy/deploy.sh > /tmp/o.txt 2>&1
+          if bash deploy/deploy.sh > /tmp/o.txt 2>&1; then echo "seharusnya gagal"; exit 1; fi
           grep "port 3000 sudah dipakai" /tmp/o.txt
-          ! pm2 describe edutech-backend > /dev/null 2>&1
+          if pm2 describe edutech-backend > /dev/null 2>&1; then echo "seharusnya belum ada"; exit 1; fi
 
       - name: Pasang semuanya
         run: |
@@ -79,7 +79,7 @@ jobs:
       - name: Tidak ada alamat internal bocor ke halaman
         working-directory: frontend
         run: |
-          ! grep -rlE "127\.0\.0\.1:3021|localhost:3000" dist --include=*.html --include=*.js | head -3 | grep .
+          if grep -rlE "127\.0\.0\.1|localhost:3000" dist --include=*.html --include=*.js > /tmp/bocor.txt; then head -3 /tmp/bocor.txt; exit 1; fi
           test "$(ls dist/berita | wc -l)" -ge 2817
           test -z "$(git status --short)"
 
@@ -125,7 +125,7 @@ jobs:
           cp backend/main.go /tmp/main.go
           sed -i 's/database.Connect()/panic("sengaja rusak")/' backend/main.go
           sed -i '/"news-portal-backend\/database"/d' backend/main.go
-          ! timeout 150 bash deploy/deploy.sh backend > /tmp/o.txt 2>&1
+          if timeout 150 bash deploy/deploy.sh backend > /tmp/o.txt 2>&1; then echo "seharusnya gagal"; exit 1; fi
           tail -5 /tmp/o.txt
           grep "versi sebelumnya dinyalakan lagi" /tmp/o.txt
           cp /tmp/main.go backend/main.go

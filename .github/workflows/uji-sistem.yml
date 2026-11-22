@@ -96,7 +96,7 @@ jobs:
           /tmp/server > /tmp/server2.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/news > /dev/null && break; sleep 1; done
           cat /tmp/server2.log | head -20
-          ! grep -q SeedNews /tmp/server2.log
+          if grep -q SeedNews /tmp/server2.log; then echo "arsip dimuat dua kali"; exit 1; fi
           curl -sfD - -o /dev/null "http://localhost:3000/api/news?limit=1" | grep -i "x-total-count: 2817"
 
       - name: Log backend
