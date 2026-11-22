@@ -32,12 +32,21 @@ Windows dengan Smart App Control aktif memblokir program Go buatan sendiri. Jala
 
 ## Produksi
 
-1. Variabel backend ada di `backend/.env.example`. `JWT_SECRET` wajib diisi, dan `CORS_ORIGINS` berisi alamat frontend.
-2. Akun `admin@edutech.id` / `admin123` hanya dibuat di luar mode produksi. Bila pernah terbuat, **segera ganti passwordnya**; repo ini publik.
-3. nginx di depan backend: `proxy_set_header X-Real-IP $remote_addr;` agar pembatas login menghitung per pengunjung.
-4. Build frontend dengan alamat API: `PUBLIC_API_URL=https://api.contoh.id npx astro build`, lalu unggah `frontend/dist/`.
-5. Arahkan halaman tak ditemukan ke `404.html`. Halaman itu mengalihkan alamat WordPress lama ke alamat baru.
-6. Frontend statis: **build ulang setiap ada berita baru** agar muncul di situs.
+1. Salin `backend/.env.example` menjadi `backend/.env` lalu isi. `PORT` harus port yang belum dipakai aplikasi lain.
+2. Pasang semuanya:
+
+   ```bash
+   bash deploy/deploy.sh cek      # hanya memeriksa, tidak mengubah apa pun
+   bash deploy/deploy.sh          # backup database, backend (pm2), periksa berita, build situs
+   ```
+
+   Database dicadangkan ke `~/backup-edutech/` sebelum apa pun diubah. Bila backend baru gagal menyala, versi sebelumnya dinyalakan lagi.
+3. nginx: arahkan root situs ke `frontend/dist`, lalu tempel isi `deploy/nginx-lokasi.conf` (sesuaikan port).
+4. Agar backend hidup lagi setelah server restart, tambahkan ke `crontab -e`:
+   `@reboot PATH=<isi dari: echo $PATH> pm2 resurrect`
+5. **Setiap ada berita baru** jalankan `bash deploy/deploy.sh frontend`, karena situsnya statis.
+
+Jangan jalankan `backend/server_backend`: itu binary lama yang punya celah keamanan.
 
 ## Perkakas (`backend/tools/`)
 

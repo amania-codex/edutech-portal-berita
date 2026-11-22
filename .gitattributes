@@ -1,3 +1,5 @@
 # Unggahan & arsip harus disimpan persis apa adanya (tanpa konversi akhir baris)
 backend/public/uploads/** binary
 *.gz binary
+deploy/*.sh text eol=lf
+deploy/*.conf text eol=lf

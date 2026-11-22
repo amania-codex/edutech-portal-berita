@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+
 	"news-portal-backend/database"
 	"news-portal-backend/routes"
 
@@ -20,6 +21,7 @@ func allowedOrigins() string {
 }
 
 func main() {
+	loadDotEnv(".env")
 	database.Connect()
 
 	app := fiber.New(fiber.Config{
@@ -45,5 +47,5 @@ func main() {
 
 	routes.Setup(app)
 
-	log.Fatal(app.Listen(":3000"))
+	log.Fatal(app.Listen(listenAddr()))
 }

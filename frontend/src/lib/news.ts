@@ -4,6 +4,13 @@
  */
 import { API_BASE, BACKEND_URL } from './config';
 
+// Saat build, data boleh diambil dari alamat lokal backend (mis. http://127.0.0.1:3021)
+// tanpa lewat domain publik. Tidak pernah ikut ke halaman.
+const FETCH_BASE =
+  import.meta.env.SSR && globalThis.process?.env?.API_INTERNAL_URL
+    ? `${globalThis.process.env.API_INTERNAL_URL}/api`
+    : API_BASE;
+
 export const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=1200&q=80';
 
@@ -82,7 +89,7 @@ export function renderContent(html: string, heroUrl: string): string {
 
 /** GET ke API. Gagal = error, supaya build tidak diam-diam menghasilkan situs kosong. */
 export async function apiGet(path: string): Promise<any> {
-  const res = await fetch(`${API_BASE}${path}`);
+  const res = await fetch(`${FETCH_BASE}${path}`);
   if (!res.ok) throw new Error(`API ${path} gagal (${res.status})`);
   return res.json();
 }

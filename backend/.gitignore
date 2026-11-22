@@ -16,3 +16,6 @@ vendor/
 
 # Data migrasi WordPress lama (besar + berisi data pribadi)
 DATA EDUKATOR/
+
+# Hasil build (deploy/deploy.sh)
+bin/

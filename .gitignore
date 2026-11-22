@@ -4,6 +4,9 @@ vendor/
 
 # Build artifacts
 dist/
+dist.baru/
+dist.lama/
+frontend/build.log
 .astro/
 *.exe
 *.exe~

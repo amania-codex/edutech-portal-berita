@@ -1,0 +1,140 @@
+name: Uji Deploy
+
+# Meniru server: port 3000 dipakai aplikasi lain, pengguna MySQL hanya berhak atas
+# database-nya sendiri, Go bawaan lebih lama, backend lewat pm2, dan situs lewat nginx.
+on:
+  push:
+    branches-ignore: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.23.6"
+          cache: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Siapkan keadaan server
+        run: |
+          go env -w GOTOOLCHAIN=auto
+          npm i -g pm2 > /dev/null
+          sudo apt-get install -y -qq nginx-light > /dev/null 2>&1 || true
+          mysql -h127.0.0.1 -uroot -e "CREATE DATABASE edutech_news; CREATE USER 'edutech'@'%' IDENTIFIED BY 'P@ss/w:rd#\$1 &x'; GRANT ALL ON edutech_news.* TO 'edutech'@'%';"
+          mkdir -p /tmp/lain && echo "aplikasi lain" > /tmp/lain/index.html
+          (cd /tmp/lain && nohup python3 -m http.server 3000 > /dev/null 2>&1 &)
+          sleep 1; curl -s localhost:3000
+
+      - name: Tanpa .env harus berhenti sebelum mengubah apa pun
+        run: |
+          ! bash deploy/deploy.sh > /tmp/o.txt 2>&1
+          grep "backend/.env belum ada" /tmp/o.txt
+
+      - name: Port milik aplikasi lain harus ditolak
+        run: |
+          cat > backend/.env <<'EOF'
+          APP_ENV=production
+          HOST=127.0.0.1
+          PORT=3000
+          SITE_URL=http://localhost:8099
+          CORS_ORIGINS=http://localhost:4321
+          DB_HOST=127.0.0.1
+          DB_NAME=edutech_news
+          DB_USER=edutech
+          DB_PASSWORD="P@ss/w:rd#$1 &x"
+          JWT_SECRET=0123456789abcdef0123456789abcdef0123456789abcdef
+          ADMIN_PASSWORD=kata-sandi-uji-panjang
+          EOF
+          sed -i 's/^ *//' backend/.env
+          ! bash deploy/deploy.sh > /tmp/o.txt 2>&1
+          grep "port 3000 sudah dipakai" /tmp/o.txt
+          ! pm2 describe edutech-backend > /dev/null 2>&1
+
+      - name: Pasang semuanya
+        run: |
+          sed -i 's/^PORT=.*/PORT=3021/' backend/.env
+          bash deploy/deploy.sh
+          ls -la ~/backup-edutech
+          test "$(curl -s localhost:3000)" = "aplikasi lain"
+          ss -ltn | grep "127.0.0.1:3021"
+
+      - name: Tidak ada alamat internal bocor ke halaman
+        working-directory: frontend
+        run: |
+          ! grep -rlE "127\.0\.0\.1:3021|localhost:3000" dist --include=*.html --include=*.js | head -3 | grep .
+          test "$(ls dist/berita | wc -l)" -ge 2817
+          test -z "$(git status --short)"
+
+      - name: Uji lewat nginx seperti pengunjung
+        run: |
+          sudo tee /etc/nginx/conf.d/uji.conf > /dev/null <<EOF
+          server {
+            listen 8099; server_name localhost;
+            root $PWD/frontend/dist; index index.html;
+            include $PWD/deploy/nginx-lokasi.conf;
+            # aturan bawaan ala CloudPanel
+            location ~* ^.+\.(css|js|jpg|jpeg|gif|png|ico|gz|svg|webp|pdf|woff2?)\$ { expires max; access_log off; }
+          }
+          EOF
+          sudo chmod o+x /home/runner /home/runner/work 2>/dev/null || true
+          sudo nginx -t && (sudo nginx -s reload 2>/dev/null || sudo nginx)
+          sleep 1
+          B=http://localhost:8099; S=$(ls frontend/dist/berita | head -1)
+          code() { curl -s -o /dev/null -w '%{http_code}' "$1"; }
+          for u in / "/berita/$S" "/berita/$S/" /kategori/pendidikan /kategori/jateng-diy/2 /cari /login /dashboard "/dashboard/news/edit?id=1" /api/categories /styles/global.css; do c=$(code "$B$u"); echo "$c $u"; test "$c" = 200; done
+          test "$(code $B/alamat-lama-wordpress/)" = 404
+          curl -s $B/alamat-lama-wordpress/ | grep -q "Halaman Tidak Ditemukan"
+          IMG=$(curl -s "$B/api/news?limit=1&lite=1" | grep -oE '/uploads/wp/[^"]+' | head -1); echo "$IMG"
+          curl -s -o /tmp/g -w '%{http_code} %{content_type}\n' "$B$IMG" | grep "200 image/"
+          BASE_URL=$B MIN_NEWS=2817 node backend/tools/check-images.mjs
+
+      - name: Uji seluruh fitur API lewat nginx (mode produksi)
+        run: BASE_URL=http://localhost:8099 ADMIN_PASSWORD=kata-sandi-uji-panjang node backend/tools/smoke-test.mjs
+
+      - name: Password bawaan tidak berlaku di produksi
+        run: |
+          sleep 61
+          test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d '{"email":"admin@edutech.id","password":"admin123"}' http://localhost:8099/api/auth/login)" = 401
+
+      - name: Pasang ulang dan build ulang frontend saja
+        run: |
+          bash deploy/deploy.sh frontend
+          bash deploy/deploy.sh backend
+          test "$(curl -s -D- -o /dev/null 'http://localhost:8099/api/news?limit=1' | tr -d '\r' | awk 'tolower($1)=="x-total-count:"{print $2}')" = 2817
+
+      - name: Versi rusak dikembalikan ke versi sebelumnya
+        run: |
+          cp backend/main.go /tmp/main.go
+          sed -i 's/database.Connect()/panic("sengaja rusak")/' backend/main.go
+          sed -i '/"news-portal-backend\/database"/d' backend/main.go
+          ! timeout 150 bash deploy/deploy.sh backend > /tmp/o.txt 2>&1
+          tail -5 /tmp/o.txt
+          grep "versi sebelumnya dinyalakan lagi" /tmp/o.txt
+          cp /tmp/main.go backend/main.go
+          for i in $(seq 1 20); do [ "$(curl -s http://localhost:8099/api/categories | head -c1)" = "[" ] && exit 0; sleep 1; done
+          exit 1
+
+      - name: Rincian bila gagal
+        if: failure()
+        run: |
+          tail -n 40 /tmp/o.txt 2>/dev/null || true
+          pm2 logs edutech-backend --nostream --lines 40 2>/dev/null || true
+          echo "::error::$( (tail -n 12 /tmp/o.txt; pm2 logs edutech-backend --nostream --lines 12) 2>/dev/null | tail -20 | cut -c1-200 | tr '\n' '|')"

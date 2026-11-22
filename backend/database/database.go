@@ -71,13 +71,6 @@ func Connect() {
 	// Arsip berita dimuat otomatis bila database masih kosong (juga di produksi)
 	SeedNews()
 
-	// Check if seeding is disabled in production
-	appEnv := os.Getenv("APP_ENV")
-	if appEnv == "production" && os.Getenv("SEED_DB") != "true" {
-		log.Println("Production mode active: Database seeding skipped.")
-		return
-	}
-
-	// Seed admin user from seeder.go
+	// Di produksi hanya membuat akun bila ADMIN_PASSWORD diisi (lihat seeder.go)
 	SeedAdmin()
 }
