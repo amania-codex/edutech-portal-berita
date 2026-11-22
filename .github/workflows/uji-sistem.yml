@@ -102,5 +102,4 @@ jobs:
         if: failure()
         run: |
           tail -n 120 /tmp/server.log || true
-          echo "::error::$(grep -iE "error|panic|fatal|gagal" /tmp/server.log | tail -8 | cut -c1-300 | tr "
-" "|")"
+          echo "::error::$(grep -iE "error|panic|fatal|gagal" /tmp/server.log | tail -8 | cut -c1-300 | tr '\n' '|')"
