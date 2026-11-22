@@ -196,6 +196,8 @@ import Footer from '../components/Footer.astro';
 </style>
 
 <script>
+  import { API_BASE } from '../lib/config';
+
   const form = document.getElementById('register-form') as HTMLFormElement;
   const errorEl = document.getElementById('reg-error')!;
   const successEl = document.getElementById('reg-success')!;
@@ -257,7 +259,7 @@ import Footer from '../components/Footer.astro';
     (regBtn.querySelector('.btn-loading') as HTMLElement).style.display = 'flex';
 
     try {
-      const res = await fetch('http://localhost:3000/api/auth/register', {
+      const res = await fetch(`${API_BASE}/auth/register`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

@@ -1,14 +1,5 @@
 ---
 import UserLayout from '../../layouts/UserLayout.astro';
-
-let userData: any = { name: "User", email: "user@edutech.id", phone: "", bio: "", avatar_url: "" };
-
-const user = {
-  name: 'User',
-  email: 'user@edutech.id',
-  avatar: '',
-  bio: ''
-};
 ---
 
 <UserLayout title="Edit Profil" activeMenu="profile">
@@ -30,33 +21,29 @@ const user = {
           <label class="form-label">Avatar (Opsional)</label>
           <div class="avatar-upload">
             <div class="avatar-preview" id="avatar-preview">
-              {user.avatar ? (
-                <img src={user.avatar} alt="Avatar" />
-              ) : (
-                <span>{user.name.charAt(0).toUpperCase()}</span>
-              )}
+              <span>?</span>
             </div>
             <div class="avatar-actions">
               <input type="file" id="avatar-input" accept="image/png, image/jpeg, image/webp" class="hidden-input" />
               <button type="button" class="btn-outline" onclick="document.getElementById('avatar-input').click()">Unggah Foto Baru</button>
-              <input type="hidden" id="avatar-url" value={user.avatar} />
+              <input type="hidden" id="avatar-url" />
             </div>
           </div>
         </div>
 
         <div class="form-group">
           <label for="name" class="form-label">Nama Lengkap</label>
-          <input type="text" id="name" name="name" class="form-input" value={user.name} required minlength="2" />
+          <input type="text" id="name" name="name" class="form-input" required minlength="2" />
         </div>
 
         <div class="form-group">
           <label for="email" class="form-label">Email (Tidak dapat diubah)</label>
-          <input type="email" id="email" class="form-input disabled-input" value={user.email} disabled />
+          <input type="email" id="email" class="form-input disabled-input" disabled />
         </div>
 
         <div class="form-group">
           <label for="bio" class="form-label">Biodata</label>
-          <textarea id="bio" name="bio" class="form-input" rows="4" placeholder="Tuliskan sedikit tentang diri Anda...">{user.bio}</textarea>
+          <textarea id="bio" name="bio" class="form-input" rows="4" placeholder="Tuliskan sedikit tentang diri Anda..."></textarea>
         </div>
 
         <div class="form-actions">
@@ -126,6 +113,23 @@ const user = {
 </style>
 
 <script>
+  import { API_BASE } from '../../lib/config';
+  import { getJSON } from '../../lib/client';
+  import { assetUrl } from '../../lib/news';
+
+  getJSON('/auth/profile').then((u) => {
+    (document.getElementById('name') as HTMLInputElement).value = u.name || '';
+    (document.getElementById('email') as HTMLInputElement).value = u.email || '';
+    (document.getElementById('bio') as HTMLTextAreaElement).value = u.bio || '';
+    avatarUrlInput.value = u.avatar || '';
+    if (u.avatar) {
+      const img = document.createElement('img');
+      img.src = assetUrl(u.avatar);
+      img.alt = 'Avatar';
+      avatarPreview.replaceChildren(img);
+    } else avatarPreview.textContent = (u.name || 'U').charAt(0).toUpperCase();
+  }).catch(() => {});
+
   const form = document.getElementById('edit-profile-form') as HTMLFormElement;
   const errorEl = document.getElementById('edit-error')!;
   const successEl = document.getElementById('edit-success')!;
@@ -152,7 +156,7 @@ const user = {
     
     // We can use the existing upload endpoint
     try {
-      const res = await fetch('http://localhost:3000/api/upload', {
+      const res = await fetch(`${API_BASE}/upload`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -182,7 +186,7 @@ const user = {
     const avatar = avatarUrlInput.value;
 
     try {
-      const res = await fetch('http://localhost:3000/api/auth/profile', {
+      const res = await fetch(`${API_BASE}/auth/profile`, {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

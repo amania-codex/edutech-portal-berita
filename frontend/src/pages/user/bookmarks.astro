@@ -1,20 +1,5 @@
 ---
-
 import UserLayout from '../../layouts/UserLayout.astro';
-
-
-const API_BASE = "http://localhost:3000/api";
-let bookmarkItems: any[] = [];
-
-
-
-const fallbackImg = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80";
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return "";
-  const d = new Date(dateStr);
-  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-}
 ---
 
 <UserLayout title="Berita Disimpan" activeMenu="bookmarks">
@@ -25,12 +10,11 @@ function formatDate(dateStr: string): string {
         <div class="head-info">
           <h2 class="dash-card-title">Koleksi Berita Disimpan</h2>
           <span class="count-badge">
-            <span id="bm-total">{bookmarkItems.length}</span> Tersimpan
+            <span id="bm-total">0</span> Tersimpan
           </span>
         </div>
 
-        {bookmarkItems.length > 0 && (
-          <div class="search-box">
+          <div class="search-box" id="search-box" style="display:none">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
               <circle cx="11" cy="11" r="8"></circle>
               <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
@@ -42,7 +26,6 @@ function formatDate(dateStr: string): string {
               aria-label="Cari berita yang disimpan"
             />
           </div>
-        )}
       </div>
 
       <!-- Toast Feedback -->
@@ -50,7 +33,12 @@ function formatDate(dateStr: string): string {
 
       <!-- News List -->
       <div class="bookmark-list" id="bookmark-list">
-        {bookmarkItems.length === 0 ? (
+        <p>Memuat...</p>
+      </div>
+    </div>
+  </div>
+
+  <template id="empty-template">
           <div class="empty-state" id="bm-empty">
             <div class="empty-icon-wrap">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -61,21 +49,18 @@ function formatDate(dateStr: string): string {
             <p>Simpan artikel yang menarik saat menjelajahi portal berita untuk dibaca nanti dengan menekan tombol simpan berita.</p>
             <a href="/" class="btn-primary-sm">Jelajahi Berita</a>
           </div>
-        ) : (
-          bookmarkItems.map((item) => (
-            <div class="bookmark-card" id={`bm-card-${item.news_id}`} data-title={(item.news_title || '').toLowerCase()}>
-              <a href={`/berita/${item.news_slug}`} class="bookmark-thumb-link">
+  </template>
+  <template id="card-template">
+            <div class="bookmark-card">
+              <a class="bookmark-thumb-link">
                 <img
-                  src={item.news_image || fallbackImg}
-                  alt={item.news_title}
                   loading="lazy"
-                  onerror={`this.onerror=null;this.src='${fallbackImg}';`}
                 />
               </a>
 
               <div class="bookmark-body">
-                <a href={`/berita/${item.news_slug}`} class="bookmark-title-link">
-                  <h3 class="bookmark-title">{item.news_title}</h3>
+                <a class="bookmark-title-link">
+                  <h3 class="bookmark-title"></h3>
                 </a>
 
                 <div class="bookmark-meta">
@@ -86,18 +71,17 @@ function formatDate(dateStr: string): string {
                       <line x1="8" y1="2" x2="8" y2="6"></line>
                       <line x1="3" y1="10" x2="21" y2="10"></line>
                     </svg>
-                    Disimpan: {formatDate(item.created_at || item.CreatedAt)}
+                    Disimpan: <span class="saved-date"></span>
                   </span>
                 </div>
               </div>
 
               <div class="bookmark-actions">
-                <a href={`/berita/${item.news_slug}`} class="btn-read-now">
+                <a class="btn-read-now">
                   Baca Artikel
                 </a>
                 <button
                   class="btn-remove-bm"
-                  data-id={item.news_id}
                   title="Hapus dari koleksi simpanan"
                   aria-label="Hapus dari simpanan"
                 >
@@ -107,11 +91,7 @@ function formatDate(dateStr: string): string {
                 </button>
               </div>
             </div>
-          ))
-        )}
-      </div>
-    </div>
-  </div>
+  </template>
 </UserLayout>
 
 <style>
@@ -405,83 +385,39 @@ function formatDate(dateStr: string): string {
   }
 </style>
 
-<script is:inline>
-  const API_BASE = 'http://localhost:3000/api';
-  const toast = document.getElementById('bm-toast');
-  const countBadge = document.getElementById('bm-total');
-  const searchInput = document.getElementById('bm-search');
+<script>
+  import { clone, createdAt, el, formatDate, getJSON, sendJSON, setText, show, toast } from '../../lib/client';
+  import { FALLBACK_IMAGE, assetUrl } from '../../lib/news';
 
-  function showToast(msg) {
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.style.display = 'block';
-    setTimeout(() => { toast.style.display = 'none'; }, 3000);
+  let items: any[] = [];
+  const list = el('bookmark-list') as HTMLElement;
+
+  function render() {
+    const q = el('bm-search').value.toLowerCase().trim();
+    el('bm-total').textContent = String(items.length);
+    show(el('search-box'), items.length > 0);
+    if (!items.length) return list.replaceChildren(clone('empty-template'));
+    list.replaceChildren(...items.filter((b) => !q || (b.news_title || '').toLowerCase().includes(q)).map((b) => {
+      const node = clone('card-template');
+      node.querySelectorAll('a').forEach((a) => { a.href = `/berita/${b.news_slug}`; });
+      const img = node.querySelector('img')!;
+      img.src = assetUrl(b.news_image) || FALLBACK_IMAGE;
+      img.alt = b.news_title || '';
+      setText(node, '.bookmark-title', b.news_title);
+      setText(node, '.saved-date', formatDate(createdAt(b)));
+      node.querySelector('.btn-remove-bm')!.addEventListener('click', async () => {
+        if (!confirm('Hapus berita ini dari koleksi disimpan?')) return;
+        const res = await sendJSON('/user/bookmarks', 'POST', { news_id: b.news_id }).catch(() => null);
+        if (!res?.ok) return toast('bm-toast', 'Gagal menghapus berita dari koleksi.');
+        items = items.filter((x) => x !== b);
+        render();
+        toast('bm-toast', 'Berita berhasil dihapus dari koleksi disimpan.');
+      });
+      return node;
+    }));
   }
 
-  function updateCount(delta) {
-    if (!countBadge) return;
-    let current = parseInt(countBadge.textContent || '0');
-    current = Math.max(0, current + delta);
-    countBadge.textContent = current.toString();
-
-    if (current === 0) {
-      const list = document.getElementById('bookmark-list');
-      if (list) {
-        list.innerHTML = `
-          <div class="empty-state" id="bm-empty">
-            <div class="empty-icon-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="30" height="30">
-                <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-              </svg>
-            </div>
-            <h3>Koleksi Simpanan Masih Kosong</h3>
-            <p>Simpan artikel yang menarik saat menjelajahi portal berita untuk dibaca nanti dengan menekan tombol simpan berita.</p>
-            <a href="/" class="btn-primary-sm">Jelajahi Berita</a>
-          </div>
-        `;
-      }
-    }
-  }
-
-  // Remove bookmark
-  document.querySelectorAll('.btn-remove-bm').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const newsId = btn.dataset.id;
-      if (!confirm('Hapus berita ini dari koleksi disimpan?')) return;
-
-      try {
-        const res = await fetch(`${API_BASE}/user/bookmarks`, {
-          method: 'POST',
-          credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ news_id: parseInt(newsId) })
-        });
-        if (res.ok) {
-          const card = document.getElementById(`bm-card-${newsId}`);
-          if (card) {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(10px)';
-            setTimeout(() => { card.remove(); updateCount(-1); }, 200);
-          }
-          showToast('Berita berhasil dihapus dari koleksi disimpan.');
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    });
-  });
-
-  // Client-side quick filter search
-  searchInput?.addEventListener('input', (e) => {
-    const q = (e.target.value || '').toLowerCase().trim();
-    document.querySelectorAll('.bookmark-card').forEach(card => {
-      const title = card.dataset.title || '';
-      if (!q || title.includes(q)) {
-        card.style.display = 'flex';
-      } else {
-        card.style.display = 'none';
-      }
-    });
-  });
+  el('bm-search').addEventListener('input', render);
+  getJSON('/user/bookmarks').then((data) => { items = data || []; render(); })
+    .catch(() => { list.textContent = 'Gagal memuat koleksi. Silakan coba lagi.'; });
 </script>

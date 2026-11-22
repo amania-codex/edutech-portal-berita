@@ -1,10 +1,11 @@
 ---
+import { API_BASE } from '../lib/config';
+
 export interface Props {
   newsId: number;
 }
 const { newsId } = Astro.props;
 
-const API_BASE = "http://localhost:3000/api";
 ---
 
 <section class="comments-section" id="comments">
@@ -330,7 +331,7 @@ const API_BASE = "http://localhost:3000/api";
   }
 </style>
 
-<script define:vars={{ newsId, API_BASE: "http://localhost:3000/api" }}>
+<script define:vars={{ newsId, API_BASE }}>
   let isLoggedIn = false;
   let userName = '';
   let userId = null;
@@ -478,7 +479,7 @@ const API_BASE = "http://localhost:3000/api";
     const rawName = r.user_name || r.userName || 'Anonim';
     const name = escapeHTML(rawName);
     const content = escapeHTML(r.content || '');
-    const date = r.created_at || r.createdAt || '';
+    const date = r.CreatedAt || r.created_at || '';
     const formattedDate = date ? new Date(date).toLocaleDateString('id-ID', {
       day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
     }) : '';
@@ -510,7 +511,7 @@ const API_BASE = "http://localhost:3000/api";
     const rawName = c.user_name || c.userName || 'Anonim';
     const name = escapeHTML(rawName);
     const content = escapeHTML(c.content || '');
-    const date = c.created_at || c.createdAt || '';
+    const date = c.CreatedAt || c.created_at || '';
     const formattedDate = date ? new Date(date).toLocaleDateString('id-ID', {
       day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
     }) : '';
@@ -519,9 +520,9 @@ const API_BASE = "http://localhost:3000/api";
     box.className = 'comment-box';
     
     let repliesHtml = '';
-    if (c.Replies && c.Replies.length > 0) {
+    if ((c.replies || c.Replies || []).length > 0) {
       repliesHtml = `<div class="replies-list">
-        ${c.Replies.filter(r => !r.is_flagged).map(renderReply).join('')}
+        ${(c.replies || c.Replies).filter(r => !r.is_flagged).map(renderReply).join('')}
       </div>`;
     }
 

@@ -1,40 +1,18 @@
 ---
-
 import Layout from "../layouts/Layout.astro";
 import Navbar from "../components/Navbar.astro";
 import NewsCard from "../components/NewsCard.astro";
 import TrendingNews from "../components/TrendingNews.astro";
 import Footer from "../components/Footer.astro";
+import { getTrending } from "../lib/news";
 
-const q = ''; // read client-side from URLSearchParams
-const API_BASE = "http://localhost:3000/api";
-
-let articles: any[] = [];
-let trendingNews: any[] = [];
-
-
-
-function normalize(a: any) {
-  return {
-    id: a.ID || a.id,
-    title: a.title,
-    slug: a.slug,
-    excerpt: a.excerpt,
-    imageUrl: a.imageUrl,
-    category: a.category,
-    author: a.author,
-    viewCount: a.viewCount,
-    createdAt: a.CreatedAt || a.createdAt,
-  };
-}
-
-const normalizedArticles = articles.map(normalize);
-const normalizedTrending = trendingNews.map(normalize);
+// Hasil pencarian diambil di browser (?q=kata kunci atau ?tag=nama tag)
+const trendingNews = await getTrending();
 ---
 
 <Layout
-  title={`Hasil Pencarian: ${q} — EduTech News Portal`}
-  description={`Hasil pencarian berita untuk kata kunci: ${q}`}
+  title="Pencarian Berita — EduTech News Portal"
+  description="Cari berita dan artikel di EduTech News Portal."
 >
   <Navbar />
 
@@ -48,50 +26,36 @@ const normalizedTrending = trendingNews.map(normalize);
           <span>›</span>
           <span>Pencarian</span>
         </div>
-        <h1 class="category-page-title">Hasil Pencarian: "{q}"</h1>
-        <p class="category-count">
-          {normalizedArticles.length} berita ditemukan
-        </p>
+        <h1 class="category-page-title" id="searchTitle">Pencarian Berita</h1>
+        <p class="category-count" id="searchCount" aria-live="polite">Ketik kata kunci untuk mencari berita.</p>
       </div>
     </div>
   </div>
 
   <main id="main-content" class="container category-layout">
     <!-- Articles Grid -->
-    <section class="category-articles" aria-label={`Hasil Pencarian ${q}`}>
-      {
-        normalizedArticles.length === 0 ? (
-          <div class="empty-category">
-            <div class="empty-icon">📭</div>
-            <h2>Tidak Ada Berita Ditemukan</h2>
-            <p>Maaf, kami tidak menemukan berita yang cocok dengan kata kunci "{q}".</p>
-            <a href="/" class="back-home">
-              ← Kembali ke Beranda
-            </a>
-          </div>
-        ) : (
-          <div class="articles-grid">
-            {normalizedArticles.map((article) => (
-              <NewsCard
-                title={article.title}
-                slug={article.slug}
-                excerpt={article.excerpt}
-                imageUrl={article.imageUrl}
-                category={article.category}
-                author={article.author}
-                viewCount={article.viewCount}
-                createdAt={article.createdAt}
-                size="md"
-              />
-            ))}
-          </div>
-        )
-      }
+    <section class="category-articles" aria-label="Hasil pencarian">
+      <form class="search-form" action="/cari" method="get" role="search">
+        <input type="search" name="q" id="searchQuery" placeholder="Cari judul, tag, atau ringkasan berita..." aria-label="Kata kunci" />
+        <button type="submit">Cari</button>
+      </form>
+      <div class="articles-grid" id="searchResults"></div>
+      <button type="button" class="load-more" id="loadMore" hidden>Muat lebih banyak</button>
+      <div class="empty-category" id="searchEmpty" hidden>
+        <div class="empty-icon">📭</div>
+        <h2 id="emptyTitle">Tidak Ada Berita Ditemukan</h2>
+        <p id="emptyText">Coba gunakan kata kunci yang berbeda.</p>
+        <a href="/" class="back-home">← Kembali ke Beranda</a>
+      </div>
+      <!-- Kartu contoh: digandakan script agar tampilannya sama persis dengan NewsCard -->
+      <template id="cardTemplate">
+        <NewsCard title="-" slug="-" excerpt="-" category="-" author="-" size="md" />
+      </template>
     </section>
 
     <!-- Trending Sidebar -->
     <aside class="category-sidebar">
-      <TrendingNews trending={normalizedTrending} />
+      <TrendingNews trending={trendingNews} />
     </aside>
   </main>
 
@@ -129,4 +93,79 @@ const normalizedTrending = trendingNews.map(normalize);
   @media (max-width: 600px) {
     .articles-grid { grid-template-columns: 1fr; }
   }
+  .articles-grid > :global(*) { min-width: 0; }
+  .search-form { display: flex; gap: var(--space-2); margin-bottom: var(--space-5); }
+  .search-form input { flex: 1; min-width: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--color-border); border-radius: var(--radius-md); background: var(--color-bg-card); color: var(--color-text-primary); font: inherit; }
+  .search-form button, .load-more { padding: var(--space-3) var(--space-5); border: 0; border-radius: var(--radius-md); background: #c2560c; color: white; font: inherit; font-weight: 600; cursor: pointer; }
+  .load-more { display: block; margin: var(--space-8) auto 0; }
+  .load-more[hidden], .empty-category[hidden] { display: none; }
 </style>
+
+<script>
+  import { API_BASE } from "../lib/config";
+  import { FALLBACK_IMAGE, normalizeNews, type News } from "../lib/news";
+
+  const PAGE = 24;
+  const params = new URLSearchParams(location.search);
+  const q = (params.get("q") || "").trim();
+  const tag = (params.get("tag") || "").trim();
+  const el = (id: string) => document.getElementById(id) as any;
+  const results = el("searchResults") as HTMLElement;
+  const template = el("cardTemplate") as HTMLTemplateElement;
+  const more = el("loadMore") as HTMLButtonElement;
+  let offset = 0;
+
+  function dateLabel(iso: string) {
+    return iso ? new Date(iso).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Jakarta" }) : "";
+  }
+
+  function card(n: News): Node {
+    const node = template.content.cloneNode(true) as DocumentFragment;
+    const set = (sel: string, text: string) => { const t = node.querySelector(sel); if (t) t.textContent = text; };
+    const tail = (sel: string, text: string) => { const t = node.querySelector(sel)?.lastChild; if (t) t.textContent = text; };
+    node.querySelectorAll("a").forEach((a) => { a.href = `/berita/${n.slug}`; });
+    node.querySelector(".card-image-link")?.setAttribute("aria-label", n.title);
+    const img = node.querySelector("img");
+    if (img) { img.src = n.imageUrl || FALLBACK_IMAGE; img.alt = n.title; }
+    set(".card-title", n.title);
+    set(".card-excerpt", n.excerpt);
+    set(".card-category", n.category);
+    set(".meta-time", dateLabel(n.createdAt));
+    set(".author-text", n.author);
+    tail(".meta-readtime", ` ${n.readTime} mnt`);
+    tail(".meta-views", ` ${n.viewCount}`);
+    return node;
+  }
+
+  async function load() {
+    more.disabled = true;
+    const query = new URLSearchParams({ limit: String(PAGE), offset: String(offset), lite: "1" });
+    if (tag) query.set("tag", tag); else query.set("q", q);
+    try {
+      const res = await fetch(`${API_BASE}/news?${query}`);
+      if (!res.ok) throw new Error(String(res.status));
+      const list = ((await res.json()) || []).map(normalizeNews) as News[];
+      const total = Number(res.headers.get("X-Total-Count") || offset + list.length);
+      list.forEach((n) => results.append(card(n)));
+      offset += list.length;
+      el("searchCount").textContent = `${total.toLocaleString("id-ID")} berita ditemukan`;
+      el("searchEmpty").hidden = total > 0;
+      more.hidden = offset >= total || list.length === 0;
+    } catch {
+      el("searchCount").textContent = "";
+      el("emptyTitle").textContent = "Pencarian sedang bermasalah";
+      el("emptyText").textContent = "Server tidak dapat dihubungi. Silakan coba beberapa saat lagi.";
+      el("searchEmpty").hidden = false;
+    } finally {
+      more.disabled = false;
+    }
+  }
+
+  if (q || tag) {
+    el("searchTitle").textContent = tag ? `Tag: #${tag}` : `Hasil Pencarian: "${q}"`;
+    el("searchQuery").value = q;
+    el("searchCount").textContent = "Mencari...";
+    more.addEventListener("click", load);
+    load();
+  }
+</script>

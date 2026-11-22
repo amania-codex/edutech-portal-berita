@@ -1,55 +1,5 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
-
-const isAdmin = true;
-const session = { name: 'Admin', role: 'admin' };
-const API_BASE = "http://localhost:3000/api";
-
-
-
-
-// Fetch stats from Go Fiber backend
-let totalNews = 0, publishedNews = 0, draftNews = 0;
-let totalViews = 0;
-let totalComments = 0, flaggedComments = 0;
-let recentNews: any[] = [];
-let sentimentStats = { positive: 0, neutral: 0, negative: 0 };
-
-try {
-  
-
-  
-
-  
-} catch (err) {
-  console.error("Failed to fetch dashboard stats:", err);
-}
-
-function normalize(a: any) {
-  return {
-    id: a.ID || a.id,
-    title: a.title,
-    slug: a.slug,
-    imageUrl: a.imageUrl || a.image_url,
-    category: a.category,
-    author: a.author,
-    status: a.status,
-    viewCount: a.viewCount || a.view_count || 0,
-    created_at: a.CreatedAt || a.createdAt || a.created_at,
-  };
-}
-const normalizedRecent = recentNews.map(normalize);
-
-// Calculate donut chart angles
-let conicGradient = 'conic-gradient(#94a3b8 0deg 360deg)';
-if (totalComments > 0) {
-  const posDeg = Math.round((sentimentStats.positive / totalComments) * 360);
-  const neuDeg = Math.round((sentimentStats.neutral / totalComments) * 360);
-  conicGradient = `conic-gradient(#22c55e 0deg ${posDeg}deg, #94a3b8 ${posDeg}deg ${posDeg + neuDeg}deg, #ef4444 ${posDeg + neuDeg}deg 360deg)`;
-}
-
-const stats = { totalNews: 0, totalUsers: 0, totalComments: 0, totalEvents: 0, viewsToday: 0 };
-const token = "";
 ---
 
 <DashboardLayout title="Dashboard" activeMenu="dashboard">
@@ -57,15 +7,13 @@ const token = "";
     <!-- Welcome Banner -->
     <div class="welcome-banner">
       <div class="welcome-text">
-        <h2>Selamat datang, <span class="welcome-name">{session.name}</span> 👋</h2>
-        <p>{isAdmin ? 'Panel Admin — Kelola berita, dan analisis komentar portal.' : 'Ini adalah halaman dashboard Anda.'}</p>
+        <h2>Selamat datang, <span class="welcome-name" id="welcome-name">Admin</span> 👋</h2>
+        <p>Panel Admin — Kelola berita, dan analisis komentar portal.</p>
       </div>
-      {isAdmin && (
-        <a href="/dashboard/news/create" class="btn-create-news">
+      <a href="/dashboard/news/create" class="btn-create-news">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Tulis Berita
         </a>
-      )}
     </div>
 
     <!-- Stats Grid (4 Columns) -->
@@ -75,13 +23,13 @@ const token = "";
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         </div>
         <div class="stat-info">
-          <p class="stat-value">{totalNews}</p>
+          <p class="stat-value" id="total-news">0</p>
           <p class="stat-label">Total Berita</p>
         </div>
         <div class="stat-sub">
-          <span class="sub-green">{publishedNews} Terbit</span>
+          <span class="sub-green"><b id="published-news">0</b> Terbit</span>
           <span class="sub-gray">·</span>
-          <span class="sub-orange">{draftNews} Draft</span>
+          <span class="sub-orange"><b id="draft-news">0</b> Draft</span>
         </div>
       </div>
 
@@ -90,7 +38,7 @@ const token = "";
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
         </div>
         <div class="stat-info">
-          <p class="stat-value">{totalViews}</p>
+          <p class="stat-value" id="total-views">0</p>
           <p class="stat-label">Total Tayangan</p>
         </div>
         <div class="stat-sub">
@@ -103,14 +51,12 @@ const token = "";
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         </div>
         <div class="stat-info">
-          <p class="stat-value">{totalComments}</p>
+          <p class="stat-value" data-n="total">0</p>
           <p class="stat-label">Total Komentar</p>
         </div>
         <div class="stat-sub">
-          {flaggedComments > 0
-            ? <span class="sub-red">⚠ {flaggedComments} Ditandai</span>
-            : <span class="sub-green">✓ Bersih</span>
-          }
+          <span class="sub-green" id="flag-clean">✓ Bersih</span>
+          <span class="sub-red" id="flag-some" style="display:none">⚠ <b data-n="flagged">0</b> Ditandai</span>
         </div>
       </div>
 
@@ -119,13 +65,13 @@ const token = "";
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
         </div>
         <div class="stat-info">
-          <p class="stat-value">{sentimentStats.positive}</p>
+          <p class="stat-value" data-n="positive">0</p>
           <p class="stat-label">Komentar Positif</p>
         </div>
         <div class="stat-sub">
-          <span class="sub-red">{sentimentStats.negative} Neg</span>
+          <span class="sub-red"><b data-n="negative">0</b> Neg</span>
           <span class="sub-gray">·</span>
-          <span class="sub-gray">{sentimentStats.neutral} Net</span>
+          <span class="sub-gray"><b data-n="neutral">0</b> Net</span>
         </div>
       </div>
     </div>
@@ -135,52 +81,20 @@ const token = "";
       <div class="dash-card recent-news-card">
         <div class="card-head">
           <h3 class="dash-card-title">Berita Terbaru</h3>
-          {isAdmin && <a href="/dashboard/news" class="card-link">Lihat Semua →</a>}
+          <a href="/dashboard/news" class="card-link">Lihat Semua →</a>
         </div>
-        <div class="recent-news-list">
-          {normalizedRecent.length === 0 ? (
-            <p class="empty-state">Belum ada berita. Go Fiber backend mungkin belum aktif.</p>
-          ) : (
-            normalizedRecent.map((article) => (
-              <div class="recent-news-item">
-                <div class="rn-img">
-                  {article.imageUrl ? (
-                    <img
-                      src={article.imageUrl}
-                      alt={article.title}
-                      onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=400&q=80';"
-                    />
-                  ) : (
-                    <div class="rn-img-placeholder">📰</div>
-                  )}
-                </div>
-                <div class="rn-info">
-                  <a href={`/berita/${article.slug}`} class="rn-title" target="_blank">{article.title}</a>
-                  <div class="rn-meta">
-                    <span class={`rn-status status-${article.status}`}>{article.status === 'published' ? 'Terbit' : 'Draft'}</span>
-                    <span class="rn-cat">{article.category}</span>
-                    <span class="rn-views">👁 {article.viewCount}</span>
-                  </div>
-                </div>
-                {isAdmin && (
-                  <a href={`/dashboard/news/edit/${article.id}`} class="rn-edit-btn" title="Edit">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                  </a>
-                )}
-              </div>
-            ))
-          )}
+        <div class="recent-news-list" id="recent-news">
+          <p class="empty-state">Memuat berita...</p>
         </div>
       </div>
 
       <!-- Sentiment Chart -->
-      {isAdmin && (
         <div class="dash-card sentiment-card">
           <h3 class="dash-card-title">Sentimen Komentar</h3>
           <div class="sentiment-chart">
-            <div class="sentiment-donut" style={`background: ${conicGradient};`}>
+            <div class="sentiment-donut" id="donut" style="background: conic-gradient(#94a3b8 0deg 360deg);">
               <div class="donut-center">
-                <span class="donut-number">{totalComments}</span>
+                <span class="donut-number" data-n="total">0</span>
                 <span class="donut-label">Total</span>
               </div>
             </div>
@@ -188,33 +102,46 @@ const token = "";
               <div class="legend-item">
                 <span class="legend-dot dot-positive"></span>
                 <span class="legend-name">Positif</span>
-                <span class="legend-count">{sentimentStats.positive}</span>
-                <span class="legend-pct">{totalComments > 0 ? Math.round(sentimentStats.positive / totalComments * 100) : 0}%</span>
+                <span class="legend-count" data-n="positive">0</span>
+                <span class="legend-pct" data-pct="positive">0%</span>
               </div>
               <div class="legend-item">
                 <span class="legend-dot dot-neutral"></span>
                 <span class="legend-name">Netral</span>
-                <span class="legend-count">{sentimentStats.neutral}</span>
-                <span class="legend-pct">{totalComments > 0 ? Math.round(sentimentStats.neutral / totalComments * 100) : 0}%</span>
+                <span class="legend-count" data-n="neutral">0</span>
+                <span class="legend-pct" data-pct="neutral">0%</span>
               </div>
               <div class="legend-item">
                 <span class="legend-dot dot-negative"></span>
                 <span class="legend-name">Negatif</span>
-                <span class="legend-count">{sentimentStats.negative}</span>
-                <span class="legend-pct">{totalComments > 0 ? Math.round(sentimentStats.negative / totalComments * 100) : 0}%</span>
+                <span class="legend-count" data-n="negative">0</span>
+                <span class="legend-pct" data-pct="negative">0%</span>
               </div>
             </div>
-            {totalComments === 0 ? (
-              <p class="sentiment-status-note">Belum ada komentar pada berita.</p>
-            ) : sentimentStats.positive === 0 && sentimentStats.negative === 0 ? (
-              <p class="sentiment-status-note note-neutral">ℹ Respon pembaca 100% netral</p>
-            ) : null}
+            <p class="sentiment-status-note" id="no-comments" style="display:none">Belum ada komentar pada berita.</p>
+            <p class="sentiment-status-note note-neutral" id="all-neutral" style="display:none">ℹ Respon pembaca 100% netral</p>
           </div>
           <a href="/dashboard/comments" class="btn-analysis">Lihat Analisis Lengkap →</a>
         </div>
-      )}
     </div>
   </div>
+
+  <template id="recent-template">
+    <div class="recent-news-item">
+      <div class="rn-img"><img alt="" loading="lazy" /></div>
+      <div class="rn-info">
+        <a class="rn-title" target="_blank"></a>
+        <div class="rn-meta">
+          <span class="rn-status"></span>
+          <span class="rn-cat"></span>
+          <span class="rn-views"></span>
+        </div>
+      </div>
+      <a class="rn-edit-btn" title="Edit">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                  </a>
+    </div>
+  </template>
 </DashboardLayout>
 
 <style>
@@ -329,4 +256,50 @@ const token = "";
   @media (max-width: 600px) {
     .stats-grid { grid-template-columns: 1fr; }
   }
+  .welcome-banner .welcome-text h2, .welcome-banner .welcome-text p, .welcome-banner .welcome-name { color: #fff; }
 </style>
+
+<script>
+  import { clone, el, getJSON, setText, show } from '../../lib/client';
+  import { normalizeNews } from '../../lib/news';
+
+  getJSON('/auth/profile').then((u) => { el('welcome-name').textContent = u.name; }).catch(() => {});
+
+  getJSON('/admin/stats').then(({ news, comments }) => {
+    const num = (n: number) => Number(n).toLocaleString('id-ID');
+    el('total-news').textContent = num(news.total);
+    el('published-news').textContent = num(news.published);
+    el('draft-news').textContent = num(news.draft);
+    el('total-views').textContent = num(news.views);
+    document.querySelectorAll<HTMLElement>('[data-n]').forEach((n) => { n.textContent = num(comments[n.dataset.n!]); });
+    const pct = (n: number) => (comments.total ? Math.round((n / comments.total) * 100) : 0);
+    document.querySelectorAll<HTMLElement>('[data-pct]').forEach((n) => { n.textContent = `${pct(comments[n.dataset.pct!])}%`; });
+    show(el('flag-some'), comments.flagged > 0);
+    show(el('flag-clean'), comments.flagged === 0);
+    show(el('no-comments'), comments.total === 0);
+    show(el('all-neutral'), comments.total > 0 && !comments.positive && !comments.negative);
+    if (comments.total) {
+      const pos = Math.round((comments.positive / comments.total) * 360);
+      const neu = pos + Math.round((comments.neutral / comments.total) * 360);
+      el('donut').style.background = `conic-gradient(#22c55e 0deg ${pos}deg, #94a3b8 ${pos}deg ${neu}deg, #ef4444 ${neu}deg 360deg)`;
+    }
+  }).catch(() => {});
+
+  getJSON('/news?limit=5&status=all&lite=1').then((list) => {
+    el('recent-news').replaceChildren(...(list || []).map((raw: any) => {
+      const n = normalizeNews(raw);
+      const published = raw.status === 'published';
+      const node = clone('recent-template');
+      (node.querySelector('img') as HTMLImageElement).src = n.imageUrl;
+      const title = node.querySelector('.rn-title') as HTMLAnchorElement;
+      title.textContent = n.title;
+      title.href = published ? `/berita/${n.slug}` : `/dashboard/news/edit?id=${n.id}`;
+      setText(node, '.rn-status', published ? 'Terbit' : 'Draft');
+      node.querySelector('.rn-status')!.classList.add(published ? 'status-published' : 'status-draft');
+      setText(node, '.rn-cat', n.category);
+      setText(node, '.rn-views', `👁 ${n.viewCount.toLocaleString('id-ID')}`);
+      (node.querySelector('.rn-edit-btn') as HTMLAnchorElement).href = `/dashboard/news/edit?id=${n.id}`;
+      return node;
+    }));
+  }).catch(() => { el('recent-news').textContent = 'Gagal memuat berita. Go Fiber backend mungkin belum aktif.'; });
+</script>

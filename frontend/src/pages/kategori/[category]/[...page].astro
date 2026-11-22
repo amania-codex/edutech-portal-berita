@@ -1,64 +1,65 @@
 ---
-export async function getStaticPaths() {
-  const categories = [
-    'pendidikan', 'kampus', 'teknologi', 'riset',
-    'artikel', 'headline', 'internasional', 'opini', 'karir', 'semua'
-  ];
-  return categories.map(cat => ({ params: { category: cat } }));
+import Layout from "../../../layouts/Layout.astro";
+import Navbar from "../../../components/Navbar.astro";
+import NewsCard from "../../../components/NewsCard.astro";
+import TrendingNews from "../../../components/TrendingNews.astro";
+import Footer from "../../../components/Footer.astro";
+import { getAllNews, getCategories, getTrending, newsInCategory, type Category } from "../../../lib/news";
+
+export async function getStaticPaths({ paginate }: any) {
+  const [news, categories] = await Promise.all([getAllNews(), getCategories()]);
+  const list: Array<{ slug: string; name: string }> = [{ slug: "semua", name: "Semua Berita" }, ...categories];
+  // kategori yang hanya tercatat sebagai teks pada artikel
+  for (const n of news) {
+    if (n.categorySlug && !list.some((c) => c.slug === n.categorySlug)) list.push({ slug: n.categorySlug, name: n.category });
+  }
+  return list.flatMap((cat) =>
+    paginate(newsInCategory(cat.slug, news, categories), {
+      params: { category: cat.slug },
+      props: { name: cat.name },
+      pageSize: 24,
+    }),
+  );
 }
 
-import Layout from "../../layouts/Layout.astro";
-import Navbar from "../../components/Navbar.astro";
-import NewsCard from "../../components/NewsCard.astro";
-import TrendingNews from "../../components/TrendingNews.astro";
-import Footer from "../../components/Footer.astro";
+const { page, name: displayCategory } = Astro.props as any;
+const category = Astro.params.category as string;
+const [trendingNews, categories] = await Promise.all([getTrending(), getCategories()]);
 
-const { category } = Astro.params;
-const displayCategory = category
-  ? category.charAt(0).toUpperCase() + category.slice(1)
-  : "Semua";
+const current = categories.find((c) => c.slug === category);
+const parent = current && categories.find((c) => c.id === current.parentId);
+const children = current ? categories.filter((c) => c.parentId === current.id) : [];
+const topLevel = categories.filter((c) => c.parentId === null && c.slug !== category);
 
-import { API_BASE } from "../../lib/config";
-
-let articles: any[] = [];
-let trendingNews: any[] = [];
-
-
-
-function normalize(a: any) {
-  return {
-    id: a.ID || a.id,
-    title: a.title,
-    slug: a.slug,
-    excerpt: a.excerpt,
-    imageUrl: a.imageUrl,
-    category: a.category,
-    author: a.author,
-    viewCount: a.viewCount,
-    createdAt: a.CreatedAt || a.createdAt,
-  };
+const pageUrl = (n: number) => `/kategori/${category}${n > 1 ? `/${n}` : ""}`;
+const pageNumbers: Array<number | null> = [];
+for (let n = 1; n <= page.lastPage; n++) {
+  if (n === 1 || n === page.lastPage || Math.abs(n - page.currentPage) <= 2) pageNumbers.push(n);
+  else if (pageNumbers[pageNumbers.length - 1] !== null) pageNumbers.push(null);
 }
-
-const normalizedArticles = articles.map(normalize);
-const normalizedTrending = trendingNews.map(normalize);
 
 const categoryIcons: Record<string, string> = {
-  teknologi: "💻",
   pendidikan: "🎓",
-  kampus: "🏫",
-  event: "📅",
-  riset: "🔬",
-  loker: "💼",
-  video: "🎬",
+  "perguruan-tinggi": "🏫",
+  unsoed: "🏫",
   artikel: "📝",
-  headline: "📰",
+  "jateng-diy": "📍",
+  purbalingga: "📍",
+  banyumas: "📍",
+  banjarnegara: "📍",
+  cilacap: "📍",
+  pariwisata: "🏞️",
+  "destinasi-wisata": "🏞️",
+  hotel: "🏨",
+  kuliner: "🍜",
+  advertorial: "📣",
+  edutube: "🎬",
 };
-
-const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
+const iconFor = (slug: string) => categoryIcons[slug] || "📰";
 ---
 
 <Layout
-  title={`${displayCategory} — EduTech News Portal`}
+  title={`${displayCategory}${page.currentPage > 1 ? ` (halaman ${page.currentPage})` : ""} — EduTech News Portal`}
   description={`Kumpulan berita dan artikel terbaru seputar ${displayCategory} di EduTech News Portal.`}
 >
   <Navbar />
@@ -66,17 +67,30 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
   <!-- Category Header -->
   <div class="category-hero">
     <div class="container category-hero-inner">
-      <div class="category-icon-big">{icon}</div>
+      <div class="category-icon-big">{iconFor(category)}</div>
       <div>
         <div class="breadcrumb-mini">
           <a href="/">Beranda</a>
           <span>›</span>
+          {parent && (
+            <>
+              <a href={`/kategori/${parent.slug}`}>{parent.name}</a>
+              <span>›</span>
+            </>
+          )}
           <span>{displayCategory}</span>
         </div>
         <h1 class="category-page-title">{displayCategory}</h1>
         <p class="category-count">
-          {normalizedArticles.length} artikel ditemukan
+          {page.total.toLocaleString("id-ID")} artikel{page.lastPage > 1 && ` · halaman ${page.currentPage} dari ${page.lastPage}`}
         </p>
+        {children.length > 0 && (
+          <div class="sub-categories">
+            {children.map((c) => (
+              <a href={`/kategori/${c.slug}`}>{c.name}</a>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   </div>
@@ -85,7 +99,7 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
     <!-- Articles Grid -->
     <section class="category-articles" aria-label={`Berita ${displayCategory}`}>
       {
-        normalizedArticles.length === 0 ? (
+        page.data.length === 0 ? (
           <div class="empty-category">
             <div class="empty-icon">📭</div>
             <h2>Belum Ada Berita</h2>
@@ -96,7 +110,7 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
           </div>
         ) : (
           <div class="articles-grid">
-            {normalizedArticles.map((article) => (
+            {page.data.map((article: any) => (
               <NewsCard
                 title={article.title}
                 slug={article.slug}
@@ -105,6 +119,7 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
                 category={article.category}
                 author={article.author}
                 viewCount={article.viewCount}
+                readTime={article.readTime}
                 createdAt={article.createdAt}
                 size="md"
               />
@@ -112,11 +127,25 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
           </div>
         )
       }
+
+      {page.lastPage > 1 && (
+        <nav class="pagination" aria-label="Halaman berita">
+          {page.currentPage > 1 && <a href={pageUrl(page.currentPage - 1)} rel="prev">← Sebelumnya</a>}
+          {pageNumbers.map((n) =>
+            n === null ? (
+              <span class="gap">…</span>
+            ) : (
+              <a href={pageUrl(n)} class:list={[{ active: n === page.currentPage }]} aria-current={n === page.currentPage ? "page" : undefined}>{n}</a>
+            ),
+          )}
+          {page.currentPage < page.lastPage && <a href={pageUrl(page.currentPage + 1)} rel="next">Berikutnya →</a>}
+        </nav>
+      )}
     </section>
 
     <!-- Trending Sidebar -->
     <aside class="category-sidebar">
-      <TrendingNews trending={normalizedTrending} />
+      <TrendingNews trending={trendingNews} />
 
       <!-- Other Categories -->
       <div class="other-categories">
@@ -125,25 +154,12 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
         </div>
         <div class="other-cat-list">
           {
-            [
-              "Teknologi",
-              "Pendidikan",
-              "Kampus",
-              "Event",
-              "Riset",
-              "Loker",
-              "Video",
-            ]
-              .filter((c) => c.toLowerCase() !== category?.toLowerCase())
-              .map((cat) => (
-                <a
-                  href={`/kategori/${cat.toLowerCase()}`}
-                  class="other-cat-link"
-                >
-                  <span>{categoryIcons[cat.toLowerCase()] || "📰"}</span>
-                  <span>{cat}</span>
-                </a>
-              ))
+            topLevel.map((cat) => (
+              <a href={`/kategori/${cat.slug}`} class="other-cat-link">
+                <span>{iconFor(cat.slug)}</span>
+                <span>{cat.name}</span>
+              </a>
+            ))
           }
         </div>
       </div>
@@ -222,6 +238,50 @@ const icon = categoryIcons[category?.toLowerCase() || ""] || "📰";
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: var(--space-5);
+  }
+
+  .articles-grid > :global(*) {
+    min-width: 0;
+  }
+
+  .sub-categories {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: var(--space-3);
+  }
+
+  .sub-categories a,
+  .pagination a {
+    padding: 6px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-card);
+    color: var(--color-text-secondary);
+    font-size: var(--text-sm);
+    font-weight: 600;
+    transition: all var(--transition-fast);
+  }
+
+  .sub-categories a:hover,
+  .pagination a:hover,
+  .pagination a.active {
+    background: #c2560c;
+    border-color: #c2560c;
+    color: white;
+  }
+
+  .pagination {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-8);
+  }
+
+  .pagination .gap {
+    color: var(--color-text-muted);
   }
 
   /* Empty State */

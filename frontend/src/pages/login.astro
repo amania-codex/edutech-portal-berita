@@ -274,6 +274,8 @@ import Footer from '../components/Footer.astro';
 </style>
 
 <script>
+  import { API_BASE } from '../lib/config';
+
   const form = document.getElementById('login-form') as HTMLFormElement;
   const errorEl = document.getElementById('login-error')!;
   const successEl = document.getElementById('login-success')!;
@@ -299,7 +301,7 @@ import Footer from '../components/Footer.astro';
     (loginBtn.querySelector('.btn-loading') as HTMLElement).style.display = 'flex';
 
     try {
-      const res = await fetch('http://localhost:3000/api/auth/login', {
+      const res = await fetch(`${API_BASE}/auth/login`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -315,7 +317,7 @@ import Footer from '../components/Footer.astro';
         successEl.textContent = `Selamat datang, ${data.user.name}! Mengalihkan...`;
         successEl.style.display = 'block';
         setTimeout(() => {
-          window.location.href = data.user.role === 'admin' ? '/dashboard' : '/dashboard';
+          window.location.href = data.user.role === 'admin' ? '/dashboard' : '/user';
         }, 1000);
       }
     } catch {

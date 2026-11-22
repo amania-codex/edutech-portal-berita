@@ -1,28 +1,5 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
-
-const allComments: any[] = [];
-const sentimentStats = { positive: 0, neutral: 0, negative: 0 };
-const flaggedCount = 0;
-const totalComments = 0;
-
-function normalizeComment(c: any) {
-  return {
-    id: c.ID || c.id,
-    content: c.content,
-    sentiment: c.sentiment || "neutral",
-    sentiment_score: c.sentiment_score || c.sentimentScore || 0,
-    is_flagged: c.is_flagged || c.isFlagged || 0,
-    user_name: c.user_name || c.userName || c.user?.name || "Anonim",
-    news_title: c.news_title || c.newsTitle || c.news?.title || "-",
-    news_id: c.news_id || c.newsId || 0,
-    created_at: c.CreatedAt || c.created_at || c.createdAt || "",
-  };
-}
-
-const normalizedComments = allComments.map(normalizeComment);
-const comments = normalizedComments;
-const API_BASE = "http://localhost:3000/api";
 ---
 
 <DashboardLayout title="Analisis Komentar" activeMenu="comments">
@@ -41,7 +18,7 @@ const API_BASE = "http://localhost:3000/api";
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
         </div>
         <div class="stat-info">
-          <p class="stat-value">{sentimentStats.positive}</p>
+          <p class="stat-value" data-n="positive">0</p>
           <p class="stat-label">Sentimen Positif</p>
         </div>
       </div>
@@ -51,7 +28,7 @@ const API_BASE = "http://localhost:3000/api";
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
         </div>
         <div class="stat-info">
-          <p class="stat-value">{sentimentStats.neutral}</p>
+          <p class="stat-value" data-n="neutral">0</p>
           <p class="stat-label">Sentimen Netral</p>
         </div>
       </div>
@@ -61,7 +38,7 @@ const API_BASE = "http://localhost:3000/api";
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>
         </div>
         <div class="stat-info">
-          <p class="stat-value">{sentimentStats.negative}</p>
+          <p class="stat-value" data-n="negative">0</p>
           <p class="stat-label">Sentimen Negatif</p>
         </div>
       </div>
@@ -71,7 +48,7 @@ const API_BASE = "http://localhost:3000/api";
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>
         </div>
         <div class="stat-info">
-          <p class="stat-value">{flaggedCount}</p>
+          <p class="stat-value" data-n="flagged">0</p>
           <p class="stat-label">Komentar Ditandai</p>
         </div>
       </div>
@@ -80,7 +57,7 @@ const API_BASE = "http://localhost:3000/api";
     <!-- Comments Table -->
     <div class="dash-card">
       <div class="card-header-flex">
-        <h3 class="dash-card-title">Daftar Komentar ({totalComments})</h3>
+        <h3 class="dash-card-title">Daftar Komentar (<span data-n="total">0</span>)</h3>
         <select id="filter-sentiment" class="filter-select">
           <option value="all">Semua Sentimen</option>
           <option value="positive">😊 Positif</option>
@@ -91,52 +68,34 @@ const API_BASE = "http://localhost:3000/api";
       </div>
 
       <div class="comments-list" id="comments-list">
-        {comments.length === 0 ? (
-          <p class="empty-state">Belum ada komentar. Pastikan Go Fiber backend aktif.</p>
-        ) : (
-          comments.map((comment) => (
-            <div
-              class={`comment-item ${comment.is_flagged ? 'is-flagged' : ''}`}
-              data-sentiment={comment.is_flagged ? 'flagged' : comment.sentiment}
-            >
-              <div class="comment-header">
-                <div class="comment-author">
-                  <div class="author-avatar">{comment.user_name.charAt(0).toUpperCase()}</div>
-                  <div>
-                    <p class="author-name">{comment.user_name}</p>
-                    <p class="comment-meta-text">
-                      Pada <strong>{comment.news_title}</strong> ·{' '}
-                      {comment.created_at
-                        ? new Date(comment.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
-                        : '-'}
-                    </p>
-                  </div>
-                </div>
-                <div class="comment-badges">
-                  {comment.is_flagged === 1 && <span class="badge badge-flagged">⚠ Flagged</span>}
-                  <span class={`badge badge-${comment.sentiment}`}>
-                    {comment.sentiment === 'positive' ? '😊 Positif' : comment.sentiment === 'negative' ? '😠 Negatif' : '😐 Netral'}
-                    {' '}({Number(comment.sentiment_score).toFixed(1)})
-                  </span>
-                </div>
-              </div>
-
-              <div class="comment-body">
-                <p>{comment.content}</p>
-              </div>
-
-              <div class="comment-actions">
-                <button class="action-btn btn-danger" onclick={`deleteComment(${comment.id})`}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                  Hapus
-                </button>
-              </div>
-            </div>
-          ))
-        )}
+        <p class="empty-state">Memuat komentar...</p>
       </div>
     </div>
   </div>
+
+  <template id="comment-template">
+    <div class="comment-item">
+      <div class="comment-header">
+        <div class="comment-author">
+          <div class="author-avatar"></div>
+          <div>
+            <p class="author-name"></p>
+            <p class="comment-meta-text">Pada <strong class="news-title"></strong> · <span class="comment-date"></span></p>
+          </div>
+        </div>
+        <div class="comment-badges">
+          <span class="badge badge-flagged">⚠ Flagged</span>
+          <span class="badge badge-sentiment"></span>
+        </div>
+      </div>
+      <div class="comment-body"><p></p></div>
+      <div class="comment-actions">
+        <button class="action-btn btn-danger">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                  Hapus</button>
+      </div>
+    </div>
+  </template>
 </DashboardLayout>
 
 <style>
@@ -200,30 +159,57 @@ const API_BASE = "http://localhost:3000/api";
   .empty-state { text-align: center; color: var(--color-text-muted); padding: 40px 0; font-size: 14px; }
 </style>
 
-<script define:vars={{ API_BASE: "http://localhost:3000/api" }}>
-  // Filter by sentiment
-  const filterSelect = document.getElementById('filter-sentiment');
-  filterSelect.addEventListener('change', () => {
-    const val = filterSelect.value;
-    document.querySelectorAll('.comment-item').forEach(item => {
-      const sentiment = item.getAttribute('data-sentiment');
-      const show = val === 'all' || sentiment === val;
-      item.classList.toggle('hidden', !show);
-    });
-  });
+<script>
+  import { api, clone, createdAt, el, formatDate, getJSON, rowId, setText } from '../../lib/client';
 
-  // Delete comment via Go Fiber
-  window.deleteComment = async (id) => {
-    if (!confirm('Yakin ingin menghapus komentar ini?')) return;
-    try {
-      const res = await fetch(`${API_BASE}/comments/${id}`, { method: 'DELETE' });
-      if (res.ok) {
-        window.location.reload();
-      } else {
-        alert('Gagal menghapus komentar. Periksa endpoint Go Fiber /api/comments/:id');
-      }
-    } catch {
-      alert('Terjadi kesalahan jaringan.');
+  const labels: Record<string, string> = { positive: '😊 Positif', negative: '😠 Negatif', neutral: '😐 Netral' };
+  let comments: any[] = [];
+
+  function render() {
+    const filter = el('filter-sentiment').value;
+    const list = comments.filter((c) => filter === 'all' || (filter === 'flagged' ? c.is_flagged : c.sentiment === filter));
+    if (!list.length) {
+      el('comments-list').textContent = comments.length ? 'Tidak ada komentar untuk filter ini.' : 'Belum ada komentar.';
+      return;
     }
-  };
+    el('comments-list').replaceChildren(...list.map((c) => {
+      const node = clone('comment-template');
+      const name = c.user_name || 'Anonim';
+      const sentiment = labels[c.sentiment] ? c.sentiment : 'neutral';
+      node.querySelector('.comment-item')!.classList.toggle('is-flagged', !!c.is_flagged);
+      setText(node, '.author-avatar', name.charAt(0).toUpperCase());
+      setText(node, '.author-name', name);
+      setText(node, '.news-title', c.news_title || '-');
+      setText(node, '.comment-date', formatDate(createdAt(c), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }));
+      setText(node, '.comment-body p', c.content);
+      if (!c.is_flagged) node.querySelector('.badge-flagged')!.remove();
+      setText(node, '.badge-sentiment', `${labels[sentiment]} (${Number(c.sentiment_score || 0).toFixed(1)})`);
+      node.querySelector('.badge-sentiment')!.classList.add(`badge-${sentiment}`);
+      node.querySelector('.btn-danger')!.addEventListener('click', () => remove(c));
+      return node;
+    }));
+  }
+
+  function stats() {
+    const count = (key: string) => comments.filter((c) => c.sentiment === key).length;
+    const values: Record<string, number> = {
+      total: comments.length,
+      flagged: comments.filter((c) => c.is_flagged).length,
+      positive: count('positive'), neutral: count('neutral'), negative: count('negative'),
+    };
+    document.querySelectorAll<HTMLElement>('[data-n]').forEach((n) => { n.textContent = String(values[n.dataset.n!]); });
+  }
+
+  async function remove(c: any) {
+    if (!confirm('Yakin ingin menghapus komentar ini?')) return;
+    const res = await api(`/comments/${rowId(c)}`, { method: 'DELETE' }).catch(() => null);
+    if (!res?.ok) return alert('Gagal menghapus komentar.');
+    comments = comments.filter((x) => x !== c);
+    stats();
+    render();
+  }
+
+  el('filter-sentiment').addEventListener('change', render);
+  getJSON('/comments').then((data) => { comments = data || []; stats(); render(); })
+    .catch(() => { el('comments-list').textContent = 'Gagal memuat komentar. Pastikan Go Fiber backend aktif.'; });
 </script>

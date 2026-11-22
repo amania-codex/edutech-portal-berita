@@ -1,27 +1,5 @@
 ---
-
 import UserLayout from '../../layouts/UserLayout.astro';
-
-
-const API_BASE = "http://localhost:3000/api";
-let historyItems: any[] = [];
-
-
-
-const fallbackImg = "https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=800&q=80";
-
-function formatRelativeTime(dateStr: string): string {
-  if (!dateStr) return "Baru saja";
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffSec = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (diffSec < 60) return "Baru saja";
-  if (diffSec < 3600) return `${Math.floor(diffSec / 60)} menit lalu`;
-  if (diffSec < 86400) return `${Math.floor(diffSec / 3600)} jam lalu`;
-  if (diffSec < 172800) return "Kemarin";
-  return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-}
 ---
 
 <UserLayout title="Riwayat Baca" activeMenu="history">
@@ -32,17 +10,15 @@ function formatRelativeTime(dateStr: string): string {
         <div class="head-info">
           <h2 class="dash-card-title">Riwayat Baca Berita</h2>
           <span class="count-badge" id="history-count-badge">
-            <span id="history-total">{historyItems.length}</span> Berita
+            <span id="history-total">0</span> Berita
           </span>
         </div>
-        {historyItems.length > 0 && (
-          <button id="clear-all-btn" class="btn-clear-all" title="Hapus seluruh riwayat bacaan Anda">
+          <button id="clear-all-btn" style="display:none" class="btn-clear-all" title="Hapus seluruh riwayat bacaan Anda">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15">
               <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
             </svg>
             Bersihkan Semua
           </button>
-        )}
       </div>
 
       <!-- Alert -->
@@ -50,7 +26,12 @@ function formatRelativeTime(dateStr: string): string {
 
       <!-- News List -->
       <div class="history-list" id="history-list">
-        {historyItems.length === 0 ? (
+        <p>Memuat...</p>
+      </div>
+    </div>
+  </div>
+
+  <template id="empty-template">
           <div class="empty-state" id="history-empty">
             <div class="empty-icon-wrap">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -62,21 +43,18 @@ function formatRelativeTime(dateStr: string): string {
             <p>Artikel dan berita yang Anda baca akan otomatis tercatat di sini agar mudah ditemukan kembali.</p>
             <a href="/" class="btn-primary-sm">Jelajahi Berita Sekarang</a>
           </div>
-        ) : (
-          historyItems.map((item) => (
-            <div class="history-card" id={`history-card-${item.ID || item.id}`}>
-              <a href={`/berita/${item.news_slug}`} class="history-thumb-link">
+  </template>
+  <template id="card-template">
+            <div class="history-card">
+              <a class="history-thumb-link">
                 <img
-                  src={item.news_image || fallbackImg}
-                  alt={item.news_title}
                   loading="lazy"
-                  onerror={`this.onerror=null;this.src='${fallbackImg}';`}
                 />
               </a>
 
               <div class="history-body">
-                <a href={`/berita/${item.news_slug}`} class="history-title-link">
-                  <h3 class="history-title">{item.news_title}</h3>
+                <a class="history-title-link">
+                  <h3 class="history-title"></h3>
                 </a>
 
                 <div class="history-meta">
@@ -85,18 +63,17 @@ function formatRelativeTime(dateStr: string): string {
                       <circle cx="12" cy="12" r="10"></circle>
                       <polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
-                    Terakhir dibaca: {formatRelativeTime(item.read_at || item.ReadAt)}
+                    Terakhir dibaca: <span class="read-date"></span>
                   </span>
                 </div>
               </div>
 
               <div class="history-actions">
-                <a href={`/berita/${item.news_slug}`} class="btn-read-again">
+                <a class="btn-read-again">
                   Baca Lagi
                 </a>
                 <button
                   class="btn-delete-item"
-                  data-id={item.ID || item.id}
                   title="Hapus dari riwayat baca"
                   aria-label="Hapus item riwayat"
                 >
@@ -107,11 +84,7 @@ function formatRelativeTime(dateStr: string): string {
                 </button>
               </div>
             </div>
-          ))
-        )}
-      </div>
-    </div>
-  </div>
+  </template>
 </UserLayout>
 
 <style>
@@ -398,88 +371,46 @@ function formatRelativeTime(dateStr: string): string {
   }
 </style>
 
-<script is:inline>
-  const API_BASE = 'http://localhost:3000/api';
-  const toast = document.getElementById('history-toast');
-  const countBadge = document.getElementById('history-total');
-  const clearAllBtn = document.getElementById('clear-all-btn');
+<script>
+  import { api, clone, el, getJSON, relativeTime, rowId, setText, show, toast } from '../../lib/client';
+  import { FALLBACK_IMAGE, assetUrl } from '../../lib/news';
 
-  function showToast(msg) {
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.style.display = 'block';
-    setTimeout(() => { toast.style.display = 'none'; }, 3000);
-  }
+  let items: any[] = [];
+  const list = el('history-list') as HTMLElement;
 
-  function updateCount(delta) {
-    if (!countBadge) return;
-    let current = parseInt(countBadge.textContent || '0');
-    current = Math.max(0, current + delta);
-    countBadge.textContent = current.toString();
-
-    if (current === 0) {
-      if (clearAllBtn) clearAllBtn.style.display = 'none';
-      const list = document.getElementById('history-list');
-      if (list) {
-        list.innerHTML = `
-          <div class="empty-state" id="history-empty">
-            <div class="empty-icon-wrap">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="32" height="32">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-              </svg>
-            </div>
-            <h3>Belum Ada Riwayat Baca</h3>
-            <p>Artikel dan berita yang Anda baca akan otomatis tercatat di sini agar mudah ditemukan kembali.</p>
-            <a href="/" class="btn-primary-sm">Jelajahi Berita Sekarang</a>
-          </div>
-        `;
-      }
-    }
-  }
-
-  // Delete single history item
-  document.querySelectorAll('.btn-delete-item').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const id = btn.dataset.id;
-      if (!confirm('Hapus artikel ini dari riwayat baca?')) return;
-
-      try {
-        const res = await fetch(`${API_BASE}/user/history/${id}`, {
-          method: 'DELETE',
-          credentials: 'include'
-        });
-        if (res.ok) {
-          const card = document.getElementById(`history-card-${id}`);
-          if (card) {
-            card.style.opacity = '0';
-            card.style.transform = 'translateY(10px)';
-            setTimeout(() => { card.remove(); updateCount(-1); }, 200);
-          }
-          showToast('Artikel berhasil dihapus dari riwayat baca.');
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    });
-  });
-
-  // Clear all history
-  clearAllBtn?.addEventListener('click', async () => {
-    if (!confirm('Apakah Anda yakin ingin menghapus seluruh riwayat bacaan Anda? Tindakan ini tidak dapat dibatalkan.')) return;
-
-    try {
-      const res = await fetch(`${API_BASE}/user/history`, {
-        method: 'DELETE',
-        credentials: 'include'
+  function render() {
+    el('history-total').textContent = String(items.length);
+    show(el('clear-all-btn'), items.length > 0);
+    if (!items.length) return list.replaceChildren(clone('empty-template'));
+    list.replaceChildren(...items.map((h) => {
+      const node = clone('card-template');
+      node.querySelectorAll('a').forEach((a) => { a.href = `/berita/${h.news_slug}`; });
+      const img = node.querySelector('img')!;
+      img.src = assetUrl(h.news_image) || FALLBACK_IMAGE;
+      img.alt = h.news_title || '';
+      setText(node, '.history-title', h.news_title);
+      setText(node, '.read-date', relativeTime(h.read_at));
+      node.querySelector('.btn-delete-item')!.addEventListener('click', async () => {
+        if (!confirm('Hapus artikel ini dari riwayat baca?')) return;
+        const res = await api(`/user/history/${rowId(h)}`, { method: 'DELETE' }).catch(() => null);
+        if (!res?.ok) return toast('history-toast', 'Gagal menghapus riwayat.');
+        items = items.filter((x) => x !== h);
+        render();
+        toast('history-toast', 'Artikel berhasil dihapus dari riwayat baca.');
       });
-      if (res.ok) {
-        updateCount(-999);
-        showToast('Seluruh riwayat baca berhasil dibersihkan.');
-      }
-    } catch (err) {
-      console.error(err);
-    }
+      return node;
+    }));
+  }
+
+  el('clear-all-btn').addEventListener('click', async () => {
+    if (!confirm('Apakah Anda yakin ingin menghapus seluruh riwayat bacaan Anda? Tindakan ini tidak dapat dibatalkan.')) return;
+    const res = await api('/user/history', { method: 'DELETE' }).catch(() => null);
+    if (!res?.ok) return toast('history-toast', 'Gagal membersihkan riwayat.');
+    items = [];
+    render();
+    toast('history-toast', 'Seluruh riwayat baca berhasil dibersihkan.');
   });
+
+  getJSON('/user/history').then((data) => { items = data || []; render(); })
+    .catch(() => { list.textContent = 'Gagal memuat riwayat. Silakan coba lagi.'; });
 </script>

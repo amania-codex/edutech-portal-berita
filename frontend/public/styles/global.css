@@ -2795,4 +2795,18 @@ body.dark .site-footer {
   color: #7f91a7 !important;
 }
 
+/* Teks meta di atas foto gelap harus tetap terbaca */
+.hero-main .story-meta span,
+.hero-side .small-meta {
+  color: #dbe6f3 !important;
+  font-size: 11px;
+}
 
+/* Foto potret: utamakan bagian atas (wajah) saat dipotong */
+.hero-main > img,
+.side-feature > img,
+.visual-image img,
+.latest-feature .image-wrap img,
+.popular-image img {
+  object-position: center 20%;
+}

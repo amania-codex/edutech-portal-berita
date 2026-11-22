@@ -1,34 +1,10 @@
 ---
-export async function getStaticPaths() {
-  return [{ params: { id: '_placeholder' } }];
-}
+import DashboardLayout from '../../../layouts/DashboardLayout.astro';
 
-import DashboardLayout from '../../../../layouts/DashboardLayout.astro';
-
-const article: any = {
-  id: 0,
-  title: 'Memuat Analitik...',
-  slug: '',
-  category: '-',
-  author: 'Redaksi',
-  status: 'draft',
-  viewCount: 0,
-  imageUrl: '',
-  tags: '',
-  isFeatured: false,
-  isTrending: false,
-  createdAt: new Date().toISOString(),
-  updatedAt: new Date().toISOString(),
-};
-const comments: any[] = [];
-const commentCount = 0;
-const approvedComments = 0;
-const pendingComments = 0;
-const formattedCreated = '-';
-const formattedUpdated = '-';
+// Dibuka sebagai /dashboard/news/analytics?id=123 (situs statis: satu halaman untuk semua artikel)
 ---
 
-<DashboardLayout title={`Analisis: ${article.title}`} activeMenu="news">
+<DashboardLayout title="Analisis Berita" activeMenu="news">
   <div class="analytics-page">
 
     <!-- Header -->
@@ -38,11 +14,11 @@ const formattedUpdated = '-';
         Kembali ke Daftar Berita
       </a>
       <div class="header-actions">
-        <a href={`/berita/${article.slug}`} target="_blank" class="btn-outline">
+        <a id="a-view" target="_blank" class="btn-outline">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
           Lihat Artikel
         </a>
-        <a href={`/dashboard/news/edit/${article.id}`} class="btn-primary">
+        <a id="a-edit" class="btn-primary">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
           Edit Berita
         </a>
@@ -51,36 +27,30 @@ const formattedUpdated = '-';
 
     <!-- Article Info Card -->
     <div class="dash-card article-overview-card">
-      {article.imageUrl && (
-        <div class="overview-thumb-wrap">
-          <img src={article.imageUrl} alt={article.title} class="overview-thumb" />
-        </div>
-      )}
+      <div class="overview-thumb-wrap" id="a-thumb" style="display:none">
+        <img alt="" class="overview-thumb" />
+      </div>
       <div class="overview-info">
         <div class="overview-badges">
-          <span class={`status-badge ${article.status === 'published' ? 'badge-published' : 'badge-draft'}`}>
-            {article.status === 'published' ? '● Terbit' : '○ Draft'}
-          </span>
-          {article.isFeatured && <span class="status-badge badge-featured">⭐ Unggulan</span>}
-          {article.isTrending && <span class="status-badge badge-trending">🔥 Trending</span>}
-          <span class="status-badge badge-category">{article.category}</span>
+          <span class="status-badge" id="a-status"></span>
+          <span class="status-badge badge-featured" id="a-featured" style="display:none">⭐ Unggulan</span>
+          <span class="status-badge badge-trending" id="a-trending" style="display:none">🔥 Trending</span>
+          <span class="status-badge badge-category" id="a-category">-</span>
         </div>
-        <h1 class="overview-title">{article.title}</h1>
+        <h1 class="overview-title" id="a-title">Memuat Analitik...</h1>
         <div class="overview-meta">
           <span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            {article.author || 'Redaksi'}
+            <span id="a-author">-</span>
           </span>
           <span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            Dibuat: {formattedCreated}
+            Dibuat: <span id="a-created">-</span>
           </span>
-          {article.tags && (
-            <span>
+            <span id="a-tags-wrap" style="display:none">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-              {article.tags}
+              <span id="a-tags"></span>
             </span>
-          )}
         </div>
       </div>
     </div>
@@ -93,7 +63,7 @@ const formattedUpdated = '-';
         </div>
         <div class="stat-body">
           <p class="stat-label">Total Tayangan</p>
-          <p class="stat-value" id="view-count">{article.viewCount.toLocaleString('id-ID')}</p>
+          <p class="stat-value" id="view-count">0</p>
           <p class="stat-desc">Sejak pertama diterbitkan</p>
         </div>
       </div>
@@ -104,8 +74,8 @@ const formattedUpdated = '-';
         </div>
         <div class="stat-body">
           <p class="stat-label">Total Komentar</p>
-          <p class="stat-value">{commentCount}</p>
-          <p class="stat-desc">{approvedComments} disetujui · {pendingComments} menunggu</p>
+          <p class="stat-value" data-comments>0</p>
+          <p class="stat-desc"><span id="a-flagged">0</span> ditandai sistem</p>
         </div>
       </div>
 
@@ -116,7 +86,7 @@ const formattedUpdated = '-';
         <div class="stat-body">
           <p class="stat-label">Rasio Komentar/Tayangan</p>
           <p class="stat-value">
-            {article.viewCount > 0 ? ((commentCount / article.viewCount) * 100).toFixed(2) : '0.00'}%
+            <span id="a-ratio">0.00</span>%
           </p>
           <p class="stat-desc">Tingkat interaksi pembaca</p>
         </div>
@@ -129,7 +99,7 @@ const formattedUpdated = '-';
         <div class="stat-body">
           <p class="stat-label">Umur Artikel</p>
           <p class="stat-value" id="article-age">-</p>
-          <p class="stat-desc">Terakhir diperbarui: {formattedUpdated}</p>
+          <p class="stat-desc">Terakhir diperbarui: <span id="a-updated">-</span></p>
         </div>
       </div>
     </div>
@@ -139,43 +109,29 @@ const formattedUpdated = '-';
       <div class="comments-header">
         <h2 class="comments-title">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          Komentar Terbaru ({commentCount})
+          Komentar Terbaru (<span data-comments>0</span>)
         </h2>
       </div>
 
-      {commentCount === 0 ? (
+      <div id="a-empty">
         <div class="empty-comments">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <p>Belum ada komentar untuk artikel ini</p>
         </div>
-      ) : (
-        <div class="comments-list">
-          {comments.slice(0, 20).map((comment: any) => (
-            <div class="comment-item">
-              <div class="comment-avatar">
-                {(comment.name || comment.user_name || 'A')[0].toUpperCase()}
-              </div>
-              <div class="comment-body">
-                <div class="comment-meta">
-                  <span class="comment-author">{comment.name || comment.user_name || 'Anonim'}</span>
-                  {comment.email && <span class="comment-email">{comment.email}</span>}
-                  <span class="comment-date">
-                    {comment.CreatedAt || comment.createdAt
-                      ? new Date(comment.CreatedAt || comment.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-                      : '-'}
-                  </span>
-                  {comment.status && (
-                    <span class={`comment-status ${comment.status === 'approved' ? 'cs-approved' : 'cs-pending'}`}>
-                      {comment.status}
-                    </span>
-                  )}
-                </div>
-                <p class="comment-content">{comment.content || comment.body || comment.comment || ''}</p>
-              </div>
+      </div>
+      <div class="comments-list" id="a-comments"></div>
+      <template id="comment-template">
+        <div class="comment-item">
+          <div class="comment-avatar"></div>
+          <div class="comment-body">
+            <div class="comment-meta">
+              <span class="comment-author"></span>
+              <span class="comment-date"></span>
             </div>
-          ))}
+            <p class="comment-content"></p>
+          </div>
         </div>
-      )}
+      </template>
     </div>
 
   </div>
@@ -259,20 +215,66 @@ const formattedUpdated = '-';
   }
 </style>
 
-<script is:inline define:vars={{ createdAt: article.createdAt }}>
-  // Calculate article age
-  if (createdAt) {
-    const created = new Date(createdAt);
-    const now = new Date();
-    const diffMs = now - created;
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    const ageEl = document.getElementById('article-age');
-    if (ageEl) {
-      if (diffDays === 0) ageEl.textContent = 'Hari ini';
-      else if (diffDays === 1) ageEl.textContent = '1 hari';
-      else if (diffDays < 30) ageEl.textContent = diffDays + ' hari';
-      else if (diffDays < 365) ageEl.textContent = Math.floor(diffDays / 30) + ' bulan';
-      else ageEl.textContent = Math.floor(diffDays / 365) + ' tahun';
-    }
+<script>
+  import { clone, createdAt, el, formatDate, getJSON, setText, show } from '../../../lib/client';
+  import { assetUrl, normalizeNews } from '../../../lib/news';
+
+  const id = Number(new URLSearchParams(location.search).get('id'));
+  const long: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+
+  function age(iso: string) {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
+    if (days <= 0) return 'Hari ini';
+    if (days < 30) return `${days} hari`;
+    return days < 365 ? `${Math.floor(days / 30)} bulan` : `${Math.floor(days / 365)} tahun`;
   }
+
+  (async () => {
+    if (!id) { location.replace('/dashboard/news'); return; }
+    try {
+      const raw = await getJSON(`/news/${id}`);
+      const n = normalizeNews(raw);
+      const published = raw.status === 'published';
+      const comments: any[] = (await getJSON(`/comments/news/${id}`).catch(() => [])) || [];
+      const all = comments.flatMap((c) => [c, ...(c.replies || [])]);
+
+      el('a-title').textContent = n.title;
+      el('a-category').textContent = n.category || '-';
+      el('a-author').textContent = n.author;
+      el('a-created').textContent = formatDate(n.createdAt, long);
+      el('a-updated').textContent = formatDate(raw.UpdatedAt, long);
+      el('a-status').textContent = published ? '● Terbit' : '○ Draft';
+      el('a-status').classList.add(published ? 'badge-published' : 'badge-draft');
+      show(el('a-featured'), !!raw.isFeatured);
+      show(el('a-trending'), !!raw.isTrending);
+      el('a-tags').textContent = n.tags.join(', ');
+      show(el('a-tags-wrap'), n.tags.length > 0);
+      if (raw.imageUrl) {
+        el('a-thumb').querySelector('img').src = assetUrl(raw.imageUrl);
+        show(el('a-thumb'), true);
+      }
+      el('a-edit').href = `/dashboard/news/edit?id=${id}`;
+      if (published) el('a-view').href = `/berita/${n.slug}`;
+      else show(el('a-view'), false);
+
+      el('view-count').textContent = n.viewCount.toLocaleString('id-ID');
+      document.querySelectorAll('[data-comments]').forEach((c) => { c.textContent = String(all.length); });
+      el('a-flagged').textContent = String(all.filter((c) => c.is_flagged).length);
+      el('a-ratio').textContent = n.viewCount ? ((all.length / n.viewCount) * 100).toFixed(2) : '0.00';
+      el('article-age').textContent = age(n.createdAt);
+
+      show(el('a-empty'), all.length === 0);
+      el('a-comments').replaceChildren(...all.slice(0, 20).map((c) => {
+        const node = clone('comment-template');
+        const name = c.user_name || 'Anonim';
+        setText(node, '.comment-avatar', name.charAt(0).toUpperCase());
+        setText(node, '.comment-author', name);
+        setText(node, '.comment-date', formatDate(createdAt(c)));
+        setText(node, '.comment-content', c.content);
+        return node;
+      }));
+    } catch {
+      el('a-title').textContent = 'Berita tidak ditemukan atau server tidak aktif.';
+    }
+  })();
 </script>

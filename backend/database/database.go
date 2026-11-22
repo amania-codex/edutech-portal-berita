@@ -48,6 +48,8 @@ func Connect() {
 		&models.Article{}, 
 		&models.Comment{}, 
 		&models.Category{},
+		&models.ArticleCategory{},
+		&models.ArticleRedirect{},
 		&models.ReadingHistory{},
 		&models.Bookmark{},
 		&models.Notification{},
@@ -65,6 +67,9 @@ func Connect() {
 	log.Println("Database Migrated")
 
 	DB = database
+
+	// Arsip berita dimuat otomatis bila database masih kosong (juga di produksi)
+	SeedNews()
 
 	// Check if seeding is disabled in production
 	appEnv := os.Getenv("APP_ENV")

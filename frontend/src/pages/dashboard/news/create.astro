@@ -1,8 +1,6 @@
 ---
-
 import DashboardLayout from '../../../layouts/DashboardLayout.astro';
-
-
+import { API_BASE, BACKEND_URL } from '../../../lib/config';
 ---
 
 <DashboardLayout title="Tulis Berita Baru" activeMenu="create-news">
@@ -769,14 +767,44 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
     to { opacity: 1; transform: translateY(0); }
   }
 
+  .gb-canvas { min-width: 0; }
+
+  /* Layar kecil: panel pengaturan (kategori, gambar, dst.) dibuka lewat tombol gerigi */
   @media (max-width: 1100px) {
-    .gb-sidebar { display: none; }
-    .sidebar-toggle-btn { display: none; }
+    .gb-layout { position: relative; }
+    .gb-sidebar {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(320px, 100%);
+      z-index: 30;
+      box-shadow: -8px 0 24px rgba(0, 0, 0, 0.18);
+    }
+    .gb-sidebar.hidden { visibility: hidden; box-shadow: none; }
+  }
+
+  @media (max-width: 640px) {
+    .gb-toolbar { padding: 0 10px; gap: 8px; }
+    .gb-breadcrumb-sep, .gb-breadcrumb-title { display: none; }
+    .gb-toolbar-right { gap: 6px; }
+    .gb-canvas { padding-left: 14px; padding-right: 14px; }
   }
 </style>
 
-<script is:inline>
-  const API_BASE = 'http://localhost:3000/api';
+<script is:inline define:vars={{ API_BASE, BACKEND_URL }}>
+
+  // Di database, gambar unggahan disimpan sebagai path (/uploads/...) agar tidak terikat alamat server
+  const toPath = html => html.split(BACKEND_URL + '/uploads/').join('/uploads/');
+  const toUrl = html => html.replace(/((?:src|href)=["'])\/uploads\//g, `$1${BACKEND_URL}/uploads/`);
+  const absolute = url => url && url.startsWith('/uploads/') ? BACKEND_URL + url : url;
+
+  // Tautan YouTube biasa → alamat embed
+  function toEmbedUrl(url) {
+    const m = (url || '').match(/(?:youtube\.com\/(?:watch\?(?:\S*&)?v=|shorts\/|live\/|embed\/)|youtu\.be\/)([\w-]{11})/);
+    return m ? `https://www.youtube.com/embed/${m[1]}` : url;
+  }
+  const escapeAttr = v => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 
   let blocks = [];
   let blockIdCounter = 0;
@@ -789,6 +817,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
   // ====== SIDEBAR TOGGLE ======
   const settingsToggleBtn = document.getElementById('settings-toggle-btn');
   const gbSidebar = document.getElementById('gb-sidebar');
+  if (window.innerWidth <= 1100) gbSidebar.classList.add('hidden');
   settingsToggleBtn.addEventListener('click', () => {
     gbSidebar.classList.toggle('hidden');
     settingsToggleBtn.classList.toggle('active');
@@ -872,7 +901,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
       }
       const data = await res.json();
       featProgressEl.style.display = 'none';
-      const fullUrl = `http://localhost:3000${data.url}`;
+      const fullUrl = `${BACKEND_URL}${data.url}`;
       imageUrlInput.value = fullUrl;
       updateImagePreview(fullUrl);
     } catch {
@@ -1122,7 +1151,8 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
           }
           const data = await res.json();
           progressEl.style.display = 'none';
-          const fullUrl = `http://localhost:3000${data.url}`;
+          const fullUrl = `${BACKEND_URL}${data.url}`;
+          syncBlocks();
           const idx = blocks.findIndex(b => b.id === id);
           if (idx !== -1) { blocks[idx].content = fullUrl; blocks[idx].width = 100; renderBlocks(); }
         } catch {
@@ -1156,6 +1186,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
           e.preventDefault();
           const url = urlInput.value.trim();
           if (url) {
+            syncBlocks();
             const idx = blocks.findIndex(b => b.id === id);
             if (idx !== -1) { blocks[idx].content = url; blocks[idx].width = 100; renderBlocks(); }
           }
@@ -1236,21 +1267,25 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
   }
 
   function setHeadingLevel(bid, level) {
+    syncBlocks();
     const idx = blocks.findIndex(b => b.id === bid);
     if (idx !== -1) { blocks[idx].level = level; renderBlocks(); }
   }
 
   function setAlign(bid, align) {
+    syncBlocks();
     const idx = blocks.findIndex(b => b.id === bid);
     if (idx !== -1) { blocks[idx].align = align; renderBlocks(); }
   }
 
   function removeImageFromBlock(bid) {
+    syncBlocks();
     const idx = blocks.findIndex(b => b.id === bid);
     if (idx !== -1) { blocks[idx].content = ''; renderBlocks(); }
   }
 
   function addBlock(type, afterId) {
+    syncBlocks();
     const nb = { id: genId(), type, content: type === 'list' ? ['Item pertama'] : '', level: type === 'heading' ? 2 : undefined };
     if (afterId) {
       const idx = blocks.findIndex(b => b.id === afterId);
@@ -1266,11 +1301,13 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
   }
 
   function deleteBlock(bid) {
+    syncBlocks();
     blocks = blocks.filter(b => b.id !== bid);
     renderBlocks();
   }
 
   function moveBlock(bid, dir) {
+    syncBlocks();
     const idx = blocks.findIndex(b => b.id === bid);
     const ni = idx + dir;
     if (ni < 0 || ni >= blocks.length) return;
@@ -1316,7 +1353,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
         case 'list': return Array.isArray(b.content) ? `<ul>${b.content.map(i=>`<li>${i}</li>`).join('')}</ul>` : '';
         case 'divider': return '<hr/>';
         case 'code': return `<pre><code>${b.content||''}</code></pre>`;
-        case 'embed': return b.content ? `<div class="embed"><iframe src="${b.content}" allowfullscreen></iframe></div>` : '';
+        case 'embed': return b.content ? `<div class="embed"><iframe src="${escapeAttr(toEmbedUrl(b.content))}" allowfullscreen></iframe></div>` : '';
         default: return `<p>${b.content||''}</p>`;
       }
     }).join('\n');
@@ -1349,12 +1386,12 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
   async function submitForm(isDraft) {
     syncBlocks();
     const title = titleEl.textContent.trim();
-    const htmlContent = blocksToHtml();
+    const htmlContent = toPath(blocksToHtml());
     const category = document.getElementById('category').value;
 
     if (!title) return showToast('error', 'Judul berita wajib diisi!');
-    if (!htmlContent.replace(/<[^>]+>/g,'').trim()) return showToast('error', 'Konten berita wajib diisi!');
-    if (!category) return showToast('error', 'Pilih kategori terlebih dahulu!');
+    if (!htmlContent.replace(/<[^>]+>/g,'').trim() && !/<(img|iframe)/.test(htmlContent)) return showToast('error', 'Konten berita wajib diisi!');
+    if (!category) { gbSidebar.classList.remove('hidden'); return showToast('error', 'Pilih kategori terlebih dahulu!'); }
 
     const indicator = document.getElementById('save-indicator');
     const publishBtn = document.getElementById('publish-btn');
@@ -1367,8 +1404,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
       title,
       slug: document.getElementById('slug').value.trim() || undefined,
       content: htmlContent,
-      image_url: imageUrlInput.value.trim(),
-      imageUrl: imageUrlInput.value.trim(),
+      imageUrl: toPath(imageUrlInput.value.trim()),
       category,
       tags: document.getElementById('tags').value.trim(),
       author: document.getElementById('author').value.trim(),

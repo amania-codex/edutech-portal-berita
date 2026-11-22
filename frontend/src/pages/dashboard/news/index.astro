@@ -1,35 +1,9 @@
 ---
-
 import DashboardLayout from '../../../layouts/DashboardLayout.astro';
+import { getCategories } from '../../../lib/news';
 
-
-
-const API_BASE = "http://localhost:3000/api";
-
-let allNews: any[] = [];
-
-
-function normalize(a: any) {
-  return {
-    id: a.ID || a.id,
-    title: a.title,
-    slug: a.slug,
-    imageUrl: a.imageUrl || a.image_url,
-    category: a.category,
-    author: a.author,
-    status: a.status,
-    viewCount: a.viewCount || a.view_count || 0,
-    created_at: a.CreatedAt || a.createdAt || a.created_at,
-  };
-}
-
-const normalizedNews = allNews.map(normalize);
-const categories = ['Teknologi', 'Pendidikan', 'Kampus', 'Event', 'Riset', 'Loker', 'Video', 'Artikel', 'Berita'];
-
-let articles: any[] = [];
-let totalCount = 0;
-let publishedCount = 0;
-let draftCount = 0;
+// Daftar berita dimuat di browser (perlu cookie admin agar draft ikut tampil)
+const categories = await getCategories();
 ---
 
 <DashboardLayout title="Kelola Berita" activeMenu="news">
@@ -38,7 +12,7 @@ let draftCount = 0;
     <div class="manager-header">
       <div>
         <h2 class="manager-title">Kelola Berita</h2>
-        <p class="manager-subtitle">{normalizedNews.length} artikel ditemukan</p>
+        <p class="manager-subtitle" id="news-total">Memuat...</p>
       </div>
       <a href="/dashboard/news/create" class="btn-primary">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -59,7 +33,7 @@ let draftCount = 0;
       </select>
       <select id="category-filter" class="filter-select">
         <option value="">Semua Kategori</option>
-        {categories.map(cat => <option value={cat}>{cat}</option>)}
+        {categories.map((cat) => <option value={cat.slug}>{cat.name}</option>)}
       </select>
     </div>
 
@@ -78,69 +52,50 @@ let draftCount = 0;
             </tr>
           </thead>
           <tbody id="table-body">
-            {normalizedNews.length === 0 ? (
-              <tr><td colspan="6" class="empty-row">Tidak ada berita. Pastikan Go Fiber backend aktif.</td></tr>
-            ) : (
-              normalizedNews.map((article) => (
-                <tr
-                  class="news-row"
-                  data-title={article.title.toLowerCase()}
-                  data-status={article.status}
-                  data-category={article.category}
-                >
-                  <td class="td-news">
-                    <div class="td-news-inner">
-                      {article.imageUrl ? (
-                        <img
-                          src={article.imageUrl}
-                          alt={article.title}
-                          class="td-thumb"
-                          onerror="this.onerror=null;this.src='https://images.unsplash.com/photo-1504711434969-e33886168f5c?auto=format&fit=crop&w=400&q=80';"
-                        />
-                      ) : (
-                        <div class="td-thumb td-thumb-placeholder">📰</div>
-                      )}
-                      <div class="td-info">
-                        <p class="td-title">{article.title}</p>
-                        <p class="td-author">by {article.author}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td><span class="td-badge">{article.category}</span></td>
-                  <td>
-                    <span class={`td-status status-${article.status}`}>
-                      {article.status === 'published' ? 'Terbit' : 'Draft'}
-                    </span>
-                  </td>
-                  <td class="td-views">{article.viewCount}</td>
-                  <td class="td-date">{article.created_at ? new Date(article.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}</td>
-                  <td>
-                    <div class="td-actions">
-                      <a href={`/berita/${article.slug}`} class="action-btn action-view" target="_blank" title="Lihat">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      </a>
-                      <a href={`/dashboard/news/analytics/${article.id}`} class="action-btn action-analytics" title="Analisis">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-                      </a>
-                      <a href={`/dashboard/news/edit/${article.id}`} class="action-btn action-edit" title="Edit">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                      </a>
-                      <button
-                        class="action-btn action-delete"
-                        title="Hapus"
-                        onclick={`confirmDelete(${article.id}, '${article.title.replace(/'/g, "\\'")}')`}
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
+            <tr><td colspan="6" class="empty-row">Memuat berita...</td></tr>
           </tbody>
         </table>
       </div>
+      <div class="pager">
+        <button type="button" id="prev-page" disabled>← Sebelumnya</button>
+        <span id="page-info"></span>
+        <button type="button" id="next-page" disabled>Berikutnya →</button>
+      </div>
     </div>
+
+    <template id="row-template">
+      <tr class="news-row">
+        <td class="td-news">
+          <div class="td-news-inner">
+            <img class="td-thumb" alt="" loading="lazy" />
+            <div class="td-info">
+              <p class="td-title"></p>
+              <p class="td-author"></p>
+            </div>
+          </div>
+        </td>
+        <td><span class="td-badge"></span></td>
+        <td><span class="td-status"></span></td>
+        <td class="td-views"></td>
+        <td class="td-date"></td>
+        <td>
+          <div class="td-actions">
+            <a class="action-btn action-view" target="_blank" title="Lihat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            </a>
+            <a class="action-btn action-analytics" title="Analisis">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            </a>
+            <a class="action-btn action-edit" title="Edit">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </a>
+            <button type="button" class="action-btn action-delete" title="Hapus">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    </template>
 
     <!-- Delete Confirm Modal -->
     <div class="modal-overlay" id="delete-modal" style="display:none">
@@ -149,7 +104,7 @@ let draftCount = 0;
         <h3 class="modal-title">Hapus Berita?</h3>
         <p class="modal-desc" id="modal-desc">Tindakan ini tidak dapat dibatalkan.</p>
         <div class="modal-actions">
-          <button class="modal-btn modal-cancel" onclick="closeModal()">Batal</button>
+          <button class="modal-btn modal-cancel" id="cancel-delete-btn">Batal</button>
           <button class="modal-btn modal-confirm" id="confirm-delete-btn">Hapus</button>
         </div>
       </div>
@@ -206,6 +161,10 @@ let draftCount = 0;
   .action-edit { color: #f97316; } .action-edit:hover { background: rgba(249,115,22,0.1); }
   .action-delete { color: #ef4444; } .action-delete:hover { background: rgba(239,68,68,0.1); }
 
+  .pager { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 16px; font-size: 13px; color: var(--color-text-secondary); }
+  .pager button { background: var(--color-surface); color: var(--color-text-primary); border: 1px solid var(--color-border); border-radius: 8px; padding: 8px 14px; font: inherit; font-weight: 600; cursor: pointer; }
+  .pager button:disabled { opacity: 0.45; cursor: default; }
+
   .empty-row { text-align: center; color: var(--color-text-muted); padding: 40px; font-size: 13.5px; }
 
   .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 1000; display: flex; align-items: center; justify-content: center; }
@@ -221,62 +180,106 @@ let draftCount = 0;
   .toast { position: fixed; bottom: 24px; right: 24px; background: #1e1e1e; color: white; padding: 12px 20px; border-radius: 10px; font-size: 13.5px; font-weight: 600; z-index: 2000; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
 </style>
 
-<script define:vars={{ API_BASE: "http://localhost:3000/api" }}>
-  const searchInput = document.getElementById('search-input');
-  const statusFilter = document.getElementById('status-filter');
-  const categoryFilter = document.getElementById('category-filter');
+<script>
+  import { API_BASE } from '../../../lib/config';
+  import { normalizeNews } from '../../../lib/news';
 
-  function filterRows() {
-    const search = searchInput.value.toLowerCase();
-    const status = statusFilter.value;
-    const category = categoryFilter.value;
-    document.querySelectorAll('.news-row').forEach(row => {
-      const title = row.dataset.title || '';
-      const rowStatus = row.dataset.status || '';
-      const rowCategory = row.dataset.category || '';
-      const match = (!search || title.includes(search)) && (!status || rowStatus === status) && (!category || rowCategory === category);
-      row.classList.toggle('hidden', !match);
-    });
+  const PAGE = 25;
+  const el = (id: string) => document.getElementById(id) as any;
+  const body = el('table-body') as HTMLElement;
+  const template = el('row-template') as HTMLTemplateElement;
+  const modal = el('delete-modal') as HTMLElement;
+  const confirmBtn = el('confirm-delete-btn') as HTMLButtonElement;
+  let page = 1;
+  let requestId = 0;
+  let deleteId: number | null = null;
+
+  function message(text: string) {
+    const row = document.createElement('tr');
+    const cell = document.createElement('td');
+    cell.colSpan = 6;
+    cell.textContent = text;
+    cell.style.cssText = 'text-align:center;padding:40px;color:var(--color-text-muted)';
+    row.append(cell);
+    body.replaceChildren(row);
   }
 
-  searchInput.addEventListener('input', filterRows);
-  statusFilter.addEventListener('change', filterRows);
-  categoryFilter.addEventListener('change', filterRows);
-
-  let deleteId = null;
-  const modal = document.getElementById('delete-modal');
-  const modalDesc = document.getElementById('modal-desc');
-  const confirmBtn = document.getElementById('confirm-delete-btn');
-  const toast = document.getElementById('toast');
-
-  function showToast(msg, isError = false) {
+  function showToast(msg: string, isError = false) {
+    const toast = el('toast');
     toast.textContent = msg;
     toast.style.display = 'block';
     toast.style.background = isError ? '#ef4444' : '#22c55e';
     setTimeout(() => { toast.style.display = 'none'; }, 3000);
   }
 
-  window.confirmDelete = (id, title) => {
-    deleteId = id;
-    modalDesc.textContent = `Hapus "${title}"? Tindakan ini tidak dapat dibatalkan.`;
-    modal.style.display = 'flex';
-  };
+  function row(raw: any): Node {
+    const n = normalizeNews(raw);
+    const published = raw.status === 'published';
+    const node = template.content.cloneNode(true) as DocumentFragment;
+    const q = (sel: string) => node.querySelector(sel) as any;
+    q('.td-thumb').src = n.imageUrl;
+    q('.td-title').textContent = n.title;
+    q('.td-author').textContent = `by ${n.author}`;
+    q('.td-badge').textContent = n.category || '-';
+    q('.td-status').textContent = published ? 'Terbit' : 'Draft';
+    q('.td-status').classList.add(published ? 'status-published' : 'status-draft');
+    q('.td-views').textContent = n.viewCount.toLocaleString('id-ID');
+    q('.td-date').textContent = n.createdAt ? new Date(n.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+    if (published) q('.action-view').href = `/berita/${n.slug}`;
+    else q('.action-view').remove();
+    q('.action-analytics').href = `/dashboard/news/analytics?id=${n.id}`;
+    q('.action-edit').href = `/dashboard/news/edit?id=${n.id}`;
+    q('.action-delete').addEventListener('click', () => {
+      deleteId = n.id;
+      el('modal-desc').textContent = `Hapus "${n.title}"? Tindakan ini tidak dapat dibatalkan.`;
+      modal.style.display = 'flex';
+    });
+    return node;
+  }
 
-  window.closeModal = () => { modal.style.display = 'none'; deleteId = null; };
+  async function load() {
+    const id = ++requestId;
+    const query = new URLSearchParams({ limit: String(PAGE), offset: String((page - 1) * PAGE), lite: '1', status: el('status-filter').value || 'all' });
+    if (el('category-filter').value) query.set('category', el('category-filter').value);
+    if (el('search-input').value.trim()) query.set('q', el('search-input').value.trim());
+    try {
+      const res = await fetch(`${API_BASE}/news?${query}`, { credentials: 'include' });
+      if (!res.ok) throw new Error(String(res.status));
+      const list = (await res.json()) || [];
+      if (id !== requestId) return; // ada permintaan yang lebih baru
+      const total = Number(res.headers.get('X-Total-Count') || list.length);
+      const last = Math.max(1, Math.ceil(total / PAGE));
+      if (page > last) { page = last; return load(); }
+      if (list.length) body.replaceChildren(...list.map(row));
+      else message('Tidak ada berita.');
+      el('news-total').textContent = `${total.toLocaleString('id-ID')} artikel ditemukan`;
+      el('page-info').textContent = `Halaman ${page} dari ${last}`;
+      el('prev-page').disabled = page <= 1;
+      el('next-page').disabled = page >= last;
+    } catch {
+      if (id !== requestId) return;
+      el('news-total').textContent = '';
+      message('Gagal memuat berita. Pastikan Go Fiber backend aktif.');
+    }
+  }
+
+  let timer: ReturnType<typeof setTimeout>;
+  const reload = () => { page = 1; load(); };
+  el('search-input').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(reload, 300); });
+  el('status-filter').addEventListener('change', reload);
+  el('category-filter').addEventListener('change', reload);
+  el('prev-page').addEventListener('click', () => { page--; load(); });
+  el('next-page').addEventListener('click', () => { page++; load(); });
+  el('cancel-delete-btn').addEventListener('click', () => { modal.style.display = 'none'; deleteId = null; });
 
   confirmBtn.addEventListener('click', async () => {
     if (!deleteId) return;
     confirmBtn.textContent = 'Menghapus...';
     confirmBtn.disabled = true;
     try {
-      // Send delete to Go Fiber backend
-      const res = await fetch(`${API_BASE}/news/${deleteId}`, { method: 'DELETE' });
-      if (res.ok) {
-        document.querySelector(`[onclick*="confirmDelete(${deleteId}"]`)?.closest('tr')?.remove();
-        showToast('Berita berhasil dihapus.');
-      } else {
-        showToast('Gagal menghapus berita.', true);
-      }
+      const res = await fetch(`${API_BASE}/news/${deleteId}`, { method: 'DELETE', credentials: 'include' });
+      if (res.ok) { showToast('Berita berhasil dihapus.'); load(); }
+      else showToast('Gagal menghapus berita.', true);
     } catch {
       showToast('Terjadi kesalahan.', true);
     } finally {
@@ -286,4 +289,6 @@ let draftCount = 0;
       confirmBtn.disabled = false;
     }
   });
+
+  load();
 </script>

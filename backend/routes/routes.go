@@ -37,7 +37,11 @@ func Setup(app *fiber.App) {
 		},
 	})
 
+	// Rate limiter penghitung tayangan (max 60 per menit per IP)
+	viewLimiter := limiter.New(limiter.Config{Max: 60, Expiration: 1 * time.Minute})
+
 	// Serve uploaded files statically
+	// (gambar hasil migrasi WordPress ada di ./public/uploads/wp/<tahun>/<bulan>/...)
 	app.Static("/uploads", "./public/uploads")
 
 	// Upload route (protected for all users to allow avatar upload)
@@ -51,6 +55,7 @@ func Setup(app *fiber.App) {
 	api.Post("/auth/forgot-password", authLimiter, handlers.ForgotPassword)
 	api.Post("/auth/reset-password", authLimiter, handlers.ResetPassword)
 	api.Get("/auth/me", middleware.Protected(), handlers.GetMe)
+	api.Get("/auth/profile", middleware.Protected(), handlers.GetMe) // dipakai layout frontend
 	api.Put("/auth/password", middleware.Protected(), handlers.ChangePassword)
 	api.Put("/auth/profile", middleware.Protected(), handlers.UpdateProfile)
 
@@ -60,7 +65,9 @@ func Setup(app *fiber.App) {
 	api.Get("/news/trending", handlers.GetTrendingNews)
 	api.Get("/news/popular", handlers.GetPopularNews)
 	api.Get("/news/by-categories", handlers.GetNewsByCategories)
+	api.Get("/news/resolve/:slug", handlers.ResolveNewsSlug)
 	api.Get("/news/slug/:slug", handlers.GetNewsBySlug)
+	api.Post("/news/:id/view", viewLimiter, handlers.TrackNewsView)
 	api.Get("/news/category/:category", handlers.GetNews)
 	api.Get("/news/:id", handlers.GetNewsById)
 	api.Get("/categories", handlers.GetAllCategories)
@@ -71,6 +78,8 @@ func Setup(app *fiber.App) {
 	api.Post("/news", middleware.Protected(), middleware.AdminOnly(), handlers.CreateNews)
 	api.Put("/news/:id", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateNews)
 	api.Delete("/news/:id", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteNews)
+
+	api.Get("/admin/stats", middleware.Protected(), middleware.AdminOnly(), handlers.GetAdminStats)
 
 	// Banner / Poster routes
 	api.Get("/banners", handlers.GetActiveBanners)

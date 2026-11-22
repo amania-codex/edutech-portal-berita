@@ -1,15 +1,5 @@
 ---
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
-
-const user = {
-  id: 0,
-  name: 'Admin',
-  email: 'admin@edutech.id',
-  role: 'admin',
-  avatar: null as string | null,
-  created_at: new Date().toISOString(),
-  bio: 'Pengguna portal berita EduTech.'
-};
 ---
 
 <DashboardLayout title="Profil Saya" activeMenu="profile">
@@ -17,27 +7,24 @@ const user = {
     <div class="dash-card profile-card">
       <div class="profile-header">
         <div class="profile-avatar-large">
-          {user.avatar ? (
-            <img src={user.avatar} alt={user.name} />
-          ) : (
-            <span>{user.name.charAt(0).toUpperCase()}</span>
-          )}
+          <img id="p-avatar" alt="" style="display:none" />
+          <span id="p-initial">?</span>
         </div>
         <div class="profile-info">
-          <h2 class="profile-name">{user.name}</h2>
-          <p class="profile-email">{user.email}</p>
-          <span class="profile-role">{user.role === 'admin' ? 'Administrator' : 'Pengguna Aktif'}</span>
+          <h2 class="profile-name" id="p-name">Memuat...</h2>
+          <p class="profile-email" id="p-email"></p>
+          <span class="profile-role">Administrator</span>
         </div>
       </div>
 
       <div class="profile-details">
         <div class="detail-group">
           <h3 class="detail-title">Informasi Akun</h3>
-          <p class="detail-text"><strong>Bergabung Sejak:</strong> {new Date(user.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
-          <p class="detail-text"><strong>Bio:</strong> {user.bio || 'Belum ada bio.'}</p>
+          <p class="detail-text"><strong>Bergabung Sejak:</strong> <span id="p-joined">-</span></p>
+          <p class="detail-text"><strong>Bio:</strong> <span id="p-bio">-</span></p>
         </div>
 
-        <button class="btn-secondary mt-4">Edit Profil (Segera Hadir)</button>
+        <a href="/user/edit" class="btn-secondary mt-4">Edit Profil</a>
       </div>
     </div>
   </div>
@@ -75,4 +62,23 @@ const user = {
     cursor: not-allowed; border: 1.5px solid var(--color-border);
     background: var(--color-surface); color: var(--color-text-muted);
   }
+  .btn-secondary { display: inline-block; margin-top: 16px; text-decoration: none; }
 </style>
+
+<script>
+  import { el, formatDate, getJSON, show } from '../../lib/client';
+  import { assetUrl } from '../../lib/news';
+
+  getJSON('/auth/profile').then((u) => {
+    el('p-name').textContent = u.name;
+    el('p-email').textContent = u.email;
+    el('p-joined').textContent = formatDate(u.created_at, { day: 'numeric', month: 'long', year: 'numeric' });
+    el('p-initial').textContent = (u.name || 'U').charAt(0).toUpperCase();
+    if (u.avatar) {
+      el('p-avatar').src = assetUrl(u.avatar);
+      show(el('p-avatar'), true);
+      show(el('p-initial'), false);
+    }
+    el('p-bio').textContent = u.bio || 'Belum ada bio.';
+  }).catch(() => {});
+</script>

@@ -1,21 +1,6 @@
 ---
-
 // src/pages/user/tickets.astro — Dashboard Tiket & Event Saya
 import UserLayout from "../../layouts/UserLayout.astro";
-import { API_BASE } from "../../lib/config";
-
-
-let registrations: any[] = [];
-let errorMsg = "";
-
-
-
-// Stats summary
-const totalTickets = registrations.length;
-const verifiedTickets = registrations.filter((r) => r.status === "verified").length;
-const waitingTickets = registrations.filter((r) => r.status === "waiting" || r.status === "pending").length;
-
-let tickets: any[] = [];
 ---
 
 <UserLayout title="Tiket & Event Saya" activeMenu="tickets">
@@ -32,15 +17,15 @@ let tickets: any[] = [];
       <!-- Quick Summary Stats -->
       <div class="ticket-stats-grid">
         <div class="t-stat-card">
-          <span class="t-stat-num">{totalTickets}</span>
+          <span class="t-stat-num"><span data-n="all">0</span></span>
           <span class="t-stat-lbl">Total Tiket</span>
         </div>
         <div class="t-stat-card active-card">
-          <span class="t-stat-num">{verifiedTickets}</span>
+          <span class="t-stat-num"><span data-n="verified">0</span></span>
           <span class="t-stat-lbl">Tiket Aktif / Lolos</span>
         </div>
         <div class="t-stat-card waiting-card">
-          <span class="t-stat-num">{waitingTickets}</span>
+          <span class="t-stat-num"><span data-n="waiting">0</span></span>
           <span class="t-stat-lbl">Menunggu Verifikasi</span>
         </div>
       </div>
@@ -49,9 +34,9 @@ let tickets: any[] = [];
     <!-- Filter Pills -->
     <div class="ticket-filter-bar">
       <div class="filter-pills" id="ticket-pills">
-        <button class="t-pill active" data-filter="all">Semua ({totalTickets})</button>
-        <button class="t-pill" data-filter="verified">Terverifikasi ({verifiedTickets})</button>
-        <button class="t-pill" data-filter="waiting">Menunggu ({waitingTickets})</button>
+        <button class="t-pill active" data-filter="all">Semua (<span data-n="all">0</span>)</button>
+        <button class="t-pill" data-filter="verified">Terverifikasi (<span data-n="verified">0</span>)</button>
+        <button class="t-pill" data-filter="waiting">Menunggu (<span data-n="waiting">0</span>)</button>
         <button class="t-pill" data-filter="rejected">Ditolak</button>
       </div>
 
@@ -65,176 +50,80 @@ let tickets: any[] = [];
     </div>
 
     <!-- Ticket List -->
-    {registrations.length === 0 ? (
+    <div class="tickets-list" id="tickets-list"><p>Memuat tiket...</p></div>
+  </div>
+
+  <template id="empty-template">
       <div class="dash-card empty-card">
         <div class="empty-icon">🎟️</div>
         <h3>Belum Ada Tiket Acara</h3>
         <p>Anda belum terdaftar pada agenda seminar atau workshop mana pun saat ini.</p>
         <a href="/event" class="btn-primary-empty">Jelajahi Agenda & Webinar EduTech →</a>
       </div>
-    ) : (
-      <div class="tickets-list" id="tickets-list">
-        {registrations.map((reg) => {
-          const event = reg.event || reg.Event || {};
-          const start = event.startTime || event.start_time ? new Date(event.startTime || event.start_time) : null;
-          const end = event.endTime || event.end_time ? new Date(event.endTime || event.end_time) : null;
-          const isVerified = reg.status === "verified";
-          const isWaiting = reg.status === "waiting" || reg.status === "pending";
-          const isRejected = reg.status === "rejected";
-
-          const dateStr = start ? start.toLocaleDateString("id-ID", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric"
-          }) : "Jadwal Segera Diumumkan";
-
-          const timeStr = start && end ? `${start.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB` : "";
-
-          return (
-            <div class="ticket-card" data-status={reg.status}>
-              <!-- Main Ticket Area (Left) -->
-              <div class="ticket-main">
-                <div class="ticket-top">
-                  <div class="ticket-badges">
-                    {isVerified && <span class="t-badge badge-verified">✓ Tiket Aktif / Terverifikasi</span>}
-                    {isWaiting && <span class="t-badge badge-waiting">⏳ Menunggu Verifikasi Pembayaran</span>}
-                    {isRejected && <span class="t-badge badge-rejected">✕ Pendaftaran Ditolak</span>}
-
-                    <span class="t-badge badge-tier">{reg.tier === "premium" ? "Paket Premium" : "Paket Reguler"}</span>
-                  </div>
-
-                  <span class="reg-date">Didaftarkan: {new Date(reg.CreatedAt || reg.created_at || Date.now()).toLocaleDateString("id-ID")}</span>
-                </div>
-
-                <h3 class="event-title">
-                  <a href={`/event/${event.slug || ''}`}>{event.title || 'Judul Acara Seminar'}</a>
-                </h3>
-
-                <!-- Event Meta Grid -->
-                <div class="event-meta-grid">
-                  <div class="meta-item">
-                    <span class="meta-label">Jadwal Acara</span>
-                    <span class="meta-value">{dateStr} {timeStr ? `(${timeStr})` : ''}</span>
-                  </div>
-                  <div class="meta-item">
-                    <span class="meta-label">Lokasi / Platform</span>
-                    <span class="meta-value">{event.venue || 'Zoom Meeting'}</span>
-                  </div>
-                  <div class="meta-item">
-                    <span class="meta-label">Nama Peserta</span>
-                    <span class="meta-value">{reg.name} ({reg.email})</span>
-                  </div>
-                  <div class="meta-item">
-                    <span class="meta-label">Total Pembayaran</span>
-                    <span class="meta-value">
-                      {reg.totalAmount > 0 ? `Rp ${Number(reg.totalAmount).toLocaleString("id-ID")}` : 'GRATIS'}
-                    </span>
-                  </div>
-                </div>
-
-                <!-- Info Notices -->
-                {isWaiting && (
-                  <div class="ticket-notice waiting-notice">
+  </template>
+  <template id="ticket-template">
+    <div class="ticket-card">
+      <div class="ticket-main">
+        <div class="ticket-top">
+          <div class="ticket-badges">
+            <span class="t-badge badge-verified" data-when="verified">✓ Tiket Aktif / Terverifikasi</span>
+            <span class="t-badge badge-waiting" data-when="waiting">⏳ Menunggu Verifikasi Pembayaran</span>
+            <span class="t-badge badge-rejected" data-when="rejected">✕ Pendaftaran Ditolak</span>
+            <span class="t-badge badge-tier"></span>
+          </div>
+          <span class="reg-date"></span>
+        </div>
+        <h3 class="event-title"><a></a></h3>
+        <div class="event-meta-grid">
+          <div class="meta-item"><span class="meta-label">Jadwal Acara</span><span class="meta-value" data-f="date"></span></div>
+          <div class="meta-item"><span class="meta-label">Lokasi / Platform</span><span class="meta-value" data-f="venue"></span></div>
+          <div class="meta-item"><span class="meta-label">Nama Peserta</span><span class="meta-value" data-f="name"></span></div>
+          <div class="meta-item"><span class="meta-label">Total Pembayaran</span><span class="meta-value" data-f="total"></span></div>
+        </div>
+        <div data-when="waiting"><div class="ticket-notice waiting-notice">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                       <circle cx="12" cy="12" r="10"></circle>
                       <polyline points="12 6 12 12 16 14"></polyline>
                     </svg>
                     <span>Bukti pembayaran sedang diverifikasi oleh admin (maksimal 1x24 jam). Tautan Zoom dan sertifikat akan aktif otomatis setelah disetujui.</span>
                   </div>
-                )}
-
-                {isRejected && (
-                  <div class="ticket-notice rejected-notice">
+</div>
+        <div data-when="rejected"><div class="ticket-notice rejected-notice">
                     <span>Mohon maaf, bukti pembayaran tidak dapat divalidasi. Silakan hubungi admin di support@edutech.id untuk bantuan lebih lanjut.</span>
                   </div>
-                )}
-              </div>
-
-              <!-- Ticket Stub / Perforation (Right) -->
-              <div class="ticket-stub">
-                <div class="stub-notch notch-top"></div>
-                <div class="stub-notch notch-bottom"></div>
-
-                <div class="stub-content">
-                  <span class="stub-label">KODE TIKET</span>
-                  <div class="stub-code-wrap">
-                    <strong class="stub-code">{reg.ticketCode || reg.ticket_code}</strong>
-                    <button type="button" class="btn-copy-code" data-code={reg.ticketCode || reg.ticket_code} title="Salin Kode Tiket">
-                      Salin
-                    </button>
-                  </div>
-
-                  <!-- Barcode Simulation -->
-                  <div class="barcode-graphic" aria-hidden="true">
-                    <span></span><span></span><span></span><span></span><span></span>
-                    <span></span><span></span><span></span><span></span><span></span>
-                    <span></span><span></span><span></span><span></span><span></span>
-                  </div>
-
-                  <!-- Actions -->
-                  <div class="stub-actions">
-                    {isVerified ? (
-                      <>
-                        <button
-                          type="button"
-                          class="btn-ticket btn-print-ticket"
-                          data-ticket={JSON.stringify({
-                            code: reg.ticketCode || reg.ticket_code,
-                            eventTitle: event.title,
-                            name: reg.name,
-                            email: reg.email,
-                            date: dateStr,
-                            venue: event.venue,
-                            tier: reg.tier
-                          })}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+</div>
+      </div>
+      <div class="ticket-stub">
+        <div class="stub-notch notch-top"></div>
+        <div class="stub-notch notch-bottom"></div>
+        <div class="stub-content">
+          <span class="stub-label">KODE TIKET</span>
+          <div class="stub-code-wrap">
+            <strong class="stub-code"></strong>
+            <button type="button" class="btn-copy-code" title="Salin Kode Tiket">Salin</button>
+          </div>
+          <div class="barcode-graphic" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+          <div class="stub-actions">
+            <button type="button" class="btn-ticket btn-print-ticket" data-when="verified"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <polyline points="6 9 6 2 18 2 18 9"></polyline>
                             <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
                             <rect x="6" y="14" width="12" height="8"></rect>
-                          </svg>
-                          Cetak E-Tiket
-                        </button>
-
-                        {event.certificateLink ? (
-                          <a href={event.certificateLink} target="_blank" rel="noopener noreferrer" class="btn-ticket btn-cert">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          </svg> Cetak E-Tiket</button>
+            <a target="_blank" rel="noopener noreferrer" class="btn-ticket btn-cert" data-when="verified"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                               <circle cx="12" cy="8" r="7"></circle>
                               <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
-                            </svg>
-                            Klaim Sertifikat
-                          </a>
-                        ) : null}
-
-                        {event.materials && event.materials.length > 0 ? (
-                          <button
-                            type="button"
-                            class="btn-ticket btn-material"
-                            data-materials={JSON.stringify(event.materials)}
-                            data-event-title={event.title}
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            </svg> Klaim Sertifikat</a>
+            <button type="button" class="btn-ticket btn-material" data-when="verified"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
                               <polyline points="7 10 12 15 17 10"></polyline>
                               <line x1="12" y1="15" x2="12" y2="3"></line>
-                            </svg>
-                            Materi & Slide
-                          </button>
-                        ) : null}
-                      </>
-                    ) : (
-                      <span class="status-tip">{isWaiting ? 'Menunggu Approval' : 'Pendaftaran Ditolak'}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
+                            </svg> Materi & Slide</button>
+            <span class="status-tip"></span>
+          </div>
+        </div>
       </div>
-    )}
-  </div>
+    </div>
+  </template>
 
   <!-- Print Ticket Modal -->
   <div id="print-modal" class="modal-backdrop" style="display: none;">
@@ -290,111 +179,107 @@ let tickets: any[] = [];
   </div>
 
   <!-- Client-side Interactive Logic -->
-  <script is:inline>
-    // Copy Ticket Code
-    document.querySelectorAll('.btn-copy-code').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const code = e.target.getAttribute('data-code');
-        navigator.clipboard.writeText(code).then(() => {
-          const original = e.target.textContent;
-          e.target.textContent = 'Disalin!';
-          setTimeout(() => { e.target.textContent = original; }, 2000);
-        });
-      });
-    });
+  <script>
+    import { clone, createdAt, el, formatDate, getJSON, safeHref, setText } from '../../lib/client';
+    import { assetUrl } from '../../lib/news';
 
-    // Filter Pills
-    const pills = document.querySelectorAll('#ticket-pills .t-pill');
-    const cards = document.querySelectorAll('.ticket-card');
+    const list = el('tickets-list') as HTMLElement;
+    const kind = (r: any) => (r.status === 'pending' ? 'waiting' : r.status);
+    let items: any[] = [];
+    let filter = 'all';
 
-    pills.forEach(pill => {
-      pill.addEventListener('click', () => {
-        pills.forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        const filter = pill.getAttribute('data-filter');
-
-        cards.forEach(card => {
-          const status = card.getAttribute('data-status');
-          if (filter === 'all') {
-            card.style.display = 'grid';
-          } else if (filter === 'verified' && status === 'verified') {
-            card.style.display = 'grid';
-          } else if (filter === 'waiting' && (status === 'waiting' || status === 'pending')) {
-            card.style.display = 'grid';
-          } else if (filter === 'rejected' && status === 'rejected') {
-            card.style.display = 'grid';
-          } else {
-            card.style.display = 'none';
-          }
-        });
-      });
-    });
-
-    // Print Modal
-    const printModal = document.getElementById('print-modal');
-    const btnClosePrint = document.getElementById('btn-close-print');
-
-    document.querySelectorAll('.btn-print-ticket').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const data = JSON.parse(btn.getAttribute('data-ticket') || '{}');
-        document.getElementById('print-event-title').textContent = data.eventTitle || 'Judul Acara';
-        document.getElementById('print-name').textContent = data.name || '-';
-        document.getElementById('print-email').textContent = data.email || '-';
-        document.getElementById('print-date').textContent = data.date || '-';
-        document.getElementById('print-venue').textContent = data.venue || '-';
-        document.getElementById('print-tier').textContent = data.tier === 'premium' ? 'Paket Premium' : 'Paket Reguler';
-        document.getElementById('print-code').textContent = data.code || 'TIC-XXXXXX';
-        printModal.style.display = 'flex';
-      });
-    });
-
-    if (btnClosePrint) {
-      btnClosePrint.addEventListener('click', () => {
-        printModal.style.display = 'none';
-      });
+    function schedule(event: any) {
+      if (!event.startTime) return 'Jadwal Segera Diumumkan';
+      const time = (iso: string) => new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta' });
+      const day = formatDate(event.startTime, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      return event.endTime ? `${day} (${time(event.startTime)} - ${time(event.endTime)} WIB)` : day;
     }
 
-    // Material Modal
-    const matModal = document.getElementById('material-modal');
-    const matList = document.getElementById('mat-list');
-    const matTitle = document.getElementById('mat-event-title');
-    const btnCloseMat = document.getElementById('btn-close-mat');
+    function printTicket(reg: any, event: any) {
+      el('print-event-title').textContent = event.title || 'Judul Acara';
+      el('print-name').textContent = reg.name || '-';
+      el('print-email').textContent = reg.email || '-';
+      el('print-date').textContent = schedule(event);
+      el('print-venue').textContent = event.venue || '-';
+      el('print-tier').textContent = reg.tier === 'premium' ? 'Paket Premium' : 'Paket Reguler';
+      el('print-code').textContent = reg.ticketCode || '-';
+      el('print-modal').style.display = 'flex';
+    }
 
-    document.querySelectorAll('.btn-material').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const materials = JSON.parse(btn.getAttribute('data-materials') || '[]');
-        const eventTitle = btn.getAttribute('data-event-title') || 'Materi Acara';
-        matTitle.textContent = eventTitle;
-        matList.innerHTML = '';
+    function openMaterials(event: any) {
+      el('mat-event-title').textContent = event.title || 'Materi Acara';
+      el('mat-list').replaceChildren(...event.materials.map((m: any) => {
+        const row = document.createElement('div');
+        row.className = 'mat-item-row';
+        const info = document.createElement('div');
+        info.className = 'mat-info';
+        const name = document.createElement('strong');
+        name.textContent = m.title;
+        const type = document.createElement('span');
+        type.textContent = `Format: ${m.type === 'video' ? 'Video Rekaman' : 'Dokumen / Slide'}`;
+        info.append(name, type);
+        const link = document.createElement('a');
+        link.className = 'btn-download-mat';
+        link.href = safeHref(assetUrl(m.link || m.filePath));
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.textContent = 'Buka / Unduh ↗';
+        row.append(info, link);
+        return row;
+      }));
+      el('material-modal').style.display = 'flex';
+    }
 
-        if (materials.length === 0) {
-          matList.innerHTML = '<p style="color:var(--color-text-muted); text-align:center;">Belum ada berkas materi yang diunggah pemateri.</p>';
-        } else {
-          materials.forEach(m => {
-            const item = document.createElement('div');
-            item.className = 'mat-item-row';
-            item.innerHTML = `
-              <div class="mat-info">
-                <strong>${m.title}</strong>
-                <span>Format: ${m.type === 'video' ? 'Video Rekaman' : 'Dokumen / Slide'}</span>
-              </div>
-              <a href="${m.link || m.filePath || '#'}" target="_blank" rel="noopener noreferrer" class="btn-download-mat">
-                Buka / Unduh ↗
-              </a>
-            `;
-            matList.appendChild(item);
+    function render() {
+      document.querySelectorAll<HTMLElement>('[data-n]').forEach((n) => {
+        n.textContent = String(items.filter((r) => n.dataset.n === 'all' || kind(r) === n.dataset.n).length);
+      });
+      if (!items.length) return list.replaceChildren(clone('empty-template'));
+      list.replaceChildren(...items.filter((r) => filter === 'all' || kind(r) === filter).map((reg) => {
+        const event = reg.event || {};
+        const status = kind(reg);
+        const node = clone('ticket-template');
+        node.querySelectorAll<HTMLElement>('[data-when]').forEach((n) => { if (n.dataset.when !== status) n.remove(); });
+        setText(node, '.badge-tier', reg.tier === 'premium' ? 'Paket Premium' : 'Paket Reguler');
+        setText(node, '.reg-date', `Didaftarkan: ${formatDate(createdAt(reg))}`);
+        const title = node.querySelector('.event-title a') as HTMLAnchorElement;
+        title.textContent = event.title || 'Judul Acara Seminar';
+        title.href = `/event/${event.slug || ''}`;
+        setText(node, '[data-f=date]', schedule(event));
+        setText(node, '[data-f=venue]', event.venue || 'Zoom Meeting');
+        setText(node, '[data-f=name]', `${reg.name} (${reg.email})`);
+        setText(node, '[data-f=total]', reg.totalAmount > 0 ? `Rp ${Number(reg.totalAmount).toLocaleString('id-ID')}` : 'GRATIS');
+        setText(node, '.stub-code', reg.ticketCode);
+        node.querySelector('.btn-copy-code')!.addEventListener('click', (e) => {
+          const btn = e.currentTarget as HTMLElement;
+          navigator.clipboard.writeText(reg.ticketCode).then(() => {
+            btn.textContent = 'Disalin!';
+            setTimeout(() => { btn.textContent = 'Salin'; }, 2000);
           });
-        }
-        matModal.style.display = 'flex';
-      });
-    });
-
-    if (btnCloseMat) {
-      btnCloseMat.addEventListener('click', () => {
-        matModal.style.display = 'none';
-      });
+        });
+        if (status === 'verified') {
+          node.querySelector('.status-tip')!.remove();
+          node.querySelector('.btn-print-ticket')!.addEventListener('click', () => printTicket(reg, event));
+          const cert = node.querySelector('.btn-cert') as HTMLAnchorElement;
+          if (event.certificateLink) cert.href = safeHref(event.certificateLink); else cert.remove();
+          const mat = node.querySelector('.btn-material') as HTMLElement;
+          if (event.materials?.length) mat.addEventListener('click', () => openMaterials(event)); else mat.remove();
+        } else setText(node, '.status-tip', status === 'waiting' ? 'Menunggu Approval' : 'Pendaftaran Ditolak');
+        return node;
+      }));
     }
-  </script>
+
+    document.querySelectorAll<HTMLElement>('#ticket-pills .t-pill').forEach((pill) => pill.addEventListener('click', () => {
+      document.querySelectorAll('#ticket-pills .t-pill').forEach((p) => p.classList.toggle('active', p === pill));
+      filter = pill.dataset.filter!;
+      render();
+    }));
+    el('btn-close-print').addEventListener('click', () => { el('print-modal').style.display = 'none'; });
+    el('btn-close-mat').addEventListener('click', () => { el('material-modal').style.display = 'none'; });
+
+    getJSON('/user/tickets').then((res) => { items = res.data || []; render(); })
+      .catch(() => { list.textContent = 'Gagal memuat tiket. Silakan coba lagi.'; });
+</script>
 </UserLayout>
 
 <style>
@@ -1032,4 +917,5 @@ let tickets: any[] = [];
     .print-event-title, .p-item strong { color: #000 !important; }
     .print-grid { background: #f0f0f0 !important; }
   }
+  .badge-waiting, .waiting-notice { color: #8a6100; }
 </style>

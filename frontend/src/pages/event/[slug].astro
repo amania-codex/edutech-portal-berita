@@ -1,91 +1,20 @@
 ---
-export async function getStaticPaths() {
-  const API = "http://localhost:3000/api";
-  try {
-    const res = await fetch(`${API}/events?status=all&limit=500`);
-    if (res.ok) {
-      const data = await res.json();
-      const list = data.data || data || [];
-      return list.map((e: any) => ({ params: { slug: String(e.slug || e.Slug || '') } })).filter((x: any) => x.params.slug);
-    }
-  } catch (e) { console.error('getStaticPaths event:', e); }
-  return [];
-}
-
 // src/pages/event/[slug].astro — Halaman Detail Event & Registrasi Peserta
 import Layout from "../../layouts/Layout.astro";
 import Navbar from "../../components/Navbar.astro";
 import Footer from "../../components/Footer.astro";
 import { API_BASE, BACKEND_URL } from "../../lib/config";
+import { apiGet, assetUrl } from "../../lib/news";
 
-const { slug } = Astro.params;
-
-let event: any = null;
-let registeredCount = 0;
-let isQuotaFull = false;
-
-try {
-  const res = await fetch(`${API_BASE}/events/slug/${slug}`);
-  if (res.ok) {
-    const data = await res.json();
-    event = data.data;
-    registeredCount = data.registered_count || 0;
-    isQuotaFull = data.is_quota_full || false;
-  }
-} catch (err) {
-  console.error("Failed to fetch event detail:", err);
+export async function getStaticPaths() {
+  const events: any[] = (await apiGet("/events")).data || [];
+  return events.map((e) => ({ params: { slug: e.slug } }));
 }
 
-
-// Fallback if not found / backend offline
-if (!event) {
-  if (slug === "workshop-ai-future-education-transformasi-digital") {
-    event = {
-      id: 1,
-      title: "Workshop AI & Future Education: Transformasi Pembelajaran Digital",
-      slug: "workshop-ai-future-education-transformasi-digital",
-      description: `Perkembangan pesat teknologi Kecerdasan Buatan (Artificial Intelligence / Generative AI) telah merevolusi metode pembelajaran, riset ilmiah, dan manajemen institusi pendidikan tinggi maupun sekolah.\n\nDalam workshop interaktif ini, Anda akan mempelajari:\n1. Implementasi Generative AI dalam perencanaan materi ajar dan silabus modern.\n2. Otomatisasi evaluasi pembelajaran serta etika penggunaan AI bagi mahasiswa dan akademisi.\n3. Studi kasus integrasi AI dalam penelitian dan penyusunan publikasi ilmiah terindeks.\n4. Praktik hands-on penggunaan prompt engineering untuk efisiensi riset.\n\nWorkshop ini dirancang bagi Dosen, Guru, Peneliti, Mahasiswa Pascasarjana, dan Praktisi Pendidikan yang ingin mengadopsi teknologi AI secara bertanggung jawab dan berdaya guna tinggi.`,
-      venue: "Zoom Meeting & Live Streaming YouTube",
-      startTime: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
-      endTime: new Date(Date.now() + 7 * 24 * 3600 * 1000 + 3 * 3600 * 1000).toISOString(),
-      quota: 150,
-      price: 0,
-      premiumPrice: 50000,
-      certificateLink: "https://edutech.id/certificates/ai-future-education",
-      imageUrl: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80",
-      status: "published",
-      speakers: [
-        {
-          name: "Dr. Nurul Hidayat, M.Kom.",
-          role: "Pakar Kecerdasan Buatan & Dosen Universitas Jenderal Soedirman",
-          photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80"
-        },
-        {
-          name: "Ir. Ahmad Fauzi, S.T., M.T.",
-          role: "Head of Technology Edutech ID",
-          photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80"
-        }
-      ],
-      materials: [
-        {
-          title: "Slide Presentasi Pengenalan AI dalam Kurikulum",
-          type: "file",
-          link: "https://example.com/slides-ai-education.pdf"
-        }
-      ],
-      bankAccounts: [
-        {
-          bankName: "BCA",
-          accountNumber: "12424124",
-          accountHolder: "PT Edutech",
-          logo: "https://upload.wikimedia.org/wikipedia/commons/5/5c/Bank_Central_Asia.svg"
-        }
-      ]
-    };
-  } else {
-    return Astro.redirect("/event");
-  }
-}
+const detail = await apiGet(`/events/slug/${Astro.params.slug}`);
+const event: any = detail.data;
+const registeredCount: number = detail.registered_count || 0;
+const isQuotaFull: boolean = detail.is_quota_full || false;
 
 const start = new Date(event.startTime || event.start_time);
 const end = new Date(event.endTime || event.end_time);
@@ -97,9 +26,10 @@ const dateFormatted = start.toLocaleDateString("id-ID", {
   weekday: "long",
   day: "numeric",
   month: "long",
-  year: "numeric"
+  year: "numeric",
+  timeZone: "Asia/Jakarta"
 });
-const timeFormatted = `${start.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB`;
+const timeFormatted = `${start.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })} - ${end.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })} WIB`;
 
 // Sisa kuota
 const remainingQuota = event.quota > 0 ? Math.max(0, event.quota - registeredCount) : 999;
@@ -109,7 +39,7 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
 <Layout
   title={`${event.title} — Agenda & Workshop EduTech`}
   description={event.description ? event.description.substring(0, 150) : event.title}
-  image={event.imageUrl}
+  image={assetUrl(event.imageUrl)}
 >
   <Navbar />
 
@@ -176,7 +106,7 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
         <!-- Event Poster Image -->
         <div class="event-poster">
           <img
-            src={event.imageUrl || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80"}
+            src={assetUrl(event.imageUrl) || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80"}
             alt={event.title}
           />
         </div>
@@ -276,7 +206,7 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
                 <div class="speaker-card">
                   <div class="sp-avatar-wrap">
                     {sp.photo ? (
-                      <img src={sp.photo} alt={sp.name} />
+                      <img src={assetUrl(sp.photo)} alt={sp.name} />
                     ) : (
                       <div class="sp-placeholder">{sp.name.charAt(0)}</div>
                     )}
@@ -411,7 +341,7 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
                   id="reg-name"
                   required
                   placeholder="Contoh: Dr. Budi Santoso, M.Pd"
-                  value={session?.name || ""}
+                 
                 />
               </div>
 
@@ -422,7 +352,7 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
                   id="reg-email"
                   required
                   placeholder="nama@email.com"
-                  value={session?.email || ""}
+                 
                 />
                 <span class="form-tip">Tiket dan link Zoom akan dikirimkan ke email ini.</span>
               </div>
@@ -523,7 +453,7 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
   <Footer />
 
   <!-- Interactive JavaScript Logic -->
-  <script is:inline define:vars={{ premiumPrice: event.premiumPrice, hasPremium, isFree }}>
+  <script is:inline define:vars={{ premiumPrice: event.premiumPrice, hasPremium, isFree, API_BASE, BACKEND_URL }}>
     // Live Hero Countdown
     const heroCd = document.getElementById('hero-countdown');
     if (heroCd) {
@@ -592,7 +522,7 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
 
         try {
           proofInput.disabled = true;
-          const res = await fetch('http://localhost:3000/api/upload-proof', {
+          const res = await fetch(`${API_BASE}/upload-proof`, {
             method: 'POST',
             credentials: 'include',
             body: formData,
@@ -600,7 +530,7 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
           const data = await res.json();
           if (res.ok && data.url) {
             proofUrlInput.value = data.url;
-            proofImg.src = data.url;
+            proofImg.src = BACKEND_URL + data.url;
             proofPreview.style.display = 'flex';
           } else {
             alert(data.error || 'Gagal mengunggah bukti pembayaran.');
@@ -612,6 +542,13 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
         }
       });
     }
+
+    // Isi otomatis bila pengguna sudah masuk
+    fetch(`${API_BASE}/auth/profile`, { credentials: 'include' }).then(r => r.ok ? r.json() : null).then(u => {
+      const n = document.getElementById('reg-name'), m = document.getElementById('reg-email');
+      if (u && n && !n.value) n.value = u.name || '';
+      if (u && m && !m.value) m.value = u.email || '';
+    }).catch(() => {});
 
     // Form Registration Submit
     const regForm = document.getElementById('reg-form');
@@ -643,7 +580,7 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
         submitBtn.innerHTML = '<span>Memproses Pendaftaran...</span>';
 
         try {
-          const res = await fetch(`http://localhost:3000/api/events/${eventId}/register`, {
+          const res = await fetch(`${API_BASE}/events/${eventId}/register`, {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },

@@ -46,7 +46,7 @@ const fallbackImg = "https://images.unsplash.com/photo-1504711434969-e33886168f5
           <div class="trending-content">
             <div class="trending-time">
               <span class="time-dot" aria-hidden="true">●</span>
-              {timeAgo(article.createdAt || '')}
+              <span data-ago={article.createdAt}>{timeAgo(article.createdAt || '')}</span>
             </div>
             <p class="trending-title">{article.title}</p>
             <div class="trending-meta news-meta">
@@ -171,16 +171,16 @@ const fallbackImg = "https://images.unsplash.com/photo-1504711434969-e33886168f5
   .trending-rank {
     font-size: var(--text-xl);
     font-weight: 900;
-    color: var(--color-border-light);
+    color: var(--color-text-muted);
     min-width: 20px;
     line-height: 1;
     flex-shrink: 0;
     padding-top: 2px;
   }
 
-  .trending-item:nth-child(1) .trending-rank { color: var(--color-accent); }
+  .trending-item:nth-child(1) .trending-rank { color: #e0651a; }
   .trending-item:nth-child(2) .trending-rank { color: #e76f51; }
-  .trending-item:nth-child(3) .trending-rank { color: var(--color-gold); }
+  .trending-item:nth-child(3) .trending-rank { color: #b7860b; }
 
   .trending-content {
     flex: 1;

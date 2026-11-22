@@ -73,5 +73,21 @@ const {
   </head>
   <body>
     <slot />
+    <script>
+      // Halaman statis: "x jam lalu" dan tanggal hari ini dihitung saat dibuka
+      const day = 86_400_000;
+      function ago(iso: string) {
+        const diff = Date.now() - new Date(iso).getTime();
+        if (diff < 3_600_000) return 'Baru saja';
+        if (diff < day) return `${Math.floor(diff / 3_600_000)} jam lalu`;
+        if (diff < 7 * day) return `${Math.floor(diff / day)} hari lalu`;
+        return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jakarta' });
+      }
+      document.querySelectorAll<HTMLElement>('[data-ago]').forEach((el) => {
+        if (el.dataset.ago) el.textContent = ago(el.dataset.ago);
+      });
+      const today = document.getElementById('todayDate');
+      if (today) today.textContent = new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Asia/Jakarta' });
+    </script>
   </body>
 </html>

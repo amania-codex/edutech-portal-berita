@@ -1,10 +1,11 @@
 ---
+import { API_BASE, BACKEND_URL } from '../lib/config';
+
 // HeroBanner.astro - Dynamic Photo Poster / Banner Component
 export interface Props {
   banners?: any[];
 }
 
-const API_BASE = "http://localhost:3000/api";
 let activeBanners: any[] = Astro.props.banners || [];
 
 if (!activeBanners || activeBanners.length === 0) {
@@ -37,7 +38,7 @@ if (!activeBanners || activeBanners.length === 0) {
     {activeBanners.map((banner: any, index: number) => {
       const fullImgUrl = banner.image_url?.startsWith("http")
         ? banner.image_url
-        : `http://localhost:3000${banner.image_url}`;
+        : `${BACKEND_URL}${banner.image_url}`;
 
       return (
         <div class={`poster-slide ${index === 0 ? "active" : ""}`} data-index={index}>

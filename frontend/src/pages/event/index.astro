@@ -4,36 +4,9 @@
 import Layout from "../../layouts/Layout.astro";
 import Navbar from "../../components/Navbar.astro";
 import Footer from "../../components/Footer.astro";
-import { API_BASE } from "../../lib/config";
+import { apiGet, assetUrl } from "../../lib/news";
 
-let events: any[] = [];
-let errorMsg = "";
-
-
-
-// Fallback sample data if empty to ensure rich display
-if (events.length === 0 && !errorMsg) {
-  events = [
-    {
-      id: 1,
-      title: "Workshop AI & Future Education: Transformasi Pembelajaran Digital",
-      slug: "workshop-ai-future-education-transformasi-digital",
-      description: "Pelajari implementasi praktis teknologi kecerdasan buatan (AI) terkini dalam pendidikan tinggi dan sekolah menengah.",
-      venue: "Zoom Meeting & Live YouTube",
-      startTime: new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString(),
-      endTime: new Date(Date.now() + 7 * 24 * 3600 * 1000 + 3 * 3600 * 1000).toISOString(),
-      quota: 150,
-      price: 0,
-      premiumPrice: 50000,
-      imageUrl: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=1200&q=80",
-      status: "published",
-      speakers: [
-        { name: "Dr. Nurul Hidayat, M.Kom.", role: "Pakar AI & Dosen Unsoed" },
-        { name: "Ir. Ahmad Fauzi, S.T.", role: "Head of Tech EduTech" }
-      ]
-    }
-  ];
-}
+const events: any[] = (await apiGet("/events")).data || [];
 
 const totalEvents = events.length;
 const upcomingEvents = events.filter((e) => new Date(e.startTime || e.start_time) > new Date()).length;
@@ -111,9 +84,10 @@ const freeEvents = events.filter((e) => (e.price === 0 && !e.premiumPrice)).leng
           weekday: "long",
           day: "numeric",
           month: "long",
-          year: "numeric"
+          year: "numeric",
+          timeZone: "Asia/Jakarta"
         });
-        const timeFormatted = `${start.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} - ${end.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB`;
+        const timeFormatted = `${start.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })} - ${end.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Jakarta" })} WIB`;
 
         return (
           <article
@@ -126,7 +100,7 @@ const freeEvents = events.filter((e) => (e.price === 0 && !e.premiumPrice)).leng
             <!-- Card Image & Overlay -->
             <div class="card-media">
               <img
-                src={event.imageUrl || event.image || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80"}
+                src={assetUrl(event.imageUrl) || "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80"}
                 alt={event.title}
                 loading="lazy"
               />
@@ -199,7 +173,7 @@ const freeEvents = events.filter((e) => (e.price === 0 && !e.premiumPrice)).leng
                       <div class="speaker-chip" title={`${sp.name} - ${sp.role || ''}`}>
                         <div class="speaker-avatar">
                           {sp.photo ? (
-                            <img src={sp.photo} alt={sp.name} />
+                            <img src={assetUrl(sp.photo)} alt={sp.name} />
                           ) : (
                             <span>{sp.name.charAt(0)}</span>
                           )}
@@ -243,15 +217,15 @@ const freeEvents = events.filter((e) => (e.price === 0 && !e.premiumPrice)).leng
     </div>
 
     <!-- Empty State -->
-    <div class="empty-state" id="empty-state" style="display: none;">
+    <div class="empty-state" id="empty-state" style={events.length ? "display: none;" : "display: flex;"}>
       <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
         <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
         <line x1="16" y1="2" x2="16" y2="6"></line>
         <line x1="8" y1="2" x2="8" y2="6"></line>
         <line x1="3" y1="10" x2="21" y2="10"></line>
       </svg>
-      <h3>Tidak ada event ditemukan</h3>
-      <p>Coba gunakan kata kunci pencarian lain atau pilih filter yang berbeda.</p>
+      <h3>{events.length ? "Tidak ada event ditemukan" : "Belum ada agenda"}</h3>
+      <p>{events.length ? "Coba gunakan kata kunci pencarian lain atau pilih filter yang berbeda." : "Agenda, webinar, dan workshop berikutnya akan diumumkan di halaman ini."}</p>
     </div>
   </main>
 
@@ -473,7 +447,8 @@ const freeEvents = events.filter((e) => (e.price === 0 && !e.premiumPrice)).leng
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    overflow-x: auto;
+    flex-wrap: wrap;
+    min-width: 0;
     padding-bottom: 4px;
   }
 

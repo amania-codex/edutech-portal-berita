@@ -1,17 +1,5 @@
 ---
 import UserLayout from '../../layouts/UserLayout.astro';
-
-let userData: any = { name: "User", email: "user@edutech.id", phone: "", bio: "", avatar_url: "", role: "user" };
-
-const user = {
-  id: 0,
-  name: 'User',
-  email: 'user@edutech.id',
-  role: 'user',
-  avatar: null as string | null,
-  created_at: new Date().toISOString(),
-  bio: ''
-};
 ---
 
 <UserLayout title="Profil Saya" activeMenu="profile">
@@ -20,23 +8,20 @@ const user = {
     <div class="dash-card profile-card">
       <div class="profile-header">
         <div class="profile-avatar-large">
-          {user.avatar ? (
-            <img src={user.avatar} alt={user.name} />
-          ) : (
-            <span>{user.name.charAt(0).toUpperCase()}</span>
-          )}
+          <img id="p-avatar" alt="" style="display:none" />
+          <span id="p-initial">?</span>
         </div>
         <div class="profile-info">
           <div class="profile-title-row">
-            <h2 class="profile-name">{user.name}</h2>
+            <h2 class="profile-name" id="p-name">Memuat...</h2>
             <span class="profile-status-badge">
               <span class="status-dot"></span>
               Terverifikasi
             </span>
           </div>
-          <p class="profile-email">{user.email}</p>
+          <p class="profile-email" id="p-email"></p>
           <p class="profile-join">
-            Bergabung sejak {new Date(user.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+            Bergabung sejak <span id="p-joined">-</span>
           </p>
         </div>
         <div class="profile-action">
@@ -53,14 +38,11 @@ const user = {
       <!-- Bio Section -->
       <div class="profile-bio-box">
         <h3 class="section-label">Tentang Saya</h3>
-        {user.bio ? (
-          <p class="bio-content">{user.bio}</p>
-        ) : (
-          <div class="bio-empty-prompt">
+        <p class="bio-content" id="p-bio" style="display:none"></p>
+        <div class="bio-empty-prompt" id="p-bio-empty" style="display:none">
             <p>Belum ada bio yang ditambahkan.</p>
             <a href="/user/edit" class="bio-cta-link">+ Tambahkan deskripsi singkat tentang minat baca Anda</a>
-          </div>
-        )}
+        </div>
       </div>
     </div>
 
@@ -393,3 +375,23 @@ const user = {
     }
   }
 </style>
+
+<script>
+  import { el, formatDate, getJSON, show } from '../../lib/client';
+  import { assetUrl } from '../../lib/news';
+
+  getJSON('/auth/profile').then((u) => {
+    el('p-name').textContent = u.name;
+    el('p-email').textContent = u.email;
+    el('p-joined').textContent = formatDate(u.created_at, { day: 'numeric', month: 'long', year: 'numeric' });
+    el('p-initial').textContent = (u.name || 'U').charAt(0).toUpperCase();
+    if (u.avatar) {
+      el('p-avatar').src = assetUrl(u.avatar);
+      show(el('p-avatar'), true);
+      show(el('p-initial'), false);
+    }
+    el('p-bio').textContent = u.bio || '';
+    show(el('p-bio'), !!u.bio?.trim());
+    show(el('p-bio-empty'), !u.bio?.trim());
+  }).catch(() => {});
+</script>

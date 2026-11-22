@@ -1,14 +1,29 @@
 ---
 // Navbar.astro — Edutech-portal-ramai editorial style (SSG-compatible)
 
+import { API_BASE } from '../lib/config';
+
 const todayStr = new Intl.DateTimeFormat("id-ID", {
   weekday: "long",
   day: "numeric",
   month: "long",
-  year: "numeric"
+  year: "numeric",
+  timeZone: "Asia/Jakarta"
 }).format(new Date());
 
 const currentPath = Astro.url.pathname;
+
+const navCategories = [
+  ['berita', 'Berita'],
+  ['pendidikan', 'Pendidikan'],
+  ['perguruan-tinggi', 'Kampus'],
+  ['jateng-diy', 'Jateng & DIY'],
+  ['nasional', 'Nasional'],
+  ['pariwisata', 'Pariwisata'],
+  ['artikel', 'Artikel'],
+];
+const isCategory = (slug: string) =>
+  currentPath === `/kategori/${slug}` || currentPath.startsWith(`/kategori/${slug}/`);
 ---
 
 <div class="topline">
@@ -53,14 +68,12 @@ const currentPath = Astro.url.pathname;
   <nav class="main-nav" id="mainNav">
     <div class="container nav-inner">
       <a class={`nav-home ${currentPath === '/' ? 'active' : ''}`} href="/" title="Beranda">⌂</a>
-      <a href="/kategori/pendidikan" class={currentPath === '/kategori/pendidikan' ? 'active' : ''}>Pendidikan</a>
-      <a href="/kategori/kampus" class={currentPath === '/kategori/kampus' ? 'active' : ''}>Kampus</a>
-      <a href="/kategori/teknologi" class={currentPath === '/kategori/teknologi' ? 'active' : ''}>Teknologi</a>
-      <a href="/kategori/riset" class={currentPath === '/kategori/riset' ? 'active' : ''}>Riset</a>
+      {navCategories.map(([slug, label]) => (
+        <a href={`/kategori/${slug}`} class={isCategory(slug) ? 'active' : ''}>{label}</a>
+      ))}
       <a href="/event" class={currentPath.startsWith('/event') ? 'active' : ''}>Event & Webinar</a>
-      <a href="/kategori/artikel" class={currentPath === '/kategori/artikel' ? 'active' : ''}>Artikel</a>
       <a href="/user/tickets" class={`nav-ticket-link ${currentPath === '/user/tickets' ? 'active' : ''}`} id="ticketNavLink" style="display:none">Tiket Saya</a>
-      <a href="/kategori/headline" class="nav-special">Advertorial <span>↗</span></a>
+      <a href="/kategori/advertorial" class="nav-special">Advertorial <span>↗</span></a>
       <a href="/#kontak">Kontak</a>
     </div>
   </nav>
@@ -76,7 +89,7 @@ const currentPath = Astro.url.pathname;
   </div>
 </header>
 
-<script is:inline>
+<script is:inline define:vars={{ API_BASE }}>
   // Mobile navigation toggle
   const mobileBtn = document.getElementById("mobileMenu");
   const mainNav = document.getElementById("mainNav");
@@ -135,10 +148,10 @@ const currentPath = Astro.url.pathname;
     });
   }
 
-  // Client-side auth check: call http://localhost:3000/api/auth/profile to see if user is logged in
+  // Client-side auth check: call /auth/profile to see if user is logged in
   (async function checkAuth() {
     try {
-      const res = await fetch('http://localhost:3000/api/auth/profile', { credentials: 'include' });
+      const res = await fetch(`${API_BASE}/auth/profile`, { credentials: 'include' });
       const authBtn = document.getElementById('authBtn');
       const authBtnText = document.getElementById('authBtnText');
       const ticketLink = document.getElementById('ticketNavLink');
@@ -149,7 +162,7 @@ const currentPath = Astro.url.pathname;
         const initial = (user.name || 'U').charAt(0).toUpperCase();
 
         if (authBtn) {
-          authBtn.href = '/dashboard';
+          authBtn.href = user.role === 'admin' ? '/dashboard' : '/user';
           authBtn.title = 'Ke Dashboard';
         }
         if (authBtnText) {

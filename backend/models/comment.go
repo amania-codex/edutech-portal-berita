@@ -1,4 +1,4 @@
-﻿package models
+package models
 
 import "gorm.io/gorm"
 
@@ -17,7 +17,7 @@ type Comment struct {
 	LikeCount      int     `json:"like_count" gorm:"default:0"`
 
 	// Relations (for join queries)
-	NewsTitle string `json:"news_title" gorm:"-"`
+	NewsTitle string `json:"news_title" gorm:"->;-:migration"`
 	Replies   []Comment `json:"replies" gorm:"foreignKey:ParentID"`
 	IsLiked   bool      `json:"is_liked" gorm:"-"`
 }

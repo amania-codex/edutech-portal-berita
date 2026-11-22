@@ -1,0 +1,100 @@
+name: Uji Sistem
+
+on:
+  push:
+    branches-ignore: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  uji:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # kosong: database baru. skema: struktur tabel hasil impor WordPress (tanpa data).
+        database: [kosong, skema]
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      JWT_SECRET: hanya-untuk-uji
+      DB_NAME: news_portal
+      PUBLIC_API_URL: http://localhost:3000
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Siapkan struktur tabel hasil impor
+        if: matrix.database == 'skema'
+        run: |
+          mysql -h127.0.0.1 -uroot -e "CREATE DATABASE news_portal CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci"
+          mysql -h127.0.0.1 -uroot news_portal < backend/tools/ci-schema.sql
+
+      - name: Periksa & bangun backend
+        working-directory: backend
+        run: |
+          go vet ./...
+          go build -o /tmp/server .
+
+      - name: Jalankan backend
+        working-directory: backend
+        run: |
+          /tmp/server > /tmp/server.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:3000/api/categories > /dev/null && exit 0; sleep 1; done
+          cat /tmp/server.log
+          exit 1
+
+      - name: Semua berita dimuat otomatis & semua gambar tampil
+        working-directory: backend
+        env:
+          MIN_NEWS: 2817
+        run: |
+          grep SeedNews /tmp/server.log
+          node tools/check-images.mjs
+
+      - name: Uji seluruh fitur API
+        working-directory: backend
+        run: node tools/smoke-test.mjs
+
+      - name: Bangun frontend dari backend asli
+        working-directory: frontend
+        run: |
+          npm ci
+          npx astro build > /tmp/build.log 2>&1 || { tail -40 /tmp/build.log; exit 1; }
+          tail -3 /tmp/build.log
+          n=$(ls dist/berita | wc -l); echo "halaman berita: $n"; test "$n" -ge 2817
+          test -f dist/kategori/pendidikan/index.html
+          test -f dist/kategori/jateng-diy/2/index.html
+          test -f dist/404.html
+
+      - name: Backend bisa dinyalakan ulang (migrasi kedua kali)
+        working-directory: backend
+        run: |
+          pkill -f /tmp/server || true
+          sleep 1
+          /tmp/server > /tmp/server2.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api/news > /dev/null && break; sleep 1; done
+          cat /tmp/server2.log | head -20
+          ! grep -q SeedNews /tmp/server2.log
+          curl -sfD - -o /dev/null "http://localhost:3000/api/news?limit=1" | grep -i "x-total-count: 2817"
+
+      - name: Log backend
+        if: failure()
+        run: tail -n 120 /tmp/server.log || true

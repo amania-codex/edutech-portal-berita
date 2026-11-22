@@ -4,24 +4,17 @@ import Layout from "../layouts/Layout.astro";
 import Navbar from "../components/Navbar.astro";
 import Footer from "../components/Footer.astro";
 
-const API_BASE = "http://localhost:3000/api";
+import { apiGet, getNews, type News } from "../lib/news";
 
 // Fetch data paralel dari backend Go
-let allNews: any[] = [];
-let featuredNews: any[] = [];
-let trendingNews: any[] = [];
-let popularNews: any[] = [];
-let eventsList: any[] = [];
-
-
-
-// Helper kalkulasi waktu baca
-function calculateReadTime(text: string): string {
-  if (!text) return "3 menit baca";
-  const words = text.trim().split(/\s+/).length;
-  const minutes = Math.max(1, Math.ceil(words / 180));
-  return `${minutes} menit baca`;
-}
+const [latestNews, featuredNews, trendingNews, popularNews, articleNews, eventsList] = await Promise.all([
+  getNews("/news?limit=30&lite=1"),
+  getNews("/news/featured?limit=5"),
+  getNews("/news/trending?limit=6"),
+  getNews("/news/popular?limit=8&days=7"),
+  getNews("/news?category=artikel&limit=8&lite=1"),
+  apiGet("/events").then((r) => r.data || []),
+]);
 
 // Helper format tanggal Indonesia
 function formatDateIndo(dateStr: string): string {
@@ -30,7 +23,8 @@ function formatDateIndo(dateStr: string): string {
   return new Intl.DateTimeFormat("id-ID", {
     day: "numeric",
     month: "short",
-    year: "numeric"
+    year: "numeric",
+    timeZone: "Asia/Jakarta"
   }).format(d);
 }
 
@@ -47,35 +41,15 @@ function timeAgo(dateStr: string): string {
   return formatDateIndo(dateStr);
 }
 
-// Normalize artikel agar seragam
-function normalize(article: any) {
-  if (!article) return null;
-  const content = article.content || article.Content || article.excerpt || "";
-  const rawImg = article.imageUrl || article.image_url || article.ImageURL || "";
-  const fullImg = rawImg.startsWith("http")
-    ? rawImg
-    : rawImg
-    ? `http://localhost:3000${rawImg}`
-    : "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=700&q=80";
+const toCard = (n: News) => ({ ...n, readTime: `${n.readTime} menit baca` });
+const listAll = latestNews.map(toCard);
+const listTrending = trendingNews.map(toCard);
+const listPopular = popularNews.map(toCard);
 
-  return {
-    id: article.ID || article.id || 0,
-    title: article.title || "Berita EduTech",
-    slug: article.slug || "",
-    excerpt: article.excerpt || article.Excerpt || (content.length > 130 ? content.substring(0, 130) + "..." : content),
-    imageUrl: fullImg,
-    category: article.category || article.Category || "Pendidikan",
-    author: article.author || article.Author || "Tim Redaksi",
-    viewCount: article.viewCount ?? article.view_count ?? article.ViewCount ?? 120,
-    createdAt: article.CreatedAt || article.createdAt || article.created_at || new Date().toISOString(),
-    readTime: calculateReadTime(content),
-  };
-}
-
-const listAll = (Array.isArray(allNews) ? allNews : []).map(normalize).filter(Boolean);
-const listFeatured = (Array.isArray(featuredNews) && featuredNews.length > 0 ? featuredNews : listAll.slice(0, 5)).map(normalize).filter(Boolean);
-const listTrending = (Array.isArray(trendingNews) && trendingNews.length > 0 ? trendingNews : listAll.slice(5, 10)).map(normalize).filter(Boolean);
-const listPopular = (Array.isArray(popularNews) && popularNews.length > 0 ? popularNews : listTrending).map(normalize).filter(Boolean);
+// Berita utama: pilihan redaksi yang masih baru, sisanya berita terbaru
+const twoWeeksAgo = Date.now() - 14 * 24 * 60 * 60 * 1000;
+const freshFeatured = featuredNews.map(toCard).filter((n) => new Date(n.createdAt).getTime() > twoWeeksAgo);
+const listFeatured = [...freshFeatured, ...listAll.filter((n) => !freshFeatured.some((f) => f.id === n.id))];
 
 // Hero items
 const heroMain = listFeatured[0] || listAll[0] || {
@@ -111,55 +85,26 @@ const heroSide2 = listFeatured[2] || listAll[2] || {
 const latestFeature = listAll.find((a: any) => a.id !== heroMain.id && a.id !== heroSide1.id && a.id !== heroSide2.id) || listAll[3] || heroMain;
 const latestCompact = listAll.filter((a: any) => a.id !== heroMain.id && a.id !== heroSide1.id && a.id !== heroSide2.id && a.id !== latestFeature.id).slice(0, 4);
 
-// Riset & Inovasi (3 items)
-const risetArticles = listAll.filter((a: any) => a.category?.toLowerCase() === "riset" || a.category?.toLowerCase() === "teknologi").slice(0, 3);
-const displayRiset = risetArticles.length >= 3 ? risetArticles : listAll.slice(6, 9);
+// Artikel & Opini (3 item yang belum tampil di atas)
+const shownIds = new Set([heroMain, heroSide1, heroSide2, latestFeature, ...latestCompact].map((a: any) => a.id));
+const displayArtikel = articleNews.map(toCard).filter((a) => !shownIds.has(a.id)).slice(0, 3);
 
 // Event data
-const sampleEvents = [
-  {
-    day: "28",
-    month: "OKT",
-    type: "SEMINAR NASIONAL",
-    title: "Smart City & Cyber Security Forum 2026",
-    location: "Hybrid · Purwokerto & Online",
-    slug: "smart-city-cyber-security-forum-2026",
-    link: "/event"
-  },
-  {
-    day: "04",
-    month: "NOV",
-    type: "CALL FOR PAPERS",
-    title: "Konferensi Nasional Informatika dan Sistem Informasi (KNISI)",
-    location: "Online · Batas abstrak 4 November 2026",
-    slug: "konferensi-nasional-informatika-2026",
-    link: "/event"
-  },
-  {
-    day: "12",
-    month: "NOV",
-    type: "WEBINAR",
-    title: "AI untuk Pembelajaran dan Riset Masa Depan",
-    location: "Online · Gratis dengan registrasi e-sertifikat",
-    slug: "ai-untuk-pembelajaran-riset-masa-depan",
-    link: "/event"
-  }
-];
-
-const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? eventsList.slice(0, 3).map((e: any) => {
-  const d = e.event_date ? new Date(e.event_date) : new Date();
-  const day = d.getDate().toString().padStart(2, '0');
-  const month = new Intl.DateTimeFormat("id-ID", { month: "short" }).format(d).toUpperCase();
-  return {
-    day,
-    month,
-    type: e.is_free ? "WEBINAR GRATIS" : "EVENT UNGGULAN",
-    title: e.title || "Agenda EduTech",
-    location: e.location || (e.is_online ? "Online via Zoom" : "Kampus Terpadu"),
-    slug: e.slug || "",
-    link: `/event/${e.slug || ''}`
-  };
-}) : sampleEvents;
+const displayEvents = eventsList
+  .filter((e: any) => new Date(e.endTime) > new Date())
+  .slice(0, 3)
+  .map((e: any) => {
+    const d = new Date(e.startTime);
+    const part = (opts: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("id-ID", { timeZone: "Asia/Jakarta", ...opts }).format(d);
+    return {
+      day: part({ day: "2-digit" }),
+      month: part({ month: "short" }).toUpperCase(),
+      type: !e.price && !e.premiumPrice ? "EVENT GRATIS" : "EVENT UNGGULAN",
+      title: e.title,
+      location: e.venue,
+      link: `/event/${e.slug}`,
+    };
+  });
 ---
 
 <Layout
@@ -187,7 +132,7 @@ const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? event
         <span>CALL FOR PAPERS</span>
         <strong>Riset & Inovasi</strong>
         <p>Kesempatan publikasi jurnal nasional dan internasional bereputasi.</p>
-        <a href="/kategori/riset" style="color:inherit;"><b>PELAJARI ↗</b></a>
+        <a href="/event" style="color:inherit;"><b>PELAJARI ↗</b></a>
       </div>
     </aside>
 
@@ -231,7 +176,7 @@ const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? event
             <div class="side-copy">
               <span class="category-pill orange">{heroSide1.category || 'KAMPUS'}</span>
               <h3><a href={`/berita/${heroSide1.slug}`}>{heroSide1.title}</a></h3>
-              <span class="small-meta">{timeAgo(heroSide1.createdAt)} · {heroSide1.readTime}</span>
+              <span class="small-meta"><span data-ago={heroSide1.createdAt}>{timeAgo(heroSide1.createdAt)}</span> · {heroSide1.readTime}</span>
             </div>
           </article>
 
@@ -241,7 +186,7 @@ const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? event
             <div class="side-copy">
               <span class="category-pill green">{heroSide2.category || 'RISET'}</span>
               <h3><a href={`/berita/${heroSide2.slug}`}>{heroSide2.title}</a></h3>
-              <span class="small-meta">{timeAgo(heroSide2.createdAt)} · {heroSide2.readTime}</span>
+              <span class="small-meta"><span data-ago={heroSide2.createdAt}>{timeAgo(heroSide2.createdAt)}</span> · {heroSide2.readTime}</span>
             </div>
           </article>
         </div>
@@ -269,7 +214,7 @@ const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? event
             <span class="eyebrow">UPDATE PILIHAN</span>
             <h2>Berita Terbaru</h2>
           </div>
-          <a href="/kategori/pendidikan">Lihat semua <b>↗</b></a>
+          <a href="/kategori/semua">Lihat semua <b>↗</b></a>
         </div>
 
         <div class="latest-layout">
@@ -298,7 +243,7 @@ const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? event
               <article class="compact-story story searchable" data-category={story.category?.toLowerCase()}>
                 <img src={story.imageUrl} alt={story.title} loading="lazy" />
                 <div>
-                  <span class="story-date">{story.category?.toUpperCase()} · {timeAgo(story.createdAt).toUpperCase()}</span>
+                  <span class="story-date">{story.category?.toUpperCase()} · <span data-ago={story.createdAt} style="text-transform: uppercase">{timeAgo(story.createdAt)}</span></span>
                   <h3><a href={`/berita/${story.slug}`}>{story.title}</a></h3>
                   <span class="read-count">◷ {story.readTime}</span>
                 </div>
@@ -316,19 +261,19 @@ const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? event
           <p>Ikuti isu dan perkembangan paling relevan di dunia pendidikan & teknologi.</p>
         </div>
         <div class="topic-cards">
-          <a href="/kategori/kampus" class="topic-card topic-campus">
+          <a href="/kategori/perguruan-tinggi" class="topic-card topic-campus">
             <span>01 / AKADEMIK</span>
             <strong>Kabar Kampus</strong>
             <b>↗</b>
           </a>
-          <a href="/kategori/teknologi" class="topic-card topic-tech">
-            <span>02 / DIGITAL</span>
-            <strong>Teknologi & AI</strong>
+          <a href="/kategori/jateng-diy" class="topic-card topic-tech">
+            <span>02 / DAERAH</span>
+            <strong>Jateng & DIY</strong>
             <b>↗</b>
           </a>
-          <a href="/kategori/riset" class="topic-card topic-research">
-            <span>03 / INOVASI</span>
-            <strong>Riset & Sains</strong>
+          <a href="/kategori/pariwisata" class="topic-card topic-research">
+            <span>03 / WISATA</span>
+            <strong>Pariwisata</strong>
             <b>↗</b>
           </a>
         </div>
@@ -371,13 +316,13 @@ const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? event
         <div class="section-heading">
           <div>
             <span class="eyebrow">LEBIH DEKAT</span>
-            <h2>Riset & Inovasi</h2>
+            <h2>Artikel & Opini</h2>
           </div>
-          <a href="/kategori/riset">Semua riset <b>↗</b></a>
+          <a href="/kategori/artikel">Semua artikel <b>↗</b></a>
         </div>
 
         <div class="three-news-grid">
-          {displayRiset.map((item: any) => (
+          {displayArtikel.map((item: any) => (
             <article class="visual-card story searchable" data-category={item.category?.toLowerCase()}>
               <a href={`/berita/${item.slug}`} class="visual-image">
                 <img src={item.imageUrl} alt={item.title} loading="lazy" />
@@ -394,6 +339,7 @@ const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? event
       </section>
 
       <!-- AGENDA & EVENT SECTION -->
+      {displayEvents.length > 0 && (
       <section class="event-section" id="event">
         <div class="event-heading">
           <div>
@@ -421,6 +367,7 @@ const displayEvents = Array.isArray(eventsList) && eventsList.length > 0 ? event
           ))}
         </div>
       </section>
+      )}
 
       <!-- CALL FOR PAPERS BANNER BOX -->
       <section class="callpapers" id="jurnal">

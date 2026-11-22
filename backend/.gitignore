@@ -13,3 +13,6 @@ go.work
 
 # Dependencies
 vendor/
+
+# Data migrasi WordPress lama (besar + berisi data pribadi)
+DATA EDUKATOR/
