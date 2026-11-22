@@ -1,0 +1,3 @@
+# Unggahan & arsip harus disimpan persis apa adanya (tanpa konversi akhir baris)
+backend/public/uploads/** binary
+*.gz binary
