@@ -14,11 +14,13 @@ const currentPage = pageParam === "" ? 1 : Number(pageParam);
 if (pageParam === "1") return Astro.redirect(`/kategori/${category}`, 301);
 if (!Number.isInteger(currentPage) || currentPage < 1 || String(currentPage) !== (pageParam || "1")) return Astro.rewrite("/404");
 
-const [trendingNews, categories, list] = await Promise.all([
+const [trendingNews, cachedCategories, list] = await Promise.all([
   getTrending(),
   getCategories(),
   getNewsPage(`/news?lite=1&limit=${PAGE_SIZE}&offset=${(currentPage - 1) * PAGE_SIZE}&category=${encodeURIComponent(category)}`),
 ]);
+// Kategori yang belum ada di cache (baru dibuat) dicek ulang ke API
+const categories = cachedCategories.some((c) => c.slug === category) ? cachedCategories : await getCategories(true);
 const lastPage = Math.max(1, Math.ceil(list.total / PAGE_SIZE));
 const known = category === "semua" || categories.some((c) => c.slug === category);
 if ((!known && list.total === 0) || currentPage > lastPage) return Astro.rewrite("/404");

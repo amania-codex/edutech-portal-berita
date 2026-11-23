@@ -118,14 +118,18 @@ function cached<T>(seconds: number, load: () => Promise<T>): () => Promise<T> {
   };
 }
 
-export const getCategories = cached(30, async (): Promise<Category[]> =>
+const loadCategories = async (): Promise<Category[]> =>
   (await apiGet('/categories')).map((c: any) => ({
     id: c.ID ?? c.id,
     name: c.name,
     slug: c.slug,
     parentId: c.parentId ?? null,
-  })),
-);
+  }));
+
+const cachedCategories = cached(30, loadCategories);
+
+/** Daftar kategori. fresh=true melewati cache (mis. untuk kategori yang baru dibuat). */
+export const getCategories = (fresh = false) => (fresh ? loadCategories() : cachedCategories());
 
 export const getTrending = cached(30, () => getNews('/news/trending?limit=5'));
 

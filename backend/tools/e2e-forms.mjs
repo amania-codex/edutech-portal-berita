@@ -52,8 +52,14 @@ async function go(p) {
   await send('Page.navigate', { url: BASE + p });
   await Promise.race([loaded, sleep(15000)]);
 }
+// Keadaan halaman saat sebuah langkah gagal: alamat dan pesan yang sedang terlihat
+const STATE = `(() => { const seen = [...document.querySelectorAll('[id*=error],[id*=msg],[id$=-message],.alert,.comment-msg,.toast,#reg-success,#login-success')]
+  .filter((e) => e.offsetParent && e.textContent.trim()).map((e) => '#' + e.id + ': ' + e.textContent.trim().slice(0, 120));
+  return location.pathname + location.search + ' | ' + (seen.join(' ; ') || document.title); })()`;
+let lastState = null;
 async function until(expr, ms = 10000) {
   for (let t = 0; t < ms; t += 200) { if ((await ev(expr)) === true) return true; await sleep(200); }
+  lastState = await ev(STATE);
   return false;
 }
 const js = (v) => JSON.stringify(v);
@@ -73,8 +79,10 @@ const pageHas = async (p, needle) => { const r = await fetch(BASE + p); return {
 let pass = 0;
 const failures = [];
 function check(name, ok, info) {
+  if (!ok && info === undefined && lastState) info = lastState;
+  lastState = null;
   if (ok) pass++; else failures.push(`${name}${info === undefined ? '' : ' → ' + JSON.stringify(info).slice(0, 300)}`);
-  console.log(`${ok ? '✓' : '✗'} ${name}`);
+  console.log(`${ok ? '✓' : '✗'} ${name}${ok ? '' : '  ← ' + JSON.stringify(info ?? '').slice(0, 300)}`);
 }
 
 await send('Page.enable');

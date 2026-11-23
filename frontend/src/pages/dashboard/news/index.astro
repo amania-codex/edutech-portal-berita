@@ -3,7 +3,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
 import { getCategories } from '../../../lib/news';
 
 // Daftar berita dimuat di browser (perlu cookie admin agar draft ikut tampil)
-const categories = await getCategories();
+const categories = await getCategories(true);
 ---
 
 <DashboardLayout title="Kelola Berita" activeMenu="news">
