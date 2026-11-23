@@ -1,5 +1,15 @@
 ---
-// Footer.astro — Edutech-portal-ramai editorial style
+// Footer.astro — isi diatur dari Dashboard (Pengaturan, Halaman, Kelola Kategori)
+import { DEFAULT_DESCRIPTION, SOCIAL_LINKS, getMenuCategories, getPages, getSettings } from '../lib/site';
+
+const [menu, pages, settings] = await Promise.all([getMenuCategories(), getPages(), getSettings()]);
+const socials = SOCIAL_LINKS.filter((s) => settings[s.key]);
+const contact = [
+  settings.contact_email && { label: settings.contact_email, href: `mailto:${settings.contact_email}` },
+  settings.contact_phone && { label: settings.contact_phone, href: `tel:${settings.contact_phone.replace(/[^\d+]/g, '')}` },
+  settings.contact_address && { label: settings.contact_address },
+].filter(Boolean) as Array<{ label: string; href?: string }>;
+const year = new Date().getFullYear();
 ---
 
 <footer class="site-footer" id="kontak">
@@ -9,47 +19,47 @@
         <span class="brand-mark"><span></span><span></span><span></span></span>
         <span class="brand-name">Edu<span>Tech</span><small>.id</small></span>
       </a>
-      <p>
-        Portal informasi pendidikan, teknologi, riset, dan inovasi. Menghubungkan gagasan dengan perubahan melalui jurnalisme bermutu dan terpercaya.
-      </p>
-      <div class="footer-social">
-        <a href="#facebook" title="Facebook">f</a>
-        <a href="#x" title="X / Twitter">𝕏</a>
-        <a href="#instagram" title="Instagram">◎</a>
-        <a href="#youtube" title="YouTube">▶</a>
-      </div>
+      <p>{settings.site_description || DEFAULT_DESCRIPTION}</p>
+      {socials.length > 0 && (
+        <div class="footer-social">
+          {socials.map((s) => <a href={settings[s.key]} title={s.label} aria-label={s.label} target="_blank" rel="noopener">{s.icon}</a>)}
+        </div>
+      )}
     </div>
 
     <div class="footer-column">
       <h4>Jelajahi</h4>
       <a href="/kategori/semua">Semua Berita</a>
-      <a href="/kategori/pendidikan">Pendidikan</a>
-      <a href="/kategori/perguruan-tinggi">Kabar Kampus</a>
-      <a href="/kategori/jateng-diy">Jateng & DIY</a>
-      <a href="/kategori/artikel">Artikel & Opini</a>
+      {menu.slice(0, 6).map((c) => <a href={`/kategori/${c.slug}`}>{c.name}</a>)}
       <a href="/event">Agenda & Event</a>
     </div>
 
     <div class="footer-column">
-      <h4>Untuk Pembaca</h4>
-      <a href="/#redaksi">Tentang Redaksi</a>
-      <a href="/#pedoman">Pedoman Media Siber</a>
-      <a href="/#privacy">Kebijakan Privasi</a>
-      <a href="/#koreksi">Koreksi Berita</a>
+      <h4>Informasi</h4>
+      {pages.map((p) => <a href={`/halaman/${p.slug}`}>{p.title}</a>)}
       <a href="/cari">Pencarian Berita</a>
+      <a href="/#newsletter">Newsletter</a>
     </div>
 
-    <div class="footer-column">
-      <h4>Kolaborasi</h4>
-      <a href="/kategori/advertorial">Pasang Advertorial</a>
-      <a href="/#jurnal">Publikasi Ilmiah</a>
-      <a href="/event">Kirim Agenda Event</a>
-      <a href="/#kontak">Hubungi Kami</a>
-    </div>
+    {contact.length > 0 && (
+      <div class="footer-column">
+        <h4>Kontak</h4>
+        {contact.map((c) => (c.href ? <a href={c.href}>{c.label}</a> : <span class="footer-text">{c.label}</span>))}
+      </div>
+    )}
   </div>
 
-  <div class="container footer-bottom">
-    <span>© 2026 EduTech.id. Semua hak dilindungi.</span>
+<div class="container footer-bottom">
+    <span>© {year} EduTech.id. Semua hak dilindungi.</span>
     <span>Dibuat untuk komunitas pendidikan, teknologi, dan riset Indonesia.</span>
   </div>
 </footer>
+
+<style>
+  .footer-text {
+    color: #9cacc0;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-line;
+  }
+</style>

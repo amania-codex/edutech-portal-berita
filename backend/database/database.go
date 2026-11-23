@@ -43,6 +43,9 @@ func Connect() {
 
 	log.Println("Database connection successfully opened")
 
+	// Kolom menu kategori baru pertama kali dibuat → isi menu bawaan setelah migrasi
+	menuIsNew := !database.Migrator().HasColumn(&models.Category{}, "menu_order")
+
 	err = database.AutoMigrate(
 		&models.User{}, 
 		&models.Article{}, 
@@ -61,6 +64,8 @@ func Connect() {
 		&models.BankAccount{},
 		&models.Registration{},
 		&models.NewsletterSubscriber{},
+		&models.Setting{},
+		&models.Page{},
 	)
 	if err != nil {
 		log.Fatal("Failed to auto-migrate database!\n", err)
@@ -71,6 +76,9 @@ func Connect() {
 
 	// Arsip berita dimuat otomatis bila database masih kosong (juga di produksi)
 	SeedNews()
+	if menuIsNew {
+		seedMenuDefaults()
+	}
 
 	// Di produksi hanya membuat akun bila ADMIN_PASSWORD diisi (lihat seeder.go)
 	SeedAdmin()

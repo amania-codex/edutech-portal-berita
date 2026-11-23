@@ -1,0 +1,341 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import '../../styles/admin.css';
+---
+
+<DashboardLayout title="Kelola Event" activeMenu="events">
+  <div class="adm">
+    <div class="head">
+      <div>
+        <h2 class="page-title">Kelola Event & Webinar</h2>
+        <p class="page-subtitle">Event berstatus <b>Terbit</b> langsung tampil di halaman Event & Webinar dan di Agenda beranda.</p>
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-add-event">+ Tambah Event</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Event</th><th>Jadwal (WIB)</th><th>Status</th><th>Biaya</th><th>Pendaftar</th><th></th></tr>
+          </thead>
+          <tbody id="event-rows"><tr><td colspan="6" class="empty">Memuat event...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card card-pad">
+      <h3 class="card-title">Rekening Pembayaran</h3>
+      <p class="hint">Rekening yang dipilih pada event berbayar ditampilkan kepada pendaftar.</p>
+      <div class="table-wrap" style="margin-top:12px">
+        <table>
+          <thead><tr><th>Bank</th><th>Nomor</th><th>Atas Nama</th><th></th></tr></thead>
+          <tbody id="bank-rows"><tr><td colspan="4" class="empty">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+      <form id="bank-form" class="grid-3" style="margin-top:16px">
+        <div class="field"><label class="lbl" for="bank-name">Nama Bank</label><input class="input" id="bank-name" required placeholder="BCA" /></div>
+        <div class="field"><label class="lbl" for="bank-number">Nomor Rekening</label><input class="input" id="bank-number" required /></div>
+        <div class="field"><label class="lbl" for="bank-holder">Atas Nama</label><input class="input" id="bank-holder" required /></div>
+        <div><button type="submit" class="btn btn-outline">+ Tambah Rekening</button></div>
+      </form>
+      <div class="alert alert-err" id="bank-error" hidden></div>
+    </div>
+
+    <div class="modal-overlay" id="event-modal">
+      <div class="modal-content modal-wide">
+        <div class="modal-header">
+          <h3 class="modal-title" id="event-modal-title">Tambah Event</h3>
+          <button type="button" class="modal-close" id="event-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <form id="event-form">
+            <input type="hidden" id="ev-id" />
+            <div class="grid">
+              <div class="field span-2"><label class="lbl" for="ev-title">Judul Event</label><input class="input" id="ev-title" required minlength="3" /></div>
+              <div class="field"><label class="lbl" for="ev-slug">Slug (alamat)</label><input class="input" id="ev-slug" placeholder="otomatis dari judul" /></div>
+              <div class="field">
+                <label class="lbl" for="ev-status">Status</label>
+                <select class="input" id="ev-status">
+                  <option value="published">Terbit</option>
+                  <option value="draft">Draft (tersembunyi)</option>
+                  <option value="completed">Selesai</option>
+                  <option value="cancelled">Dibatalkan</option>
+                </select>
+              </div>
+              <div class="field span-2"><label class="lbl" for="ev-venue">Lokasi / Platform</label><input class="input" id="ev-venue" required placeholder="Zoom Meeting / Aula Kampus ..." /></div>
+              <div class="field"><label class="lbl" for="ev-start">Mulai (WIB)</label><input class="input" type="datetime-local" id="ev-start" required /></div>
+              <div class="field"><label class="lbl" for="ev-end">Selesai (WIB)</label><input class="input" type="datetime-local" id="ev-end" required /></div>
+            </div>
+            <div class="grid-3" style="margin-top:16px">
+              <div class="field"><label class="lbl" for="ev-quota">Kuota (0 = tanpa batas)</label><input class="input" type="number" min="0" id="ev-quota" value="0" /></div>
+              <div class="field"><label class="lbl" for="ev-price">Biaya Reguler (Rp)</label><input class="input" type="number" min="0" id="ev-price" value="0" /></div>
+              <div class="field"><label class="lbl" for="ev-premium">Biaya Premium (Rp, opsional)</label><input class="input" type="number" min="0" id="ev-premium" value="0" /></div>
+            </div>
+            <div class="field" style="margin-top:16px">
+              <label class="lbl" for="ev-image-file">Gambar Event</label>
+              <input class="input" type="file" accept="image/*" id="ev-image-file" />
+              <input class="input" id="ev-image" placeholder="atau tempel URL gambar" />
+              <img class="preview-img" id="ev-image-preview" alt="" hidden />
+            </div>
+            <div class="field"><label class="lbl" for="ev-cert">Tautan Sertifikat (opsional)</label><input class="input" id="ev-cert" placeholder="https://..." /></div>
+            <div class="field"><label class="lbl" for="ev-desc">Deskripsi</label><textarea class="input" id="ev-desc" rows="6" required></textarea><p class="hint">Baris baru menjadi paragraf baru.</p></div>
+
+            <p class="section-label">Pemateri</p>
+            <div id="speaker-list"></div>
+            <button type="button" class="btn-link" id="add-speaker">+ Tambah pemateri</button>
+
+            <p class="section-label">Materi & Rekaman (untuk peserta terverifikasi)</p>
+            <div id="material-list"></div>
+            <button type="button" class="btn-link" id="add-material">+ Tambah materi</button>
+
+            <p class="section-label">Rekening Pembayaran untuk Event Ini</p>
+            <div id="bank-checks" class="grid"></div>
+
+            <div class="alert alert-err" id="event-error" hidden></div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-outline" id="event-cancel">Batal</button>
+              <button type="submit" class="btn btn-primary" id="event-save">Simpan Event</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <template id="speaker-tpl">
+    <div class="repeat-row">
+      <input class="input sp-name" placeholder="Nama pemateri" />
+      <input class="input sp-role" placeholder="Jabatan / instansi" />
+      <button type="button" class="btn btn-outline btn-sm row-del">Hapus</button>
+    </div>
+  </template>
+  <template id="material-tpl">
+    <div class="repeat-row three">
+      <input class="input mt-title" placeholder="Judul materi" />
+      <select class="input mt-type"><option value="file">Dokumen / Slide</option><option value="video">Video Rekaman</option></select>
+      <input class="input mt-link" placeholder="https://..." />
+      <button type="button" class="btn btn-outline btn-sm row-del">Hapus</button>
+    </div>
+  </template>
+</DashboardLayout>
+
+<script>
+  import { api, el, errorText, getJSON, sendJSON } from '../../lib/client';
+  import { assetUrl } from '../../lib/news';
+  import { BACKEND_URL } from '../../lib/config';
+
+  const modal = el('event-modal') as HTMLElement;
+  const form = el('event-form') as HTMLFormElement;
+  let events: any[] = [];
+  let banks: any[] = [];
+
+  const rupiah = (n: number) => (n > 0 ? `Rp ${Number(n).toLocaleString('id-ID')}` : 'Gratis');
+  const statusLabel: Record<string, [string, string]> = {
+    published: ['Terbit', 'b-green'], draft: ['Draft', 'b-gray'], completed: ['Selesai', 'b-orange'], cancelled: ['Dibatalkan', 'b-red'],
+  };
+
+  // ISO → "YYYY-MM-DDTHH:mm" dalam WIB untuk input datetime-local
+  function toLocalInput(iso: string) {
+    if (!iso) return '';
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jakarta', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+      .formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+  }
+  const schedule = (e: any) => new Date(e.startTime).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+  function cell(text: string, cls = '') {
+    const td = document.createElement('td');
+    td.textContent = text;
+    if (cls) td.className = cls;
+    return td;
+  }
+  function message(tbody: string, text: string, cols: number) {
+    const tr = document.createElement('tr');
+    const td = cell(text, 'empty');
+    td.colSpan = cols;
+    tr.append(td);
+    el(tbody).replaceChildren(tr);
+  }
+
+  function renderEvents() {
+    if (!events.length) return message('event-rows', 'Belum ada event. Klik "Tambah Event".', 6);
+    el('event-rows').replaceChildren(...events.map((e) => {
+      const tr = document.createElement('tr');
+      const title = cell('');
+      const strong = document.createElement('strong');
+      strong.textContent = e.title;
+      const sub = document.createElement('div');
+      sub.className = 'muted';
+      sub.textContent = e.venue;
+      title.append(strong, sub);
+      const [label, color] = statusLabel[e.status] || [e.status, 'b-gray'];
+      const status = cell('');
+      const badge = document.createElement('span');
+      badge.className = `badge ${color}`;
+      badge.textContent = label;
+      status.append(badge);
+      const price = e.premiumPrice ? `${rupiah(e.price)} / Premium ${rupiah(e.premiumPrice)}` : rupiah(e.price);
+      const actions = cell('');
+      const wrap = document.createElement('div');
+      wrap.className = 'actions';
+      const mk = (text: string, cls: string, fn: () => void) => { const b = document.createElement('button'); b.type = 'button'; b.className = `btn btn-sm ${cls}`; b.textContent = text; b.addEventListener('click', fn); return b; };
+      const view = document.createElement('a');
+      view.className = 'btn btn-sm btn-outline';
+      view.textContent = 'Pendaftar';
+      view.href = `/dashboard/registrations?event=${e.ID}`;
+      wrap.append(view, mk('Ubah', 'btn-outline ev-edit', () => openModal(e)), mk('Hapus', 'btn-danger ev-delete', () => remove(e)));
+      actions.append(wrap);
+      tr.append(title, cell(schedule(e)), status, cell(price), cell(`${e.registeredCount}${e.quota ? ` / ${e.quota}` : ''}`), actions);
+      tr.dataset.title = e.title;
+      return tr;
+    }));
+  }
+
+  function renderBanks() {
+    if (!banks.length) return message('bank-rows', 'Belum ada rekening.', 4);
+    el('bank-rows').replaceChildren(...banks.map((b) => {
+      const tr = document.createElement('tr');
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn btn-sm btn-danger';
+      del.textContent = 'Hapus';
+      del.addEventListener('click', async () => {
+        if (!confirm(`Hapus rekening ${b.bankName} ${b.accountNumber}?`)) return;
+        const res = await api(`/admin/bank-accounts/${b.ID}`, { method: 'DELETE' }).catch(() => null);
+        if (res?.ok) loadBanks(); else alert('Gagal menghapus rekening.');
+      });
+      const actions = cell('');
+      actions.className = 'actions';
+      actions.append(del);
+      tr.append(cell(b.bankName), cell(b.accountNumber), cell(b.accountHolder), actions);
+      return tr;
+    }));
+  }
+
+  async function loadEvents() {
+    try { events = (await getJSON('/admin/events')).data || []; renderEvents(); }
+    catch { message('event-rows', 'Gagal memuat event. Pastikan backend aktif.', 6); }
+  }
+  async function loadBanks() {
+    try { banks = (await getJSON('/bank-accounts?all=1')).data || []; renderBanks(); }
+    catch { message('bank-rows', 'Gagal memuat rekening.', 4); }
+  }
+
+  function addRow(listId: string, tplId: string, values: Record<string, string> = {}) {
+    const node = (el(tplId) as HTMLTemplateElement).content.cloneNode(true) as DocumentFragment;
+    for (const [sel, v] of Object.entries(values)) (node.querySelector(sel) as HTMLInputElement).value = v;
+    const row = node.firstElementChild as HTMLElement;
+    row.querySelector('.row-del')!.addEventListener('click', () => row.remove());
+    el(listId).append(node);
+  }
+
+  function setImage(url: string) {
+    el('ev-image').value = url;
+    const img = el('ev-image-preview') as HTMLImageElement;
+    img.hidden = !url;
+    if (url) img.src = assetUrl(url);
+  }
+
+  function openModal(e?: any) {
+    form.reset();
+    el('event-error').hidden = true;
+    el('event-modal-title').textContent = e ? 'Ubah Event' : 'Tambah Event';
+    el('ev-id').value = e?.ID ?? '';
+    el('ev-title').value = e?.title ?? '';
+    el('ev-slug').value = e?.slug ?? '';
+    el('ev-status').value = e?.status ?? 'published';
+    el('ev-venue').value = e?.venue ?? '';
+    el('ev-start').value = toLocalInput(e?.startTime);
+    el('ev-end').value = toLocalInput(e?.endTime);
+    el('ev-quota').value = e?.quota ?? 0;
+    el('ev-price').value = e?.price ?? 0;
+    el('ev-premium').value = e?.premiumPrice ?? 0;
+    el('ev-cert').value = e?.certificateLink ?? '';
+    el('ev-desc').value = e?.description ?? '';
+    setImage(e?.imageUrl ?? '');
+    el('speaker-list').replaceChildren();
+    el('material-list').replaceChildren();
+    (e?.speakers || []).forEach((s: any) => addRow('speaker-list', 'speaker-tpl', { '.sp-name': s.name, '.sp-role': s.role || '' }));
+    (e?.materials || []).forEach((m: any) => addRow('material-list', 'material-tpl', { '.mt-title': m.title, '.mt-type': m.type, '.mt-link': m.link || m.filePath || '' }));
+    const chosen = new Set((e?.bankAccounts || []).map((b: any) => b.ID));
+    el('bank-checks').replaceChildren(...banks.map((b) => {
+      const label = document.createElement('label');
+      label.className = 'check';
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.value = b.ID;
+      box.checked = chosen.has(b.ID);
+      label.append(box, ` ${b.bankName} — ${b.accountNumber} (${b.accountHolder})`);
+      return label;
+    }));
+    if (!banks.length) el('bank-checks').textContent = 'Belum ada rekening. Tambahkan di bagian Rekening Pembayaran.';
+    modal.classList.add('active');
+  }
+  const closeModal = () => modal.classList.remove('active');
+
+  async function remove(e: any) {
+    if (!confirm(`Hapus event "${e.title}"? Data pendaftarnya ikut tersembunyi.`)) return;
+    const res = await api(`/admin/events/${e.ID}`, { method: 'DELETE' }).catch(() => null);
+    if (res?.ok) loadEvents(); else alert('Gagal menghapus event.');
+  }
+
+  el('ev-image-file').addEventListener('change', async () => {
+    const file = (el('ev-image-file') as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const body = new FormData();
+    body.append('image', file);
+    const res = await api('/upload', { method: 'POST', body }).catch(() => null);
+    if (res?.ok) setImage((await res.json()).url);
+    else alert(res ? await errorText(res, 'Gagal mengunggah gambar.') : 'Gagal mengunggah gambar.');
+  });
+  el('ev-image').addEventListener('input', () => setImage(el('ev-image').value.trim()));
+  el('add-speaker').addEventListener('click', () => addRow('speaker-list', 'speaker-tpl'));
+  el('add-material').addEventListener('click', () => addRow('material-list', 'material-tpl'));
+  el('btn-add-event').addEventListener('click', () => openModal());
+  el('event-close').addEventListener('click', closeModal);
+  el('event-cancel').addEventListener('click', closeModal);
+
+  form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const id = el('ev-id').value;
+    const image = el('ev-image').value.trim().replace(BACKEND_URL, '');
+    const body = {
+      title: el('ev-title').value.trim(),
+      slug: el('ev-slug').value.trim(),
+      status: el('ev-status').value,
+      venue: el('ev-venue').value.trim(),
+      start_time: el('ev-start').value,
+      end_time: el('ev-end').value,
+      quota: Number(el('ev-quota').value) || 0,
+      price: Number(el('ev-price').value) || 0,
+      premium_price: Number(el('ev-premium').value) || 0,
+      certificate_link: el('ev-cert').value.trim(),
+      image_url: image,
+      description: el('ev-desc').value,
+      speakers: [...el('speaker-list').children].map((r: any) => ({ name: r.querySelector('.sp-name').value, role: r.querySelector('.sp-role').value })),
+      materials: [...el('material-list').children].map((r: any) => ({ title: r.querySelector('.mt-title').value, type: r.querySelector('.mt-type').value, link: r.querySelector('.mt-link').value })),
+      bank_account_ids: [...el('bank-checks').querySelectorAll('input:checked')].map((b: any) => Number(b.value)),
+    };
+    const btn = el('event-save') as HTMLButtonElement;
+    btn.disabled = true;
+    const res = await sendJSON(id ? `/admin/events/${id}` : '/admin/events', id ? 'PUT' : 'POST', body).catch(() => null);
+    btn.disabled = false;
+    if (res?.ok) { closeModal(); loadEvents(); return; }
+    el('event-error').textContent = res ? await errorText(res, 'Gagal menyimpan event.') : 'Server tidak dapat dihubungi.';
+    el('event-error').hidden = false;
+  });
+
+  el('bank-form').addEventListener('submit', async (ev: Event) => {
+    ev.preventDefault();
+    el('bank-error').hidden = true;
+    const res = await sendJSON('/admin/bank-accounts', 'POST', {
+      bank_name: el('bank-name').value.trim(), account_number: el('bank-number').value.trim(), account_holder: el('bank-holder').value.trim(),
+    }).catch(() => null);
+    if (res?.ok) { (el('bank-form') as HTMLFormElement).reset(); loadBanks(); return; }
+    el('bank-error').textContent = res ? await errorText(res, 'Gagal menambah rekening.') : 'Server tidak dapat dihubungi.';
+    el('bank-error').hidden = false;
+  });
+
+  loadBanks().then(loadEvents);
+</script>

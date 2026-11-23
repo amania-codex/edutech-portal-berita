@@ -74,6 +74,13 @@ func Setup(app *fiber.App) {
 	api.Get("/news/category/:category", handlers.GetNews)
 	api.Get("/news/:id<int>", handlers.GetNewsById)
 	api.Get("/categories", handlers.GetAllCategories)
+	api.Get("/settings", handlers.GetSettings)
+	api.Put("/admin/settings", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateSettings)
+	api.Get("/pages", handlers.GetPages)
+	api.Get("/pages/slug/:slug", handlers.GetPageBySlug)
+	api.Post("/admin/pages", middleware.Protected(), middleware.AdminOnly(), handlers.CreatePage)
+	api.Put("/admin/pages/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdatePage)
+	api.Delete("/admin/pages/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeletePage)
 	api.Post("/categories", middleware.Protected(), middleware.AdminOnly(), handlers.CreateCategory)
 	api.Put("/categories/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateCategory)
 	api.Delete("/categories/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteCategory)
@@ -90,6 +97,7 @@ func Setup(app *fiber.App) {
 	api.Get("/banners", handlers.GetActiveBanners)
 	api.Get("/admin/banners", middleware.Protected(), middleware.AdminOnly(), handlers.GetAllBanners)
 	api.Post("/admin/banners", middleware.Protected(), middleware.AdminOnly(), handlers.CreateBanner)
+	api.Put("/admin/banners/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateBanner)
 	api.Put("/admin/banners/:id<int>/toggle", middleware.Protected(), middleware.AdminOnly(), handlers.ToggleBannerStatus)
 	api.Delete("/admin/banners/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteBanner)
 
@@ -129,6 +137,7 @@ func Setup(app *fiber.App) {
 	api.Get("/bank-accounts", handlers.GetBankAccounts)
 
 	// Admin Event & Registration routes
+	api.Get("/admin/events", middleware.Protected(), middleware.AdminOnly(), handlers.GetAdminEvents)
 	api.Post("/admin/events", middleware.Protected(), middleware.AdminOnly(), handlers.CreateEvent)
 	api.Put("/admin/events/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateEvent)
 	api.Delete("/admin/events/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteEvent)

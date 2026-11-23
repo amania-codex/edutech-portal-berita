@@ -37,6 +37,8 @@ export interface Category {
   name: string;
   slug: string;
   parentId: number | null;
+  menuOrder: number;
+  isTopic: boolean;
 }
 
 /** Path /uploads/... disajikan oleh backend, bukan oleh host frontend. */
@@ -103,7 +105,7 @@ export async function getNews(path: string): Promise<News[]> {
  * Simpan hasil sebentar (detik) agar satu kunjungan tidak memanggil API berulang.
  * Cukup singkat sehingga perubahan dari dashboard segera terlihat.
  */
-function cached<T>(seconds: number, load: () => Promise<T>): () => Promise<T> {
+export function cached<T>(seconds: number, load: () => Promise<T>): () => Promise<T> {
   let at = 0;
   let value: Promise<T> | null = null;
   return () => {
@@ -124,9 +126,11 @@ const loadCategories = async (): Promise<Category[]> =>
     name: c.name,
     slug: c.slug,
     parentId: c.parentId ?? null,
+    menuOrder: c.menuOrder ?? 0,
+    isTopic: !!c.isTopic,
   }));
 
-const cachedCategories = cached(30, loadCategories);
+const cachedCategories = cached(5, loadCategories);
 
 /** Daftar kategori. fresh=true melewati cache (mis. untuk kategori yang baru dibuat). */
 export const getCategories = (fresh = false) => (fresh ? loadCategories() : cachedCategories());

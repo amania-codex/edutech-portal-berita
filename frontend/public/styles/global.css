@@ -2810,3 +2810,13 @@ body.dark .site-footer {
 .popular-image img {
   object-position: center 20%;
 }
+
+/* Beranda tanpa poster samping kiri */
+.page-layout.tanpa-kiri {
+  grid-template-columns: minmax(0, 1fr) 190px;
+}
+@media (max-width: 1200px) {
+  .page-layout.tanpa-kiri {
+    grid-template-columns: minmax(0, 1fr) 150px;
+  }
+}

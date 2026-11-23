@@ -1,0 +1,104 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import '../../styles/admin.css';
+---
+
+<DashboardLayout title="Pendaftaran Event" activeMenu="registrations">
+  <div class="adm">
+    <div class="head">
+      <div>
+        <h2 class="page-title">Pendaftaran Event</h2>
+        <p class="page-subtitle">Periksa bukti pembayaran lalu verifikasi atau tolak. Peserta yang punya akun mendapat pemberitahuan di Kotak Masuk.</p>
+      </div>
+    </div>
+
+    <div class="filters">
+      <select class="input" id="filter-event" style="max-width:360px"><option value="">Semua event</option></select>
+      <select class="input" id="filter-status" style="max-width:220px">
+        <option value="">Semua status</option>
+        <option value="waiting">Menunggu verifikasi</option>
+        <option value="pending">Belum unggah bukti</option>
+        <option value="verified">Terverifikasi</option>
+        <option value="rejected">Ditolak</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tiket</th><th>Peserta</th><th>Event</th><th>Paket</th><th>Bukti</th><th>Status</th><th></th></tr></thead>
+          <tbody id="reg-rows"><tr><td colspan="7" class="empty">Memuat pendaftaran...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { el, getJSON, safeHref, sendJSON, errorText } from '../../lib/client';
+  import { assetUrl } from '../../lib/news';
+
+  const statusLabel: Record<string, [string, string]> = {
+    verified: ['Terverifikasi', 'b-green'], waiting: ['Menunggu verifikasi', 'b-orange'], pending: ['Belum unggah bukti', 'b-gray'], rejected: ['Ditolak', 'b-red'],
+  };
+  const params = new URLSearchParams(location.search);
+
+  function td(text = '') { const c = document.createElement('td'); c.textContent = text; return c; }
+
+  async function load() {
+    const q = new URLSearchParams();
+    if (el('filter-event').value) q.set('event_id', el('filter-event').value);
+    if (el('filter-status').value) q.set('status', el('filter-status').value);
+    try {
+      const list: any[] = (await getJSON(`/admin/registrations?${q}`)).data || [];
+      if (!list.length) {
+        const tr = document.createElement('tr');
+        const c = td('Belum ada pendaftaran.');
+        c.colSpan = 7; c.className = 'empty';
+        tr.append(c);
+        return el('reg-rows').replaceChildren(tr);
+      }
+      el('reg-rows').replaceChildren(...list.map((r) => {
+        const tr = document.createElement('tr');
+        tr.dataset.email = r.email;
+        const who = td();
+        const name = document.createElement('strong'); name.textContent = r.name;
+        const sub = document.createElement('div'); sub.className = 'muted'; sub.textContent = [r.email, r.phone].filter(Boolean).join(' · ');
+        who.append(name, sub);
+        const amount = r.totalAmount > 0 ? `Rp ${Number(r.totalAmount).toLocaleString('id-ID')}` : 'Gratis';
+        const proof = td();
+        if (r.paymentProof) {
+          const a = document.createElement('a');
+          a.href = safeHref(assetUrl(r.paymentProof)); a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'Lihat bukti';
+          proof.append(a);
+        } else proof.textContent = '-';
+        const [label, color] = statusLabel[r.status] || [r.status, 'b-gray'];
+        const status = td(); const badge = document.createElement('span'); badge.className = `badge ${color}`; badge.textContent = label; status.append(badge);
+        const actions = td(); const wrap = document.createElement('div'); wrap.className = 'actions';
+        const act = (text: string, cls: string, next: string) => {
+          const b = document.createElement('button'); b.type = 'button'; b.className = `btn btn-sm ${cls}`; b.textContent = text;
+          b.addEventListener('click', async () => {
+            const res = await sendJSON(`/admin/registrations/${r.ID}/status`, 'PUT', { status: next }).catch(() => null);
+            if (res?.ok) load(); else alert(res ? await errorText(res, 'Gagal memperbarui status.') : 'Server tidak dapat dihubungi.');
+          });
+          return b;
+        };
+        if (r.status !== 'verified') wrap.append(act('Verifikasi', 'btn-success reg-verify', 'verified'));
+        if (r.status !== 'rejected') wrap.append(act('Tolak', 'btn-danger reg-reject', 'rejected'));
+        actions.append(wrap);
+        tr.append(td(r.ticketCode), who, td(r.event?.title || '-'), td(`${r.tier === 'premium' ? 'Premium' : 'Reguler'} · ${amount}`), proof, status, actions);
+        return tr;
+      }));
+    } catch {
+      el('reg-rows').textContent = 'Gagal memuat pendaftaran.';
+    }
+  }
+
+  getJSON('/admin/events').then((r) => {
+    for (const e of r.data || []) el('filter-event').add(new Option(e.title, e.ID));
+    if (params.get('event')) el('filter-event').value = params.get('event');
+    load();
+  }).catch(load);
+  el('filter-event').addEventListener('change', load);
+  el('filter-status').addEventListener('change', load);
+</script>

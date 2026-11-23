@@ -6,6 +6,8 @@ import Footer from "../components/Footer.astro";
 
 import { apiGet, getNews, type News } from "../lib/news";
 import { API_BASE } from "../lib/config";
+import Poster from "../components/Poster.astro";
+import { bannersAt, getTopicCategories } from "../lib/site";
 
 // Fetch data paralel dari backend Go
 const [latestNews, featuredNews, trendingNews, popularNews, articleNews, eventsList] = await Promise.all([
@@ -16,6 +18,13 @@ const [latestNews, featuredNews, trendingNews, popularNews, articleNews, eventsL
   getNews("/news?category=artikel&limit=8&lite=1"),
   apiGet("/events").then((r) => r.data || []),
 ]);
+const [leftBanners, rightBanners, middleBanners, topics] = await Promise.all([
+  bannersAt("kiri"),
+  bannersAt("kanan"),
+  bannersAt("tengah"),
+  getTopicCategories(),
+]);
+const topicStyles = ["topic-campus", "topic-tech", "topic-research"];
 
 // Helper format tanggal Indonesia
 function formatDateIndo(dateStr: string): string {
@@ -114,28 +123,13 @@ const displayEvents = eventsList
 >
   <Navbar />
 
-  <main class="container page-layout">
+  <main class:list={["container page-layout", { "tanpa-kiri": leftBanners.length === 0 }]}>
     <!-- ASIDE LEFT: AD RAIL / SPONSOR & CALL FOR PAPERS -->
-    <aside class="ad-rail left-rail" aria-label="Iklan dan Agenda">
-      <div class="vertical-ad ad-purple">
-        <span>CALL FOR PAPERS</span>
-        <strong>Jurnal APJIKOM</strong>
-        <p>Publikasikan karya ilmiah dan riset terbaik Anda di indeks terakreditasi.</p>
-        <a href="/event" style="color:inherit;"><b>SUBMIT NOW ↗</b></a>
-      </div>
-      <div class="vertical-ad ad-blue">
-        <span>SEMINAR NASIONAL</span>
-        <strong>SENIKO 2026</strong>
-        <p>AI • Smart City • Cyber Security • Digital Transformation</p>
-        <a href="/event" style="color:inherit;"><b>DAFTAR SEKARANG</b></a>
-      </div>
-      <div class="vertical-ad ad-violet">
-        <span>CALL FOR PAPERS</span>
-        <strong>Riset & Inovasi</strong>
-        <p>Kesempatan publikasi jurnal nasional dan internasional bereputasi.</p>
-        <a href="/event" style="color:inherit;"><b>PELAJARI ↗</b></a>
-      </div>
-    </aside>
+    {leftBanners.length > 0 && (
+      <aside class="ad-rail left-rail" aria-label="Iklan">
+        <Poster banners={leftBanners} variant="samping" />
+      </aside>
+    )}
 
     <!-- CENTER: MAIN EDITORIAL CONTENT COLUMN -->
     <div class="content-column">
@@ -193,20 +187,8 @@ const displayEvents = eventsList
         </div>
       </section>
 
-      <!-- ADVERTISEMENT BANNER STRIP -->
-      <div class="ad-banner">
-        <span class="ad-label">ADVERTISEMENT</span>
-        <div class="ad-banner-art">
-          <div>
-            <small>CALL FOR PAPERS & PUBLIKASI</small>
-            <strong>Jurnal APJIKOM 2026</strong>
-            <p>Teknologi Informasi • Sains Data • Sistem Cerdas • Rekayasa Perangkat Lunak</p>
-          </div>
-          <a href="/event" style="color:inherit;">
-            <b>SUBMIT<br />YOUR PAPER ↗</b>
-          </a>
-        </div>
-      </div>
+      <!-- POSTER TENGAH (Dashboard > Kelola Poster) -->
+      <Poster banners={middleBanners} variant="tengah" />
 
       <!-- BERITA TERBARU SECTION -->
       <section class="news-section" id="nasional">
@@ -254,31 +236,25 @@ const displayEvents = eventsList
         </div>
       </section>
 
-      <!-- TOPIK PILIHAN STRIP -->
-      <section class="topic-strip" id="kampus">
-        <div class="topic-title">
-          <span class="eyebrow">JELAJAHI</span>
-          <h2>Topik Pilihan</h2>
-          <p>Ikuti isu dan perkembangan paling relevan di dunia pendidikan & teknologi.</p>
-        </div>
-        <div class="topic-cards">
-          <a href="/kategori/perguruan-tinggi" class="topic-card topic-campus">
-            <span>01 / AKADEMIK</span>
-            <strong>Kabar Kampus</strong>
-            <b>↗</b>
-          </a>
-          <a href="/kategori/jateng-diy" class="topic-card topic-tech">
-            <span>02 / DAERAH</span>
-            <strong>Jateng & DIY</strong>
-            <b>↗</b>
-          </a>
-          <a href="/kategori/pariwisata" class="topic-card topic-research">
-            <span>03 / WISATA</span>
-            <strong>Pariwisata</strong>
-            <b>↗</b>
-          </a>
-        </div>
-      </section>
+      <!-- TOPIK PILIHAN (Dashboard > Kelola Kategori: "Topik pilihan") -->
+      {topics.length > 0 && (
+        <section class="topic-strip">
+          <div class="topic-title">
+            <span class="eyebrow">JELAJAHI</span>
+            <h2>Topik Pilihan</h2>
+            <p>Ikuti isu dan perkembangan paling relevan di dunia pendidikan & teknologi.</p>
+          </div>
+          <div class="topic-cards">
+            {topics.slice(0, 3).map((t, i) => (
+              <a href={`/kategori/${t.slug}`} class={`topic-card ${topicStyles[i % topicStyles.length]}`}>
+                <span>0{i + 1} / {(t.parentName || "Topik").toUpperCase()}</span>
+                <strong>{t.name}</strong>
+                <b>↗</b>
+              </a>
+            ))}
+          </div>
+        </section>
+      )}
 
       <!-- POPULER MINGGU INI (TRACK SCROLL) -->
       <section class="news-section" id="teknologi">
@@ -312,7 +288,8 @@ const displayEvents = eventsList
         </div>
       </section>
 
-      <!-- RISET & INOVASI (3 VISUAL CARDS) -->
+      <!-- ARTIKEL & OPINI -->
+      {displayArtikel.length > 0 && (
       <section class="news-section" id="riset">
         <div class="section-heading">
           <div>
@@ -338,6 +315,7 @@ const displayEvents = eventsList
           ))}
         </div>
       </section>
+      )}
 
       <!-- AGENDA & EVENT SECTION -->
       {displayEvents.length > 0 && (
@@ -370,33 +348,6 @@ const displayEvents = eventsList
       </section>
       )}
 
-      <!-- CALL FOR PAPERS BANNER BOX -->
-      <section class="callpapers" id="jurnal">
-        <div class="callpapers-glow"></div>
-        <div class="callpapers-copy">
-          <span class="category-pill orange">PUBLIKASI ILMIAH</span>
-          <span class="eyebrow">CALL FOR PAPERS 2026</span>
-          <h2>Punya riset yang layak dibaca dunia?</h2>
-          <p>
-            Kirimkan karya ilmiah terbaik Anda ke jurnal dan forum akademik terakreditasi. Temukan ruang untuk berbagi gagasan dan membangun kolaborasi riset berdampak.
-          </p>
-          <a href="/event" class="primary-btn">
-            Jelajahi Publikasi <span>↗</span>
-          </a>
-        </div>
-        <div class="callpapers-art">
-          <div class="orbit orbit-one"></div>
-          <div class="orbit orbit-two"></div>
-          <div class="paper-card">
-            <span>JOURNAL</span>
-            <strong>APJIKOM</strong>
-            <i>Research • Technology • Innovation</i>
-            <b>2026</b>
-          </div>
-          <div class="floating-chip chip-one">✦ Peer Reviewed</div>
-          <div class="floating-chip chip-two">↗ Open for Submission</div>
-        </div>
-      </section>
 
       <!-- NEWSLETTER SECTION -->
       <section class="newsletter" id="newsletter">
@@ -421,13 +372,6 @@ const displayEvents = eventsList
 
     <!-- ASIDE RIGHT: RIGHT RAIL (TRENDING, ADS & MINI NEWSLETTER) -->
     <aside class="ad-rail right-rail" aria-label="Iklan dan trending">
-      <div class="vertical-ad ad-orange">
-        <span>EDUTECH UPDATE</span>
-        <strong>Call For Papers</strong>
-        <p>Jadilah bagian dari kemajuan sains dan transformasi digital.</p>
-        <a href="/event" style="color:inherit;"><b>KIRIM ARTIKEL ↗</b></a>
-      </div>
-
       <div class="trending-box">
         <div class="rail-heading">
           <span class="live-dot"></span>
@@ -441,12 +385,7 @@ const displayEvents = eventsList
         ))}
       </div>
 
-      <div class="vertical-ad ad-blue">
-        <span>SEMINAR NASIONAL</span>
-        <strong>SENIKO 2026</strong>
-        <p>Smart City • AI • Cyber Security</p>
-        <a href="/event" style="color:inherit;"><b>DAFTAR SEKARANG</b></a>
-      </div>
+      <Poster banners={rightBanners} variant="samping" />
 
       <div class="mini-newsletter">
         <span class="eyebrow">UPDATE HARIAN</span>

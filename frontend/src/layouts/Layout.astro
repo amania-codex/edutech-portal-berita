@@ -5,10 +5,13 @@ export interface Props {
   image?: string;
 }
 
+import { DEFAULT_DESCRIPTION, getSettings } from "../lib/site";
+
+const settings = await getSettings();
 const {
   title = "EduTech News Portal",
-  description = "Portal berita terdepan untuk informasi seputar pendidikan, teknologi, riset, dan karir akademik Indonesia.",
-  image = "/og-image.jpg",
+  description = settings.site_description || DEFAULT_DESCRIPTION,
+  image = "/favicon.svg",
 } = Astro.props;
 ---
 

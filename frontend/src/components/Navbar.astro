@@ -2,6 +2,8 @@
 // Navbar.astro — Edutech-portal-ramai editorial style (SSG-compatible)
 
 import { API_BASE } from '../lib/config';
+import Poster from './Poster.astro';
+import { SOCIAL_LINKS, bannersAt, getMenuCategories, getPages, getSettings } from '../lib/site';
 
 const todayStr = new Intl.DateTimeFormat("id-ID", {
   weekday: "long",
@@ -13,15 +15,9 @@ const todayStr = new Intl.DateTimeFormat("id-ID", {
 
 const currentPath = Astro.url.pathname;
 
-const navCategories = [
-  ['berita', 'Berita'],
-  ['pendidikan', 'Pendidikan'],
-  ['perguruan-tinggi', 'Kampus'],
-  ['jateng-diy', 'Jateng & DIY'],
-  ['nasional', 'Nasional'],
-  ['pariwisata', 'Pariwisata'],
-  ['artikel', 'Artikel'],
-];
+const [menu, pages, settings, headerBanners] = await Promise.all([getMenuCategories(), getPages(), getSettings(), bannersAt('header')]);
+const topPages = pages.filter((p) => p.menuOrder > 0);
+const socials = SOCIAL_LINKS.filter((s) => settings[s.key]);
 const isCategory = (slug: string) =>
   currentPath === `/kategori/${slug}` || currentPath.startsWith(`/kategori/${slug}/`);
 ---
@@ -30,12 +26,11 @@ const isCategory = (slug: string) =>
   <div class="container topline-inner">
     <span id="todayDate">{todayStr}</span>
     <div class="top-links">
-      <a href="/#redaksi">Tentang Kami</a>
-      <a href="/#kontak">Kontak</a>
+      {topPages.map((p) => <a href={`/halaman/${p.slug}`}>{p.title}</a>)}
       <a href="/#newsletter">Newsletter</a>
-      <span class="social-dot" title="Facebook">f</span>
-      <span class="social-dot" title="X / Twitter">𝕏</span>
-      <span class="social-dot" title="YouTube">▶</span>
+      {socials.map((s) => (
+        <a class="social-dot" href={settings[s.key]} title={s.label} aria-label={s.label} target="_blank" rel="noopener">{s.icon}</a>
+      ))}
     </div>
   </div>
 </div>
@@ -48,11 +43,7 @@ const isCategory = (slug: string) =>
       <span class="brand-name">Edu<span>Tech</span><small>.id</small></span>
     </a>
     
-    <div class="header-ad">
-      <span class="ad-label">ADVERTISEMENT</span>
-      <strong>Ruang kolaborasi untuk ide dan inovasi.</strong>
-      <span>Publikasikan kegiatan, riset, dan kabar institusi Anda.</span>
-    </div>
+    {headerBanners.length > 0 ? <Poster banners={headerBanners.slice(0, 1)} variant="header" /> : <div class="header-spacer"></div>}
 
     <div class="header-actions">
       <button id="searchToggle" aria-label="Cari berita" title="Cari">⌕</button>
@@ -68,13 +59,11 @@ const isCategory = (slug: string) =>
   <nav class="main-nav" id="mainNav">
     <div class="container nav-inner">
       <a class={`nav-home ${currentPath === '/' ? 'active' : ''}`} href="/" title="Beranda">⌂</a>
-      {navCategories.map(([slug, label]) => (
-        <a href={`/kategori/${slug}`} class={isCategory(slug) ? 'active' : ''}>{label}</a>
+      {menu.map((c) => (
+        <a href={`/kategori/${c.slug}`} class={isCategory(c.slug) ? 'active' : ''}>{c.name}</a>
       ))}
       <a href="/event" class={currentPath.startsWith('/event') ? 'active' : ''}>Event & Webinar</a>
       <a href="/user/tickets" class={`nav-ticket-link ${currentPath === '/user/tickets' ? 'active' : ''}`} id="ticketNavLink" style="display:none">Tiket Saya</a>
-      <a href="/kategori/advertorial" class="nav-special">Advertorial <span>↗</span></a>
-      <a href="/#kontak">Kontak</a>
     </div>
   </nav>
 
@@ -88,6 +77,12 @@ const isCategory = (slug: string) =>
     </div>
   </div>
 </header>
+
+<style>
+  .header-spacer {
+    flex: 1;
+  }
+</style>
 
 <script is:inline define:vars={{ API_BASE }}>
   // Mobile navigation toggle

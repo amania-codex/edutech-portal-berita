@@ -83,6 +83,15 @@ async function upload(sel) {
 const api = (p, init) => fetch(BASE + '/api' + p, init);
 const pageHas = async (p, needle) => { const r = await fetch(BASE + p); return { status: r.status, has: (await r.text()).includes(needle) }; };
 
+async function eventually(path, needle, present = true, ms = 15000) {
+  for (let t = 0; t < ms; t += 1000) {
+    const r = await pageHas(path, needle);
+    if (r.has === present) return true;
+    await sleep(1000);
+  }
+  return false;
+}
+
 let pass = 0;
 const failures = [];
 function check(name, ok, info) {
@@ -110,6 +119,7 @@ async function logout() {
   return until(`location.pathname === '/'`);
 }
 
+let eventRow = '';
 try {
   // ================= ADMIN =================
   check('login: password salah ditolak', await (async () => { await go('/login'); await fill('#email', ADMIN.email); await fill('#password', 'salah-sekali'); await submit('#login-form'); return until(`getComputedStyle(document.getElementById('login-error')).display !== 'none'`); })());
@@ -181,6 +191,102 @@ try {
   await ev(`${bannerRow}.querySelector('.btn-delete').click()`);
   check('poster: hapus', await until(`!${bannerRow}`));
 
+  // --- pengaturan situs
+  await go('/dashboard/settings/');
+  await until(`document.getElementById('site_description') !== null`);
+  await sleep(500);
+  await fill('#site_description', `Deskripsi situs uji ${run}`);
+  await fill('#contact_email', 'redaksi@contoh.id');
+  await fill('#instagram_url', 'https://instagram.com/uji');
+  await submit('#settings-form');
+  check('pengaturan: simpan', await until(`!document.getElementById('settings-ok').hidden`));
+  check('situs: deskripsi & kontak di footer', await eventually('/', `Deskripsi situs uji ${run}`) && (await pageHas('/', 'redaksi@contoh.id')).has && (await pageHas('/', 'https://instagram.com/uji')).has);
+  await fill('#instagram_url', 'bukan tautan');
+  await submit('#settings-form');
+  check('pengaturan: tautan salah ditolak', await until(`!document.getElementById('settings-error').hidden`) || (await ev(`document.getElementById('instagram_url').validity.valid`)) === false);
+
+  // --- halaman informasi
+  await go('/dashboard/pages/');
+  await until(`!document.getElementById('page-rows').textContent.includes('Memuat')`);
+  await click('#btn-add-page');
+  await fill('#pg-title', `Tentang Kami ${run}`);
+  await fill('#pg-order', '1');
+  await fill('#pg-content', `Paragraf pertama halaman.\n\n## Redaksi\nEmail: redaksi@contoh.id\n<script>window.__xss=1</script>`);
+  await submit('#page-form');
+  const pageSlug = `tentang-kami-${run}`;
+  check('halaman: simpan', await until(`[...document.querySelectorAll('#page-rows tr')].some((r) => r.dataset.title === ${js(`Tentang Kami ${run}`)})`));
+  p = await pageHas(`/halaman/${pageSlug}`, 'Paragraf pertama halaman.');
+  check('situs: halaman informasi tampil', p.status === 200 && p.has, p);
+  check('situs: halaman di bar atas & footer', await eventually('/', `href="/halaman/${pageSlug}"`));
+  await go(`/halaman/${pageSlug}`);
+  check('situs: isi halaman aman (script tidak jalan) & tautan email', (await ev(`window.__xss === undefined && !!document.querySelector('.info-content a[href="mailto:redaksi@contoh.id"]') && !!document.querySelector('.info-content h2')`)) === true);
+
+  // --- poster di posisi tengah beranda
+  await go('/dashboard/banners/');
+  await until(`!document.querySelector('#banner-rows')?.textContent.includes('Memuat')`);
+  await click('#btn-add-banner');
+  await upload('#file-input');
+  await until(`document.getElementById('preview-img').src.includes('/uploads/')`);
+  await fill('#banner-title', `Poster Tengah ${run}`);
+  await fill('#banner-placement', 'tengah');
+  await submit('#banner-form');
+  check('poster: simpan di posisi tengah', await until(`[...document.querySelectorAll('#banner-rows tr')].some((r) => r.textContent.includes(${js(`Poster Tengah ${run}`)}))`));
+  check('situs: poster tampil di beranda', await eventually('/', `title="Poster Tengah ${run}"`));
+  const middleRow = `[...document.querySelectorAll('#banner-rows tr')].find((r) => r.textContent.includes(${js(`Poster Tengah ${run}`)}))`;
+  await ev(`(() => { const s = ${middleRow}.querySelector('.placement-select'); s.value = 'header'; s.dispatchEvent(new Event('change')); return true; })()`);
+  check('poster: pindah ke header', await eventually('/kategori/semua', `title="Poster Tengah ${run}"`));
+  await ev(`${middleRow}.querySelector('.btn-delete').click()`);
+  check('poster: hapus → hilang dari situs', await until(`!${middleRow}`) && await eventually('/', `title="Poster Tengah ${run}"`, false));
+
+  // --- kategori ke menu navigasi & topik pilihan
+  await go('/dashboard/categories/');
+  await until(`document.querySelectorAll('#cat-rows .btn-edit').length > 0`);
+  await click('#btn-add-category');
+  await fill('#cat-name', `Menu Uji ${run}`);
+  await fill('#cat-menu', '1');
+  await ev(`document.getElementById('cat-topic').checked = true`);
+  await submit('#category-form');
+  check('kategori: tambah ke menu', await until(`[...document.querySelectorAll('.category-name')].some((e) => e.textContent === ${js(`Menu Uji ${run}`)})`));
+  check('situs: kategori muncul di menu navigasi', await eventually('/', `<a href="/kategori/menu-uji-${run}"`));
+  check('situs: kategori muncul di Topik Pilihan', (await pageHas('/', `topic-card`)).has && (await pageHas('/', `Menu Uji ${run}</strong>`)).has);
+  await ev(`[...document.querySelectorAll('#cat-rows tr')].find((r) => r.textContent.includes(${js(`Menu Uji ${run}`)})).querySelector('.btn-delete').click()`);
+  check('kategori: hapus → hilang dari menu', await eventually('/', `/kategori/menu-uji-${run}"`, false));
+
+  // --- event berbayar
+  await go('/dashboard/events/');
+  await until(`!document.getElementById('event-rows').textContent.includes('Memuat')`);
+  await fill('#bank-name', 'BCA');
+  await fill('#bank-number', `77${run}`);
+  await fill('#bank-holder', 'Edukator Uji');
+  await submit('#bank-form');
+  check('rekening: tambah', await until(`document.getElementById('bank-rows').textContent.includes(${js(`77${run}`)})`));
+  await click('#btn-add-event');
+  await fill('#ev-title', `Webinar Uji ${run}`);
+  await fill('#ev-venue', 'Zoom Meeting');
+  await fill('#ev-start', '2031-02-01T09:00');
+  await fill('#ev-end', '2031-02-01T11:00');
+  await fill('#ev-price', '15000');
+  await fill('#ev-desc', 'Baris satu acara.\nBaris dua acara.');
+  await upload('#ev-image-file');
+  check('event: unggah gambar', await until(`document.getElementById('ev-image').value.includes('/uploads/')`));
+  await click('#add-speaker');
+  await ev(`(() => { const r = document.querySelector('#speaker-list .repeat-row'); r.querySelector('.sp-name').value = 'Dr. Pemateri Uji'; r.querySelector('.sp-role').value = 'Dosen'; return true; })()`);
+  await ev(`(() => { [...document.querySelectorAll('#bank-checks input')].forEach((b) => { if (b.parentElement.textContent.includes(${js(`77${run}`)})) b.checked = true; }); return true; })()`);
+  await submit('#event-form');
+  eventRow = `[...document.querySelectorAll('#event-rows tr')].find((r) => r.dataset.title === ${js(`Webinar Uji ${run}`)})`;
+  check('event: simpan', await until(`!!${eventRow}`));
+  const eventSlug = `webinar-uji-${run}`;
+  p = await pageHas(`/event/${eventSlug}`, 'Dr. Pemateri Uji');
+  check('situs: event tampil dengan pemateri', p.status === 200 && p.has, p);
+  check('situs: jam event WIB benar', (await pageHas(`/event/${eventSlug}`, '09.00')).has || (await pageHas(`/event/${eventSlug}`, '09:00')).has);
+  check('situs: event di daftar Event & Webinar', (await pageHas('/event', `Webinar Uji ${run}`)).has);
+  check('situs: event di Agenda beranda', await eventually('/', `Webinar Uji ${run}`));
+  await ev(`${eventRow}.querySelector('.ev-edit').click()`);
+  check('event: form ubah terisi (WIB)', await until(`document.getElementById('ev-title').value === ${js(`Webinar Uji ${run}`)} && document.getElementById('ev-start').value === '2031-02-01T09:00' && document.querySelectorAll('#speaker-list .repeat-row').length === 1`));
+  await fill('#ev-venue', 'Zoom Meeting (diubah)');
+  await submit('#event-form');
+  check('event: ubah', await until(`!document.getElementById('event-modal').classList.contains('active')`) && (await pageHas(`/event/${eventSlug}`, 'Zoom Meeting (diubah)')).has);
+
   // --- newsletter & pencarian
   await go('/');
   await fill('#emailInput', 'a@b');
@@ -227,6 +333,17 @@ try {
   check('simpan berita: tombol muncul', await until(`!document.getElementById('bookmark-btn').hidden`));
   await click('#bookmark-btn');
   check('simpan berita', await until(`document.getElementById('bm-text').textContent === 'Tersimpan'`));
+  // --- daftar event berbayar dengan bukti transfer
+  await go(`/event/webinar-uji-${run}`);
+  check('event: form pendaftaran terisi dari akun', await until(`document.getElementById('reg-email')?.value === ${js(userEmail)}`));
+  await fill('#reg-phone', '081234567890');
+  await upload('#reg-proof');
+  check('event: unggah bukti transfer', await until(`document.getElementById('proof-url').value.includes('/uploads/')`));
+  check('event: rekening tujuan tampil', (await ev(`document.body.textContent.includes(${js(`77${run}`)})`)) === true);
+  await submit('#reg-form');
+  check('event: pendaftaran terkirim', await until(`getComputedStyle(document.getElementById('success-modal')).display !== 'none' && /^TIC-/.test(document.getElementById('modal-ticket-code').textContent)`));
+  await go('/user/tickets/');
+  check('Tiket Saya: menunggu verifikasi', await until(`document.getElementById('tickets-list').textContent.includes(${js(`Webinar Uji ${run}`)}) && !!document.querySelector('.ticket-card .badge-waiting')`));
   await go('/user/bookmarks/');
   check('halaman Berita Disimpan memuat berita', await until(`document.getElementById('bookmark-list').textContent.includes(${js(run)})`));
   await go('/user/history/');
@@ -266,6 +383,23 @@ try {
 
   // ================= ADMIN: bersih-bersih =================
   await login(ADMIN.email, ADMIN.password);
+  await go('/dashboard/registrations/');
+  const regRow = `[...document.querySelectorAll('#reg-rows tr')].find((r) => r.dataset.email === ${js(userEmail)})`;
+  check('pendaftaran: tampil dengan bukti', await until(`!!${regRow} && !!${regRow}.querySelector('a[href*="/uploads/"]')`));
+  await ev(`${regRow}.querySelector('.reg-verify').click()`);
+  check('pendaftaran: verifikasi', await until(`${regRow}?.textContent.includes('Terverifikasi')`));
+  check('peserta: tiket terverifikasi', (await ev(`fetch('/api/admin/registrations', { credentials: 'include' }).then((r) => r.json()).then((d) => d.data.some((x) => x.email === ${js(userEmail)} && x.status === 'verified'))`)) === true);
+  await go('/dashboard/events/');
+  await until(`!!${eventRow}`);
+  await ev(`${eventRow}.querySelector('.ev-delete').click()`);
+  check('event: hapus → hilang dari situs', await until(`!${eventRow}`) && (await pageHas(`/event/webinar-uji-${run}`, 'x')).status === 404);
+  await ev(`[...document.querySelectorAll('#bank-rows tr')].find((r) => r.textContent.includes(${js(`77${run}`)})).querySelector('button').click()`);
+  check('rekening: hapus', await until(`!document.getElementById('bank-rows').textContent.includes(${js(`77${run}`)})`));
+  await go('/dashboard/pages/');
+  await until(`[...document.querySelectorAll('#page-rows tr')].some((r) => r.dataset.title === ${js(`Tentang Kami ${run}`)})`);
+  await ev(`[...document.querySelectorAll('#page-rows tr')].find((r) => r.dataset.title === ${js(`Tentang Kami ${run}`)}).querySelector('.pg-delete').click()`);
+  check('halaman: hapus → 404', await until(`![...document.querySelectorAll('#page-rows tr')].some((r) => r.dataset.title === ${js(`Tentang Kami ${run}`)})`) && (await pageHas(`/halaman/tentang-kami-${run}`, 'x')).status === 404);
+
   await go('/dashboard/comments/');
   check('analisis komentar memuat komentar', await until(`document.getElementById('comments-list').textContent.includes('sangat bermanfaat')`));
   await ev(`[...document.querySelectorAll('.comment-item')].find((c) => c.textContent.includes('sangat bermanfaat')).querySelector('.btn-danger').click()`);

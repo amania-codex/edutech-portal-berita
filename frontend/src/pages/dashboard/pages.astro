@@ -1,0 +1,125 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import '../../styles/admin.css';
+---
+
+<DashboardLayout title="Halaman Informasi" activeMenu="pages">
+  <div class="adm">
+    <div class="head">
+      <div>
+        <h2 class="page-title">Halaman Informasi</h2>
+        <p class="page-subtitle">Tentang Kami, Kontak, Pedoman Media Siber, Kebijakan Privasi, dan sejenisnya. Halaman terbit tampil di footer; isi "Urutan di bar atas" agar juga tampil di bagian atas situs.</p>
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-add-page">+ Tambah Halaman</button>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Judul</th><th>Alamat</th><th>Bar atas</th><th>Status</th><th></th></tr></thead>
+          <tbody id="page-rows"><tr><td colspan="5" class="empty">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="page-modal">
+      <div class="modal-content modal-wide">
+        <div class="modal-header">
+          <h3 class="modal-title" id="page-modal-title">Tambah Halaman</h3>
+          <button type="button" class="modal-close" id="page-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <form id="page-form">
+            <input type="hidden" id="pg-id" />
+            <div class="grid">
+              <div class="field"><label class="lbl" for="pg-title">Judul</label><input class="input" id="pg-title" required minlength="2" placeholder="Tentang Kami" /></div>
+              <div class="field"><label class="lbl" for="pg-slug">Slug (alamat)</label><input class="input" id="pg-slug" placeholder="otomatis dari judul" /></div>
+              <div class="field"><label class="lbl" for="pg-order">Urutan di bar atas (0 = tidak tampil)</label><input class="input" type="number" min="0" max="99" id="pg-order" value="0" /></div>
+              <div class="field" style="justify-content:flex-end"><label class="check"><input type="checkbox" id="pg-published" checked /> Terbitkan</label></div>
+            </div>
+            <div class="field" style="margin-top:16px">
+              <label class="lbl" for="pg-content">Isi Halaman</label>
+              <textarea class="input" id="pg-content" rows="14"></textarea>
+              <p class="hint">Baris kosong memisahkan paragraf. Baris yang diawali "## " menjadi subjudul. Alamat web dan email otomatis menjadi tautan.</p>
+            </div>
+            <div class="alert alert-err" id="page-error" hidden></div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-outline" id="page-cancel">Batal</button>
+              <button type="submit" class="btn btn-primary" id="page-save">Simpan Halaman</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { api, el, errorText, getJSON, sendJSON } from '../../lib/client';
+
+  const modal = el('page-modal') as HTMLElement;
+  const form = el('page-form') as HTMLFormElement;
+
+  function td(text = '') { const c = document.createElement('td'); c.textContent = text; return c; }
+
+  async function load() {
+    try {
+      const pages: any[] = await getJSON('/pages?status=all');
+      if (!pages.length) {
+        const tr = document.createElement('tr'); const c = td('Belum ada halaman.'); c.colSpan = 5; c.className = 'empty'; tr.append(c);
+        return el('page-rows').replaceChildren(tr);
+      }
+      el('page-rows').replaceChildren(...pages.map((p) => {
+        const tr = document.createElement('tr');
+        tr.dataset.title = p.title;
+        const link = td(); const a = document.createElement('a'); a.href = `/halaman/${p.slug}`; a.target = '_blank'; a.textContent = `/halaman/${p.slug}`; link.append(a);
+        const status = td(); const b = document.createElement('span'); b.className = `badge ${p.isPublished ? 'b-green' : 'b-gray'}`; b.textContent = p.isPublished ? 'Terbit' : 'Draft'; status.append(b);
+        const actions = td(); const wrap = document.createElement('div'); wrap.className = 'actions';
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn btn-sm btn-outline pg-edit'; edit.textContent = 'Ubah';
+        edit.addEventListener('click', () => openModal(p));
+        const del = document.createElement('button'); del.type = 'button'; del.className = 'btn btn-sm btn-danger pg-delete'; del.textContent = 'Hapus';
+        del.addEventListener('click', async () => {
+          if (!confirm(`Hapus halaman "${p.title}"?`)) return;
+          const res = await api(`/admin/pages/${p.ID}`, { method: 'DELETE' }).catch(() => null);
+          if (res?.ok) load(); else alert('Gagal menghapus halaman.');
+        });
+        wrap.append(edit, del); actions.append(wrap);
+        tr.append(td(p.title), link, td(p.menuOrder > 0 ? `Ya (${p.menuOrder})` : '-'), status, actions);
+        return tr;
+      }));
+    } catch {
+      el('page-rows').textContent = 'Gagal memuat halaman.';
+    }
+  }
+
+  function openModal(p?: any) {
+    form.reset();
+    el('page-error').hidden = true;
+    el('page-modal-title').textContent = p ? 'Ubah Halaman' : 'Tambah Halaman';
+    el('pg-id').value = p?.ID ?? '';
+    el('pg-title').value = p?.title ?? '';
+    el('pg-slug').value = p?.slug ?? '';
+    el('pg-order').value = p?.menuOrder ?? 0;
+    el('pg-published').checked = p ? !!p.isPublished : true;
+    el('pg-content').value = p?.content ?? '';
+    modal.classList.add('active');
+  }
+  const closeModal = () => modal.classList.remove('active');
+
+  el('btn-add-page').addEventListener('click', () => openModal());
+  el('page-close').addEventListener('click', closeModal);
+  el('page-cancel').addEventListener('click', closeModal);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = el('pg-id').value;
+    const res = await sendJSON(id ? `/admin/pages/${id}` : '/admin/pages', id ? 'PUT' : 'POST', {
+      title: el('pg-title').value.trim(), slug: el('pg-slug').value.trim(), content: el('pg-content').value,
+      menuOrder: Number(el('pg-order').value) || 0, isPublished: el('pg-published').checked,
+    }).catch(() => null);
+    if (res?.ok) { closeModal(); load(); return; }
+    el('page-error').textContent = res ? await errorText(res, 'Gagal menyimpan halaman.') : 'Server tidak dapat dihubungi.';
+    el('page-error').hidden = false;
+  });
+
+  load();
+</script>

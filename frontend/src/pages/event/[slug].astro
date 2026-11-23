@@ -304,7 +304,7 @@ const quotaPercent = event.quota > 0 ? Math.min(100, Math.round((registeredCount
               <span>Mohon maaf, kuota peserta telah terpenuhi penuh.</span>
             </div>
           ) : (
-            <form id="reg-form" class="reg-form" data-event-id={event.id}>
+            <form id="reg-form" class="reg-form" data-event-id={event.ID ?? event.id}>
               <!-- Tier Selection if Freemium -->
               {hasPremium && (
                 <div class="form-group">

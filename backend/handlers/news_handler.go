@@ -13,30 +13,37 @@ import (
 	"gorm.io/gorm"
 )
 
-// Helper to check if current request has authenticated admin role
-func isAdminUser(c *fiber.Ctx) bool {
+// optionalClaims — data login dari cookie/Bearer pada rute publik (nil bila tidak login).
+func optionalClaims(c *fiber.Ctx) *Claims {
 	if claims, ok := c.Locals("user").(*Claims); ok && claims != nil {
-		return claims.Role == "admin"
+		return claims
 	}
 	tokenString := c.Cookies("auth_token")
 	if tokenString == "" {
-		authHeader := c.Get("Authorization")
-		if strings.HasPrefix(authHeader, "Bearer ") {
+		if authHeader := c.Get("Authorization"); strings.HasPrefix(authHeader, "Bearer ") {
 			tokenString = strings.TrimPrefix(authHeader, "Bearer ")
 		}
 	}
 	if tokenString == "" {
-		return false
+		return nil
 	}
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
 		return GetJWTSecret(), nil
 	})
-	if err == nil && token.Valid {
-		if claims, ok := token.Claims.(*Claims); ok {
-			return claims.Role == "admin"
-		}
+	if err != nil || !token.Valid {
+		return nil
 	}
-	return false
+	claims, _ := token.Claims.(*Claims)
+	return claims
+}
+
+// isAdminUser — apakah permintaan berasal dari admin yang login
+func isAdminUser(c *fiber.Ctx) bool {
+	claims := optionalClaims(c)
+	return claims != nil && claims.Role == "admin"
 }
 
 // newsQueryFilters menerapkan filter umum (status, kategori, tag, pencarian)

@@ -26,11 +26,13 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
             <th>Nama Kategori</th>
             <th>Slug</th>
             <th>Artikel</th>
+            <th>Menu</th>
+            <th>Topik</th>
             <th class="text-right">Aksi</th>
           </tr>
         </thead>
         <tbody id="cat-rows">
-          <tr><td colspan="5" class="text-center empty-state">Memuat kategori...</td></tr>
+          <tr><td colspan="7" class="text-center empty-state">Memuat kategori...</td></tr>
         </tbody>
       </table>
     </div>
@@ -55,6 +57,17 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
             <input type="text" id="cat-slug" class="form-input" placeholder="contoh-slug-kategori" />
             <p class="form-hint">Jika dikosongkan, slug akan dibuat otomatis dari nama.</p>
           </div>
+          <div class="form-group mt-4">
+            <label class="form-label" for="cat-parent">Induk Kategori</label>
+            <select id="cat-parent" class="form-input"><option value="">— Kategori utama —</option></select>
+          </div>
+          <div class="form-group mt-4">
+            <label class="form-label" for="cat-menu">Urutan di Menu Navigasi</label>
+            <input type="number" min="0" max="99" id="cat-menu" class="form-input" value="0" />
+            <p class="form-hint">0 = tidak tampil di menu. Angka kecil tampil lebih dulu.</p>
+          </div>
+          <label class="form-check mt-4"><input type="checkbox" id="cat-topic" /> Tampilkan sebagai "Topik Pilihan" di beranda</label>
+          <p class="form-error" id="cat-error" hidden></p>
           <div class="modal-actions mt-6">
             <button type="button" class="btn btn-outline" id="btn-cancel">Batal</button>
             <button type="submit" class="btn btn-primary" id="btn-save">Simpan</button>
@@ -70,6 +83,8 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
                 <td><span class="category-name"></span></td>
                 <td><span class="category-slug"></span></td>
                 <td class="cat-count"></td>
+                <td class="cat-menu"></td>
+                <td class="cat-topic"></td>
                 <td class="text-right actions-cell">
                   <button class="btn-icon btn-edit" title="Edit Kategori">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
@@ -129,6 +144,10 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
   .form-input:focus { border-color: var(--color-accent); box-shadow: 0 0 0 3px rgba(230,57,70,0.1); }
   .form-hint { font-size: 12px; color: var(--color-text-muted); margin: 0; }
   .modal-actions { display: flex; justify-content: flex-end; gap: 12px; }
+  .form-check { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--color-text-primary); cursor: pointer; }
+  .form-error { margin: 12px 0 0; padding: 10px 12px; border-radius: 8px; background: rgba(239,68,68,0.1); color: #b91c1c; font-size: 13px; }
+  .form-error[hidden] { display: none; }
+  .modal-content { max-height: calc(100vh - 32px); overflow-y: auto; }
 </style>
 
 <script>
@@ -137,11 +156,28 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
   const modal = el('category-modal');
   const form = el('category-form') as HTMLFormElement;
 
+  let all: any[] = [];
+
   function openModal(cat?: any) {
     el('modal-title').textContent = cat ? 'Edit Kategori' : 'Tambah Kategori';
     el('cat-id').value = cat ? rowId(cat) : '';
     el('cat-name').value = cat?.name || '';
     el('cat-slug').value = cat?.slug || '';
+    el('cat-menu').value = cat?.menuOrder ?? 0;
+    el('cat-topic').checked = !!cat?.isTopic;
+    el('cat-error').hidden = true;
+    // induk: semua kategori kecuali dirinya sendiri dan turunannya
+    const blocked = new Set<number>();
+    if (cat) {
+      blocked.add(rowId(cat));
+      for (let grew = true; grew;) {
+        grew = false;
+        for (const c of all) if (c.parentId && blocked.has(c.parentId) && !blocked.has(rowId(c))) { blocked.add(rowId(c)); grew = true; }
+      }
+    }
+    const parent = el('cat-parent') as HTMLSelectElement;
+    parent.replaceChildren(new Option('— Kategori utama —', ''), ...all.filter((c) => !blocked.has(rowId(c))).map((c) => new Option(c.name, String(rowId(c)))));
+    parent.value = cat?.parentId ? String(cat.parentId) : '';
     modal.classList.add('active');
   }
 
@@ -153,7 +189,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
   function message(text: string) {
     const tr = document.createElement('tr');
     const td = document.createElement('td');
-    td.colSpan = 5;
+    td.colSpan = 7;
     td.textContent = text;
     td.style.cssText = 'text-align:center;padding:32px';
     tr.append(td);
@@ -163,6 +199,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
   async function load() {
     try {
       const cats: any[] = (await getJSON('/categories?with_count=1')) || [];
+      all = cats;
       if (!cats.length) return message('Belum ada kategori yang dibuat.');
       // induk lebih dulu, diikuti sub-kategorinya
       const rows: Node[] = [];
@@ -173,6 +210,8 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
           setText(node, '.category-name', `${depth ? '— '.repeat(depth) : ''}${cat.name}`);
           setText(node, '.category-slug', cat.slug);
           setText(node, '.cat-count', Number(cat.count || 0).toLocaleString('id-ID'));
+          setText(node, '.cat-menu', cat.menuOrder > 0 ? `Ya (${cat.menuOrder})` : '-');
+          setText(node, '.cat-topic', cat.isTopic ? 'Ya' : '-');
           node.querySelector('.btn-edit')!.addEventListener('click', () => openModal(cat));
           node.querySelector('.btn-delete')!.addEventListener('click', () => remove(cat));
           rows.push(node);
@@ -201,10 +240,17 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const id = el('cat-id').value;
-    const body = { name: el('cat-name').value.trim(), slug: el('cat-slug').value.trim() };
+    const body = {
+      name: el('cat-name').value.trim(),
+      slug: el('cat-slug').value.trim(),
+      parentId: el('cat-parent').value ? Number(el('cat-parent').value) : null,
+      menuOrder: Number(el('cat-menu').value) || 0,
+      isTopic: el('cat-topic').checked,
+    };
     const res = await sendJSON(id ? `/categories/${id}` : '/categories', id ? 'PUT' : 'POST', body).catch(() => null);
-    if (res?.ok) { closeModal(); load(); }
-    else alert(res ? await errorText(res, 'Gagal menyimpan kategori.') : 'Terjadi kesalahan.');
+    if (res?.ok) { closeModal(); load(); return; }
+    el('cat-error').textContent = res ? await errorText(res, 'Gagal menyimpan kategori.') : 'Server tidak dapat dihubungi.';
+    el('cat-error').hidden = false;
   });
 
   load();

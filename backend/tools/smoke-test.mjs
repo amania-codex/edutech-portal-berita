@@ -224,6 +224,97 @@ check('tiket pengguna memuat event', r.data.data?.[0]?.event?.slug === `event-uj
 check('pendaftaran terlihat admin', (await call('GET', '/api/admin/registrations', { cookie: admin })).data.data?.length >= 1);
 check('hapus event', (await call('DELETE', `/api/admin/events/${ev?.ID}`, { cookie: admin })).status === 200);
 
+// ---------- event lengkap: draft, WIB, biaya di server, verifikasi ----------
+const evBody = (extra = {}) => ({ title: `Seminar Berbayar ${run}`, description: 'Baris satu\nBaris dua', venue: 'Aula', start_time: '2030-01-10T09:00', end_time: '2030-01-10T12:00', quota: 0, price: 25000, premium_price: 75000, status: 'draft', speakers: [{ name: 'A', role: 'x' }, { name: 'B' }], materials: [{ title: 'Slide', type: 'file', link: 'https://contoh.id/s.pdf' }], ...extra });
+const bank = await call('POST', '/api/admin/bank-accounts', { cookie: admin, body: { bank_name: 'BCA', account_number: `00${run}`, account_holder: 'Edukator' } });
+check('tambah rekening', bank.status === 200 && bank.data.data?.ID > 0, bank.data);
+check('rekening: isian kosong ditolak', (await call('POST', '/api/admin/bank-accounts', { cookie: admin, body: { bank_name: 'BCA' } })).status === 400);
+let paid = await call('POST', '/api/admin/events', { cookie: admin, body: evBody({ bank_account_ids: [bank.data.data?.ID] }) });
+const paidEv = paid.data.data || {};
+check('buat event berbayar (draft)', paid.status === 201 && paidEv.slug === `seminar-berbayar-${run}`, paid.data);
+check('waktu event dibaca sebagai WIB', new Date(paidEv.startTime).toISOString() === '2030-01-10T02:00:00.000Z', paidEv.startTime);
+check('event: selesai sebelum mulai ditolak', (await call('POST', '/api/admin/events', { cookie: admin, body: evBody({ title: `Salah ${run}`, end_time: '2030-01-10T08:00' }) })).status === 400);
+check('event: tautan javascript: ditolak', (await call('POST', '/api/admin/events', { cookie: admin, body: evBody({ title: `Jahat ${run}`, certificate_link: 'javascript:alert(1)' }) })).status === 400);
+check('event: slug ganda ditolak', (await call('POST', '/api/admin/events', { cookie: admin, body: evBody() })).status === 400);
+check('draft: tidak ada di daftar publik', !(await call('GET', '/api/events')).data.data.some((e) => e.ID === paidEv.ID));
+check('draft: daftar publik status=all tetap disembunyikan', !(await call('GET', '/api/events?status=all')).data.data.some((e) => e.ID === paidEv.ID));
+check('draft: detail publik 404', (await call('GET', `/api/events/slug/${paidEv.slug}`)).status === 404);
+check('draft: pendaftaran ditolak', (await call('POST', `/api/events/${paidEv.ID}/register`, { body: { name: 'X', email: 'x@contoh.id' } })).status === 404);
+r = await call('GET', '/api/admin/events', { cookie: admin });
+const adminEv = r.data.data?.find((e) => e.ID === paidEv.ID);
+check('admin melihat draft beserta pemateri, materi, rekening', adminEv?.speakers?.length === 2 && adminEv?.materials?.length === 1 && adminEv?.bankAccounts?.length === 1, adminEv);
+r = await call('PUT', `/api/admin/events/${paidEv.ID}`, { cookie: admin, body: evBody({ status: 'published', speakers: [{ name: 'C' }], materials: [], bank_account_ids: [] }) });
+check('ubah event: terbitkan', r.status === 200, r.data);
+r = await call('GET', `/api/events/slug/${paidEv.slug}`);
+check('ubah event: pemateri & materi diganti, tampil publik', r.status === 200 && r.data.data.speakers.length === 1 && r.data.data.speakers[0].name === 'C' && r.data.data.materials.length === 0, r.data?.data?.speakers);
+const reg1 = await call('POST', `/api/events/${paidEv.ID}/register`, { cookie: user, body: { name: 'Pengguna Uji', email: email.toUpperCase(), tier: 'premium', total_amount: 1, payment_proof: '/uploads/bukti.png' } });
+check('daftar premium: biaya dihitung server (bukan dari isian)', reg1.status === 200 && reg1.data.data?.totalAmount === 75000 && reg1.data.status === 'waiting', reg1.data);
+check('daftar dua kali dengan email sama ditolak', (await call('POST', `/api/events/${paidEv.ID}/register`, { body: { name: 'Lagi', email, tier: 'free' } })).status === 409);
+check('daftar: email tidak valid ditolak', (await call('POST', `/api/events/${paidEv.ID}/register`, { body: { name: 'Orang', email: 'bukan-email' } })).status === 400);
+check('daftar: bukti javascript: ditolak', (await call('POST', `/api/events/${paidEv.ID}/register`, { body: { name: 'Orang', email: `o${run}@contoh.id`, payment_proof: 'javascript:alert(1)' } })).status === 400);
+const reg2 = await call('POST', `/api/events/${paidEv.ID}/register`, { body: { name: 'Tamu', email: `tamu${run}@contoh.id`, tier: 'premium' } });
+check('daftar tanpa bukti bayar → belum unggah bukti', reg2.data.status === 'pending' && reg2.data.data?.totalAmount === 75000, reg2.data);
+check('status pendaftaran tidak dikenal ditolak', (await call('PUT', `/api/admin/registrations/${reg1.data.data?.ID}/status`, { cookie: admin, body: { status: 'lunas' } })).status === 400);
+check('verifikasi pendaftaran', (await call('PUT', `/api/admin/registrations/${reg1.data.data?.ID}/status`, { cookie: admin, body: { status: 'verified' } })).status === 200);
+r = await call('GET', `/api/admin/registrations?event_id=${paidEv.ID}&status=verified`, { cookie: admin });
+check('filter pendaftaran per event & status', r.data.data?.length === 1 && r.data.data[0].ticketCode === reg1.data.ticket_code, r.data);
+check('peserta mendapat pemberitahuan verifikasi', (await call('GET', '/api/user/notifications', { cookie: user })).data.some((n) => n.message.includes(reg1.data.ticket_code)));
+r = await call('GET', '/api/user/tickets', { cookie: user });
+check('tiket terverifikasi muncul di Tiket Saya', r.data.data?.some((t) => t.ticketCode === reg1.data.ticket_code && t.status === 'verified'), r.data);
+check('rekening nonaktif tidak tampil publik', (await call('GET', '/api/bank-accounts')).data.data.every((b) => b.isActive));
+check('hapus rekening', (await call('DELETE', `/api/admin/bank-accounts/${bank.data.data?.ID}`, { cookie: admin })).status === 200);
+check('hapus event berbayar', (await call('DELETE', `/api/admin/events/${paidEv.ID}`, { cookie: admin })).status === 200);
+check('event terhapus hilang dari publik', (await call('GET', `/api/events/slug/${paidEv.slug}`)).status === 404);
+
+// ---------- pengaturan situs ----------
+check('pengaturan publik', (await call('GET', '/api/settings')).status === 200);
+check('pengaturan: tanpa login ditolak', (await call('PUT', '/api/admin/settings', { body: { contact_email: 'a@b.co' } })).status === 401);
+check('pengaturan: pengguna biasa ditolak', (await call('PUT', '/api/admin/settings', { cookie: user, body: { contact_email: 'a@b.co' } })).status === 403);
+check('pengaturan: kunci tak dikenal ditolak', (await call('PUT', '/api/admin/settings', { cookie: admin, body: { jwt_secret: 'x' } })).status === 400);
+check('pengaturan: tautan bukan https ditolak', (await call('PUT', '/api/admin/settings', { cookie: admin, body: { facebook_url: 'javascript:alert(1)' } })).status === 400);
+check('pengaturan: email salah ditolak', (await call('PUT', '/api/admin/settings', { cookie: admin, body: { contact_email: 'bukan' } })).status === 400);
+r = await call('PUT', '/api/admin/settings', { cookie: admin, body: { site_description: `Deskripsi ${run}`, contact_email: 'redaksi@contoh.id', instagram_url: 'https://instagram.com/uji' } });
+check('pengaturan: simpan', r.status === 200 && r.data.site_description === `Deskripsi ${run}`, r.data);
+r = await call('PUT', '/api/admin/settings', { cookie: admin, body: { instagram_url: '' } });
+check('pengaturan: ubah sebagian, lainnya tetap', r.data.instagram_url === '' && r.data.contact_email === 'redaksi@contoh.id', r.data);
+
+// ---------- halaman informasi ----------
+const pg = await call('POST', '/api/admin/pages', { cookie: admin, body: { title: `Tentang Kami ${run}`, content: 'Isi halaman', menuOrder: 1, isPublished: false } });
+check('halaman: buat (draft)', pg.status === 201 && pg.data.slug === `tentang-kami-${run}`, pg.data);
+check('halaman draft tidak publik', (await call('GET', `/api/pages/slug/${pg.data.slug}`)).status === 404 && !(await call('GET', '/api/pages')).data.some((p) => p.ID === pg.data.ID));
+check('halaman: slug ganda ditolak', (await call('POST', '/api/admin/pages', { cookie: admin, body: { title: `Tentang Kami ${run}` } })).status === 400);
+check('halaman: terbitkan', (await call('PUT', `/api/admin/pages/${pg.data.ID}`, { cookie: admin, body: { title: `Tentang Kami ${run}`, slug: pg.data.slug, content: 'Isi baru', menuOrder: 2, isPublished: true } })).status === 200);
+r = await call('GET', `/api/pages/slug/${pg.data.slug}`);
+check('halaman terbit tampil publik', r.status === 200 && r.data.content === 'Isi baru' && (await call('GET', '/api/pages')).data.some((p) => p.ID === pg.data.ID && p.menuOrder === 2), r.data);
+check('daftar halaman publik tanpa isi', (await call('GET', '/api/pages')).data.every((p) => !p.content));
+check('halaman: pengguna biasa tidak bisa membuat', (await call('POST', '/api/admin/pages', { cookie: user, body: { title: 'X' } })).status === 403);
+check('hapus halaman', (await call('DELETE', `/api/admin/pages/${pg.data.ID}`, { cookie: admin })).status === 200 && (await call('GET', `/api/pages/slug/${pg.data.slug}`)).status === 404);
+check('halaman: slug yang dihapus bisa dipakai lagi', (await call('POST', '/api/admin/pages', { cookie: admin, body: { title: `Tentang Kami ${run}`, isPublished: false } })).status === 201);
+
+// ---------- poster per posisi ----------
+const pos = await call('POST', '/api/admin/banners', { cookie: admin, body: { title: 'Poster Tengah', image_url: up.data.url, target_url: '/event', placement: 'tengah' } });
+check('poster: posisi tengah', pos.status === 201 && pos.data.placement === 'tengah', pos.data);
+check('poster: posisi bawaan kanan', (await call('POST', '/api/admin/banners', { cookie: admin, body: { title: 'Bawaan', image_url: up.data.url, is_active: false } })).data.placement === 'kanan');
+check('poster: posisi tak dikenal ditolak', (await call('POST', '/api/admin/banners', { cookie: admin, body: { title: 'X', image_url: up.data.url, placement: 'atas' } })).status === 400);
+check('poster: tautan javascript: ditolak', (await call('POST', '/api/admin/banners', { cookie: admin, body: { title: 'X', image_url: up.data.url, target_url: 'javascript:alert(1)' } })).status === 400);
+r = await call('PUT', `/api/admin/banners/${pos.data.id}`, { cookie: admin, body: { title: 'Poster Header', image_url: up.data.url, target_url: 'https://contoh.id', placement: 'header', is_active: true } });
+check('poster: ubah posisi & judul', r.status === 200 && r.data.placement === 'header' && r.data.title === 'Poster Header', r.data);
+check('poster tampil publik dengan posisinya', (await call('GET', '/api/banners')).data.some((b) => b.id === pos.data.id && b.placement === 'header'));
+check('hapus poster posisi', (await call('DELETE', `/api/admin/banners/${pos.data.id}`, { cookie: admin })).status === 200);
+
+// ---------- kategori: menu, topik, induk ----------
+const top = await call('POST', '/api/categories', { cookie: admin, body: { name: `Induk ${run}`, menuOrder: 9, isTopic: true } });
+check('kategori: menu & topik', top.status === 200 && top.data.menuOrder === 9 && top.data.isTopic === true, top.data);
+const child = await call('POST', '/api/categories', { cookie: admin, body: { name: `Anak ${run}`, parentId: top.data.ID } });
+check('kategori: sub-kategori', child.status === 200 && child.data.parentId === top.data.ID, child.data);
+check('kategori: induk dirinya sendiri ditolak', (await call('PUT', `/api/categories/${top.data.ID}`, { cookie: admin, body: { name: `Induk ${run}`, parentId: top.data.ID } })).status === 400);
+check('kategori: induk = turunannya ditolak', (await call('PUT', `/api/categories/${top.data.ID}`, { cookie: admin, body: { name: `Induk ${run}`, parentId: child.data.ID } })).status === 400);
+check('kategori: nama ganda ditolak', (await call('POST', '/api/categories', { cookie: admin, body: { name: `Induk ${run}` } })).status === 400);
+r = await call('PUT', `/api/categories/${top.data.ID}`, { cookie: admin, body: { name: `Induk ${run}`, menuOrder: 0, isTopic: false } });
+check('kategori: keluarkan dari menu', r.status === 200 && r.data.menuOrder === 0 && r.data.isTopic === false, r.data);
+check('hapus induk: anak naik jadi kategori utama', (await call('DELETE', `/api/categories/${top.data.ID}`, { cookie: admin })).status === 200 && (await call('GET', '/api/categories')).data.find((c) => c.ID === child.data.ID)?.parentId === null);
+check('kategori terhapus: namanya bisa dipakai lagi', (await call('POST', '/api/categories', { cookie: admin, body: { name: `Induk ${run}` } })).status === 200);
+
 // ---------- CORS ----------
 r = await call('OPTIONS', '/api/news', { headers: { Origin: 'http://localhost:4321', 'Access-Control-Request-Method': 'PUT' } });
 check('CORS frontend diizinkan', r.headers.get('access-control-allow-origin') === 'http://localhost:4321' && r.headers.get('access-control-allow-credentials') === 'true');

@@ -1,0 +1,72 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import '../../styles/admin.css';
+
+const socials = [
+  ['facebook_url', 'Facebook'],
+  ['x_url', 'X / Twitter'],
+  ['instagram_url', 'Instagram'],
+  ['youtube_url', 'YouTube'],
+  ['tiktok_url', 'TikTok'],
+];
+---
+
+<DashboardLayout title="Pengaturan Situs" activeMenu="settings">
+  <div class="adm">
+    <div class="head">
+      <div>
+        <h2 class="page-title">Pengaturan Situs</h2>
+        <p class="page-subtitle">Tampil di footer dan bagian atas situs. Kosongkan isian yang tidak dipakai agar tidak ditampilkan.</p>
+      </div>
+    </div>
+
+    <form id="settings-form" class="card card-pad">
+      <div class="field">
+        <label class="lbl" for="site_description">Deskripsi Situs</label>
+        <textarea class="input" id="site_description" name="site_description" rows="3" maxlength="300"></textarea>
+        <p class="hint">Tampil di footer dan sebagai deskripsi untuk mesin pencari.</p>
+      </div>
+
+      <p class="section-label">Kontak</p>
+      <div class="grid">
+        <div class="field"><label class="lbl" for="contact_email">Email</label><input class="input" type="email" id="contact_email" name="contact_email" /></div>
+        <div class="field"><label class="lbl" for="contact_phone">Telepon / WhatsApp</label><input class="input" id="contact_phone" name="contact_phone" /></div>
+        <div class="field span-2"><label class="lbl" for="contact_address">Alamat</label><textarea class="input" id="contact_address" name="contact_address" rows="2" style="min-height:60px"></textarea></div>
+      </div>
+
+      <p class="section-label">Media Sosial (alamat lengkap, diawali https://)</p>
+      <div class="grid">
+        {socials.map(([key, label]) => (
+          <div class="field"><label class="lbl" for={key}>{label}</label><input class="input" type="url" id={key} name={key} placeholder="https://" /></div>
+        ))}
+      </div>
+
+      <div class="alert alert-ok" id="settings-ok" hidden>Pengaturan tersimpan. Tampil di situs dalam beberapa detik.</div>
+      <div class="alert alert-err" id="settings-error" hidden></div>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-primary" id="settings-save">Simpan Pengaturan</button>
+      </div>
+    </form>
+  </div>
+</DashboardLayout>
+
+<script>
+  import { el, errorText, getJSON, sendJSON } from '../../lib/client';
+
+  const form = el('settings-form') as HTMLFormElement;
+  const fields = () => [...form.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('[name]')];
+
+  getJSON('/settings').then((s) => { for (const f of fields()) f.value = s[f.name] ?? ''; }).catch(() => {});
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    el('settings-ok').hidden = el('settings-error').hidden = true;
+    const btn = el('settings-save') as HTMLButtonElement;
+    btn.disabled = true;
+    const res = await sendJSON('/admin/settings', 'PUT', Object.fromEntries(fields().map((f) => [f.name, f.value.trim()]))).catch(() => null);
+    btn.disabled = false;
+    if (res?.ok) { el('settings-ok').hidden = false; return; }
+    el('settings-error').textContent = res ? await errorText(res, 'Gagal menyimpan pengaturan.') : 'Server tidak dapat dihubungi.';
+    el('settings-error').hidden = false;
+  });
+</script>
