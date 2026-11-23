@@ -255,7 +255,7 @@ check('admin melihat draft beserta pemateri, materi, rekening', adminEv?.speaker
 r = await call('PUT', `/api/admin/events/${paidEv.ID}`, { cookie: admin, body: evBody({ status: 'published', speakers: [{ name: 'C' }], materials: [], bank_account_ids: [] }) });
 check('ubah event: terbitkan', r.status === 200, r.data);
 r = await call('GET', `/api/events/slug/${paidEv.slug}`);
-check('ubah event: pemateri & materi diganti, tampil publik', r.status === 200 && r.data.data.speakers.length === 1 && r.data.data.speakers[0].name === 'C' && r.data.data.materials.length === 0, r.data?.data?.speakers);
+check('ubah event: pemateri & materi diganti, tampil publik', r.status === 200 && r.data.data.speakers.length === 1 && r.data.data.speakers[0].name === 'C' && (r.data.data.materials || []).length === 0, r.data?.data?.speakers);
 const reg1 = await call('POST', `/api/events/${paidEv.ID}/register`, { cookie: user, body: { name: 'Pengguna Uji', email: email.toUpperCase(), tier: 'premium', total_amount: 1, payment_proof: '/uploads/bukti.png' } });
 check('daftar premium: biaya dihitung server (bukan dari isian)', reg1.status === 200 && reg1.data.data?.totalAmount === 75000 && reg1.data.status === 'waiting', reg1.data);
 check('daftar dua kali dengan email sama ditolak', (await call('POST', `/api/events/${paidEv.ID}/register`, { body: { name: 'Lagi', email, tier: 'free' } })).status === 409);
