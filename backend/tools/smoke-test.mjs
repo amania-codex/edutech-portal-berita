@@ -14,6 +14,15 @@ if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(BASE)) {
 const ADMIN = { email: process.env.ADMIN_EMAIL || 'admin@edutech.id', password: process.env.ADMIN_PASSWORD || 'admin123' };
 const run = Date.now();
 
+for (const ev of ['uncaughtException', 'unhandledRejection']) {
+  process.on(ev, (e) => {
+    const text = String(e?.stack || e);
+    console.log('BERHENTI: ' + text);
+    if (process.env.GITHUB_ACTIONS) console.log(`::error::Uji API berhenti: ${text.split(String.fromCharCode(10)).slice(0, 4).join(' | ')}`);
+    process.exit(1);
+  });
+}
+
 let pass = 0;
 const failures = [];
 function check(name, ok, info) {
