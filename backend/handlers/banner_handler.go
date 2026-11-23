@@ -113,10 +113,11 @@ func ToggleBannerStatus(c *fiber.Ctx) error {
 	if err := database.DB.First(&banner, c.Params("id")).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"message": "Poster tidak ditemukan"})
 	}
-	if err := database.DB.Model(&banner).Update("is_active", !banner.IsActive).Error; err != nil {
+	active := !banner.IsActive
+	if err := database.DB.Model(&models.Banner{}).Where("id = ?", banner.ID).Update("is_active", active).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal memperbarui status poster"})
 	}
-	banner.IsActive = !banner.IsActive
+	banner.IsActive = active
 	return c.JSON(banner)
 }
 
