@@ -48,9 +48,16 @@ async function ev(expression) {
   return r.result?.result?.value;
 }
 async function go(p) {
-  const loaded = new Promise((r) => { onLoad = r; });
+  const raw = new URL(BASE + p).pathname;
+  const want = raw.length > 1 && raw.endsWith('/') ? raw.slice(0, -1) : raw;
   await send('Page.navigate', { url: BASE + p });
-  await Promise.race([loaded, sleep(15000)]);
+  // tunggu halaman TUJUAN selesai dimuat (bukan load event halaman sebelumnya)
+  for (let t = 0; t < 15000; t += 100) {
+    const ready = await ev(`(location.pathname.endsWith('/') && location.pathname.length > 1 ? location.pathname.slice(0, -1) : location.pathname) === ${JSON.stringify(want)} && document.readyState === 'complete'`);
+    if (ready === true) break;
+    await sleep(100);
+  }
+  await sleep(150);
 }
 // Keadaan halaman saat sebuah langkah gagal: alamat dan pesan yang sedang terlihat
 const STATE = `(() => { const seen = [...document.querySelectorAll('[id*=error],[id*=msg],[id$=-message],.alert,.comment-msg,.toast,#reg-success,#login-success')]
