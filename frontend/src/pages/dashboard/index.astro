@@ -122,6 +122,10 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
             <p class="sentiment-status-note note-neutral" id="all-neutral" style="display:none">ℹ Respon pembaca 100% netral</p>
           </div>
           <a href="/dashboard/comments" class="btn-analysis">Lihat Analisis Lengkap →</a>
+          <div class="newsletter-box">
+            <span>Pelanggan newsletter: <b id="subscribers">0</b></span>
+            <button type="button" id="download-subscribers">Unduh CSV</button>
+          </div>
         </div>
     </div>
   </div>
@@ -257,6 +261,8 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     .stats-grid { grid-template-columns: 1fr; }
   }
   .welcome-banner .welcome-text h2, .welcome-banner .welcome-text p, .welcome-banner .welcome-name { color: #fff; }
+  .newsletter-box { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--color-border); font-size: 13px; color: var(--color-text-secondary); }
+  .newsletter-box button { background: none; border: 1px solid var(--color-border); color: var(--color-text-primary); border-radius: 8px; padding: 6px 10px; font: inherit; font-weight: 600; cursor: pointer; }
 </style>
 
 <script>
@@ -265,7 +271,8 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
 
   getJSON('/auth/profile').then((u) => { el('welcome-name').textContent = u.name; }).catch(() => {});
 
-  getJSON('/admin/stats').then(({ news, comments }) => {
+  getJSON('/admin/stats').then((stats) => {
+    const { news, comments } = stats;
     const num = (n: number) => Number(n).toLocaleString('id-ID');
     el('total-news').textContent = num(news.total);
     el('published-news').textContent = num(news.published);
@@ -274,6 +281,7 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
     document.querySelectorAll<HTMLElement>('[data-n]').forEach((n) => { n.textContent = num(comments[n.dataset.n!]); });
     const pct = (n: number) => (comments.total ? Math.round((n / comments.total) * 100) : 0);
     document.querySelectorAll<HTMLElement>('[data-pct]').forEach((n) => { n.textContent = `${pct(comments[n.dataset.pct!])}%`; });
+    el('subscribers').textContent = num(stats.subscribers ?? 0);
     show(el('flag-some'), comments.flagged > 0);
     show(el('flag-clean'), comments.flagged === 0);
     show(el('no-comments'), comments.total === 0);
@@ -284,6 +292,20 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
       el('donut').style.background = `conic-gradient(#22c55e 0deg ${pos}deg, #94a3b8 ${pos}deg ${neu}deg, #ef4444 ${neu}deg 360deg)`;
     }
   }).catch(() => {});
+
+  el('download-subscribers').addEventListener('click', async () => {
+    try {
+      const subs: any[] = await getJSON('/admin/newsletter');
+      const csv = ['email,tanggal_daftar', ...subs.map((x) => `${x.email},${x.created_at}`)].join('\n');
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+      link.download = 'pelanggan-newsletter.csv';
+      link.click();
+      URL.revokeObjectURL(link.href);
+    } catch {
+      alert('Gagal mengunduh daftar pelanggan.');
+    }
+  });
 
   getJSON('/news?limit=5&status=all&lite=1').then((list) => {
     el('recent-news').replaceChildren(...(list || []).map((raw: any) => {

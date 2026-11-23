@@ -82,6 +82,8 @@ func Setup(app *fiber.App) {
 	api.Put("/news/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateNews)
 	api.Delete("/news/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteNews)
 
+	api.Post("/newsletter", limiter.New(limiter.Config{Max: 10, Expiration: 1 * time.Minute}), handlers.Subscribe)
+	api.Get("/admin/newsletter", middleware.Protected(), middleware.AdminOnly(), handlers.GetSubscribers)
 	api.Get("/admin/stats", middleware.Protected(), middleware.AdminOnly(), handlers.GetAdminStats)
 
 	// Banner / Poster routes

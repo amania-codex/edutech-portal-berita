@@ -2,6 +2,21 @@
 import Layout from "../layouts/Layout.astro";
 import Navbar from "../components/Navbar.astro";
 import Footer from "../components/Footer.astro";
+import { apiFind } from "../lib/news";
+
+Astro.response.status = 404;
+
+// Alamat WordPress lama: /<slug>/, /<kategori>/<slug>/, /category/<x>/, /tag/<x>/
+const segs = Astro.url.pathname.split("/").filter(Boolean).map((s) => {
+  try { return decodeURIComponent(s); } catch { return s; }
+});
+const last = segs[segs.length - 1] || "";
+if (segs[0] === "category" && segs.length > 1) return Astro.redirect(`/kategori/${encodeURIComponent(last)}`, 301);
+if (segs[0] === "tag" && segs.length > 1) return Astro.redirect(`/cari?tag=${encodeURIComponent(last.replace(/-/g, " "))}`, 301);
+if (last && !["kategori", "berita", "event", "_astro", "uploads"].includes(segs[0]) && /^[\w-]{3,200}$/.test(last)) {
+  const moved = await apiFind(`/news/resolve/${encodeURIComponent(last)}`).catch(() => null);
+  if (moved?.slug) return Astro.redirect(`/berita/${moved.slug}`, 301);
+}
 ---
 
 <Layout title="Halaman Tidak Ditemukan — EduTech News Portal">
@@ -24,24 +39,3 @@ import Footer from "../components/Footer.astro";
   .nf-links { display: flex; flex-wrap: wrap; gap: var(--space-3); justify-content: center; }
   .nf-links a { padding: var(--space-3) var(--space-5); border-radius: var(--radius-md); background: var(--color-accent); color: white; font-weight: 600; font-size: var(--text-sm); }
 </style>
-
-<script>
-  // Alamat WordPress lama: /<slug>/, /<kategori>/<slug>/, /category/<x>/, /tag/<x>/
-  import { API_BASE } from "../lib/config";
-
-  const segs = location.pathname.split("/").filter(Boolean);
-  const last = segs[segs.length - 1] || "";
-  if (segs[0] === "category" && segs.length > 1) {
-    location.replace(`/kategori/${last}`);
-  } else if (segs[0] === "tag" && segs.length > 1) {
-    location.replace(`/cari?tag=${encodeURIComponent(decodeURIComponent(last).replace(/-/g, " "))}`);
-  } else if (last && segs[0] !== "kategori") {
-    fetch(`${API_BASE}/news/resolve/${last}`)
-      .then(async (res) => {
-        if (!res.ok) return;
-        const target = `/berita/${(await res.json()).slug}`;
-        if (target !== location.pathname.replace(/\/$/, "")) location.replace(target);
-      })
-      .catch(() => {});
-  }
-</script>

@@ -35,5 +35,8 @@ func GetAdminStats(c *fiber.Ctx) error {
 		return c.Status(500).JSON(fiber.Map{"message": "Gagal mengambil statistik."})
 	}
 
-	return c.JSON(fiber.Map{"news": news, "comments": comments})
+	var subscribers int64
+	database.DB.Model(&models.NewsletterSubscriber{}).Count(&subscribers)
+
+	return c.JSON(fiber.Map{"news": news, "comments": comments, "subscribers": subscribers})
 }

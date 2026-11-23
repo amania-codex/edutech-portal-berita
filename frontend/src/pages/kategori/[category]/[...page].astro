@@ -4,27 +4,28 @@ import Navbar from "../../../components/Navbar.astro";
 import NewsCard from "../../../components/NewsCard.astro";
 import TrendingNews from "../../../components/TrendingNews.astro";
 import Footer from "../../../components/Footer.astro";
-import { getAllNews, getCategories, getTrending, newsInCategory, type Category } from "../../../lib/news";
+import { getCategories, getNewsPage, getTrending } from "../../../lib/news";
 
-export async function getStaticPaths({ paginate }: any) {
-  const [news, categories] = await Promise.all([getAllNews(), getCategories()]);
-  const list: Array<{ slug: string; name: string }> = [{ slug: "semua", name: "Semua Berita" }, ...categories];
-  // kategori yang hanya tercatat sebagai teks pada artikel
-  for (const n of news) {
-    if (n.categorySlug && !list.some((c) => c.slug === n.categorySlug)) list.push({ slug: n.categorySlug, name: n.category });
-  }
-  return list.flatMap((cat) =>
-    paginate(newsInCategory(cat.slug, news, categories), {
-      params: { category: cat.slug },
-      props: { name: cat.name },
-      pageSize: 24,
-    }),
-  );
-}
-
-const { page, name: displayCategory } = Astro.props as any;
+const PAGE_SIZE = 24;
 const category = Astro.params.category as string;
-const [trendingNews, categories] = await Promise.all([getTrending(), getCategories()]);
+const pageParam = Astro.params.page ?? "";
+const currentPage = pageParam === "" ? 1 : Number(pageParam);
+// /kategori/x/1 → /kategori/x; nomor halaman tidak sah → 404
+if (pageParam === "1") return Astro.redirect(`/kategori/${category}`, 301);
+if (!Number.isInteger(currentPage) || currentPage < 1 || String(currentPage) !== (pageParam || "1")) return Astro.rewrite("/404");
+
+const [trendingNews, categories, list] = await Promise.all([
+  getTrending(),
+  getCategories(),
+  getNewsPage(`/news?lite=1&limit=${PAGE_SIZE}&offset=${(currentPage - 1) * PAGE_SIZE}&category=${encodeURIComponent(category)}`),
+]);
+const lastPage = Math.max(1, Math.ceil(list.total / PAGE_SIZE));
+const known = category === "semua" || categories.some((c) => c.slug === category);
+if ((!known && list.total === 0) || currentPage > lastPage) return Astro.rewrite("/404");
+
+const page = { data: list.items, total: list.total, currentPage, lastPage };
+const displayCategory =
+  category === "semua" ? "Semua Berita" : categories.find((c) => c.slug === category)?.name || list.items[0]?.category || category;
 
 const current = categories.find((c) => c.slug === category);
 const parent = current && categories.find((c) => c.id === current.parentId);

@@ -281,8 +281,11 @@ func GetNewsBySlug(c *fiber.Ctx) error {
 	if err := database.DB.Where("slug = ? AND is_published = ?", slug, true).First(&article).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"message": "Berita tidak ditemukan."})
 	}
-	database.DB.Model(&article).UpdateColumn("view_count", gorm.Expr("view_count + ?", 1))
-	article.ViewCount++
+	// track=0: dipakai frontend saat merender halaman; tayangan dihitung dari browser
+	if c.Query("track") != "0" {
+		database.DB.Model(&article).UpdateColumn("view_count", gorm.Expr("view_count + ?", 1))
+		article.ViewCount++
+	}
 	return c.JSON(article)
 }
 

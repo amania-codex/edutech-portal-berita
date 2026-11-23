@@ -75,12 +75,13 @@ jobs:
           ls -la ~/backup-edutech
           test "$(curl -s localhost:3000)" = "aplikasi lain"
           ss -ltn | grep "127.0.0.1:3021"
+          ss -ltn | grep "127.0.0.1:3022"
 
       - name: Tidak ada alamat internal bocor ke halaman
         working-directory: frontend
         run: |
-          if grep -rlE "127\.0\.0\.1|localhost:3000" dist --include=*.html --include=*.js > /tmp/bocor.txt; then head -3 /tmp/bocor.txt; exit 1; fi
-          test "$(ls dist/berita | wc -l)" -ge 2817
+          if grep -rlE "127\.0\.0\.1|localhost:3000" dist/client > /tmp/bocor.txt; then head -3 /tmp/bocor.txt; exit 1; fi
+          for u in / /kategori/semua /login; do if curl -s "http://127.0.0.1:3022$u" | grep -qE "127\.0\.0\.1|localhost:3000"; then echo "bocor di $u"; exit 1; fi; done
           test -z "$(git status --short)"
 
       - name: Uji lewat nginx seperti pengunjung
@@ -88,7 +89,7 @@ jobs:
           sudo tee /etc/nginx/conf.d/uji.conf > /dev/null <<EOF
           server {
             listen 8099; server_name localhost;
-            root $PWD/frontend/dist; index index.html;
+            root $PWD/frontend/dist/client;
             include $PWD/deploy/nginx-lokasi.conf;
             # aturan bawaan ala CloudPanel
             location ~* ^.+\.(css|js|jpg|jpeg|gif|png|ico|gz|svg|webp|pdf|woff2?)\$ { expires max; access_log off; }
@@ -97,11 +98,15 @@ jobs:
           sudo chmod o+x /home/runner /home/runner/work 2>/dev/null || true
           sudo nginx -t && (sudo nginx -s reload 2>/dev/null || sudo nginx)
           sleep 1
-          B=http://localhost:8099; S=$(ls frontend/dist/berita | head -1)
+          B=http://localhost:8099; S=$(curl -s "$B/api/news?limit=1&lite=1" | grep -oE '"slug":"[^"]+"' | head -1 | cut -d'"' -f4)
           code() { curl -s -o /dev/null -w '%{http_code}' "$1"; }
-          for u in / "/berita/$S" "/berita/$S/" /kategori/pendidikan /kategori/jateng-diy/2 /cari /login /dashboard "/dashboard/news/edit?id=1" /api/categories /styles/global.css; do c=$(code "$B$u"); echo "$c $u"; test "$c" = 200; done
+          CSS=$(ls frontend/dist/client/_astro/*.css | head -1 | xargs basename)
+          for u in / "/berita/$S" "/berita/$S/" /kategori/pendidikan /kategori/jateng-diy/2 /cari /login /dashboard "/dashboard/news/edit?id=1" /user/password /event /api/categories /styles/global.css /favicon.svg "/_astro/$CSS"; do c=$(code "$B$u"); echo "$c $u"; test "$c" = 200; done
           test "$(code $B/alamat-lama-wordpress/)" = 404
           curl -s $B/alamat-lama-wordpress/ | grep -q "Halaman Tidak Ditemukan"
+          test "$(code $B/berita/tidak-ada)" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' $B/category/pendidikan/purbalingga/)" = "301 http://localhost:8099/kategori/purbalingga"
+          curl -s -D- -o /dev/null "$B/" | grep -i "cache-control: no-cache"
           IMG=$(curl -s "$B/api/news?limit=1&lite=1" | grep -oE '/uploads/wp/[^"]+' | head -1); echo "$IMG"
           curl -s -o /tmp/g -w '%{http_code} %{content_type}\n' "$B$IMG" | grep "200 image/"
           BASE_URL=$B MIN_NEWS=2817 node backend/tools/check-images.mjs
@@ -114,11 +119,17 @@ jobs:
           sleep 61
           test "$(curl -s -o /dev/null -w '%{http_code}' -H 'Content-Type: application/json' -d '{"email":"admin@edutech.id","password":"admin123"}' http://localhost:8099/api/auth/login)" = 401
 
+      - name: Semua form diuji lewat browser (situs dinamis)
+        run: |
+          sleep 61
+          BASE_URL=http://localhost:8099 ADMIN_PASSWORD=kata-sandi-uji-panjang node backend/tools/e2e-forms.mjs
+
       - name: Pasang ulang dan build ulang frontend saja
         run: |
           bash deploy/deploy.sh frontend
           bash deploy/deploy.sh backend
           test "$(curl -s -D- -o /dev/null 'http://localhost:8099/api/news?limit=1' | tr -d '\r' | awk 'tolower($1)=="x-total-count:"{print $2}')" = 2817
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8099/kategori/semua)" = 200
 
       - name: Versi rusak dikembalikan ke versi sebelumnya
         run: |
@@ -132,9 +143,21 @@ jobs:
           for i in $(seq 1 20); do [ "$(curl -s http://localhost:8099/api/categories | head -c1)" = "[" ] && exit 0; sleep 1; done
           exit 1
 
+      - name: Tampilan rusak dikembalikan ke versi sebelumnya
+        run: |
+          sed -i '0,/^---$/s//---\nthrow new Error("sengaja rusak");/' frontend/src/pages/index.astro
+          head -3 frontend/src/pages/index.astro
+          if timeout 300 bash deploy/deploy.sh frontend > /tmp/o.txt 2>&1; then echo "seharusnya gagal"; tail /tmp/o.txt; exit 1; fi
+          tail -5 /tmp/o.txt
+          grep "versi sebelumnya dinyalakan lagi" /tmp/o.txt
+          git checkout -- frontend/src/pages/index.astro
+          test -d frontend/dist.gagal
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8099/kategori/semua)" = 200
+
       - name: Rincian bila gagal
         if: failure()
         run: |
           tail -n 40 /tmp/o.txt 2>/dev/null || true
           pm2 logs edutech-backend --nostream --lines 40 2>/dev/null || true
+          pm2 logs edutech-frontend --nostream --lines 40 2>/dev/null || true
           echo "::error::$( (tail -n 12 /tmp/o.txt; pm2 logs edutech-backend --nostream --lines 12) 2>/dev/null | tail -20 | cut -c1-200 | tr '\n' '|')"

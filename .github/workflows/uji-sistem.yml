@@ -82,10 +82,14 @@ jobs:
           npm ci
           npx astro build > /tmp/build.log 2>&1 || { tail -40 /tmp/build.log; exit 1; }
           tail -3 /tmp/build.log
-          n=$(ls dist/berita | wc -l); echo "halaman berita: $n"; echo "::notice::Halaman berita terbangun: $n"; test "$n" -ge 2817
-          test -f dist/kategori/pendidikan/index.html
-          test -f dist/kategori/jateng-diy/2/index.html
-          test -f dist/404.html
+          HOST=127.0.0.1 PORT=4321 node dist/server/entry.mjs > /tmp/web.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:4321/ > /dev/null && break; sleep 1; done
+          B=http://127.0.0.1:4321; S=$(curl -s "http://localhost:3000/api/news?limit=1&lite=1" | grep -oE '"slug":"[^"]+"' | head -1 | cut -d'"' -f4)
+          code() { curl -s -o /dev/null -w '%{http_code}' "$B$1"; }
+          for u in / "/berita/$S" /kategori/pendidikan /kategori/jateng-diy/51 /kategori/semua/118 /cari /event /login /dashboard; do c=$(code "$u"); echo "$c $u"; test "$c" = 200; done
+          for u in /berita/tidak-ada /kategori/tidak-ada /kategori/semua/119 /halaman-lain; do c=$(code "$u"); echo "$c $u"; test "$c" = 404; done
+          curl -s "$B/berita/$S" | grep -q 'article-content'
+          echo "::notice::Situs dinamis menjawab dari backend asli"
 
       - name: Backend bisa dinyalakan ulang (migrasi kedua kali)
         if: ${{ !cancelled() }}

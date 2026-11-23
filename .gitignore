@@ -6,6 +6,7 @@ vendor/
 dist/
 dist.baru/
 dist.lama/
+dist.gagal/
 frontend/build.log
 .astro/
 *.exe

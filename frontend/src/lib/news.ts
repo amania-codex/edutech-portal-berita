@@ -99,12 +99,15 @@ export async function getNews(path: string): Promise<News[]> {
   return (Array.isArray(data) ? data : []).map(normalizeNews);
 }
 
-function cached<T>(load: () => Promise<T>): () => Promise<T> {
+/**
+ * Simpan hasil sebentar (detik) agar satu kunjungan tidak memanggil API berulang.
+ * Cukup singkat sehingga perubahan dari dashboard segera terlihat.
+ */
+function cached<T>(seconds: number, load: () => Promise<T>): () => Promise<T> {
   let at = 0;
   let value: Promise<T> | null = null;
   return () => {
-    // saat build cukup sekali; di dev server disegarkan tiap 30 detik
-    if (!value || (import.meta.env.DEV && Date.now() - at > 30_000)) {
+    if (!value || Date.now() - at > seconds * 1000) {
       at = Date.now();
       value = load().catch((e) => {
         value = null;
@@ -115,17 +118,7 @@ function cached<T>(load: () => Promise<T>): () => Promise<T> {
   };
 }
 
-/** Semua artikel terbit, terbaru lebih dulu (API membatasi 100 per permintaan). */
-export const getAllNews = cached(async (): Promise<News[]> => {
-  const all = new Map<number, News>();
-  for (let offset = 0; ; offset += 100) {
-    const batch = await getNews(`/news?limit=100&offset=${offset}`);
-    batch.forEach((n) => all.set(n.id, n));
-    if (batch.length < 100) return [...all.values()];
-  }
-});
-
-export const getCategories = cached(async (): Promise<Category[]> =>
+export const getCategories = cached(30, async (): Promise<Category[]> =>
   (await apiGet('/categories')).map((c: any) => ({
     id: c.ID ?? c.id,
     name: c.name,
@@ -134,21 +127,21 @@ export const getCategories = cached(async (): Promise<Category[]> =>
   })),
 );
 
-export const getTrending = cached(() => getNews('/news/trending?limit=5'));
+export const getTrending = cached(30, () => getNews('/news/trending?limit=5'));
 
-/** Slug kategori beserta seluruh sub-kategorinya. */
-export function withDescendants(slug: string, categories: Category[]): string[] {
-  const root = categories.find((c) => c.slug === slug);
-  if (!root) return [slug];
-  const found = [root];
-  for (let i = 0; i < found.length; i++) {
-    found.push(...categories.filter((c) => c.parentId === found[i].id && !found.includes(c)));
-  }
-  return found.map((c) => c.slug);
+/** GET yang boleh gagal dengan 404 (mengembalikan null), mis. berita yang sudah dihapus. */
+export async function apiFind(path: string): Promise<any | null> {
+  const res = await fetch(`${FETCH_BASE}${path}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API ${path} gagal (${res.status})`);
+  return res.json();
 }
 
-export function newsInCategory(slug: string, news: News[], categories: Category[]): News[] {
-  if (slug === 'semua') return news;
-  const slugs = new Set(withDescendants(slug, categories));
-  return news.filter((n) => n.categories.some((c) => slugs.has(c)));
+/** Daftar berita beserta jumlah total (header X-Total-Count). */
+export async function getNewsPage(path: string): Promise<{ items: News[]; total: number }> {
+  const res = await fetch(`${FETCH_BASE}${path}`);
+  if (!res.ok) throw new Error(`API ${path} gagal (${res.status})`);
+  const data = await res.json();
+  const items = (Array.isArray(data) ? data : []).map(normalizeNews);
+  return { items, total: Number(res.headers.get('x-total-count') ?? items.length) };
 }

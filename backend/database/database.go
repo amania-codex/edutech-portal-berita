@@ -60,6 +60,7 @@ func Connect() {
 		&models.Material{},
 		&models.BankAccount{},
 		&models.Registration{},
+		&models.NewsletterSubscriber{},
 	)
 	if err != nil {
 		log.Fatal("Failed to auto-migrate database!\n", err)

@@ -5,6 +5,7 @@ import Navbar from "../components/Navbar.astro";
 import Footer from "../components/Footer.astro";
 
 import { apiGet, getNews, type News } from "../lib/news";
+import { API_BASE } from "../lib/config";
 
 // Fetch data paralel dari backend Go
 const [latestNews, featuredNews, trendingNews, popularNews, articleNews, eventsList] = await Promise.all([
@@ -464,7 +465,7 @@ const displayEvents = eventsList
   <button class="back-top" id="backTop" aria-label="Kembali ke atas">↑</button>
 </Layout>
 
-<script is:inline>
+<script is:inline define:vars={{ API_BASE }}>
   // Popular track horizontal scrolling
   const popularTrack = document.getElementById("popularTrack");
   const popularPrev = document.getElementById("popularPrev");
@@ -496,16 +497,35 @@ const displayEvents = eventsList
   const newsletterMsg = document.getElementById("newsletterMessage");
 
   if (newsletterForm && emailInput) {
-    newsletterForm.addEventListener("submit", (e) => {
+    const submitBtn = newsletterForm.querySelector("button[type=submit]");
+    newsletterForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const val = emailInput.value.trim();
-      if (!val) return;
-      if (newsletterMsg) {
-        newsletterMsg.textContent = "Terima kasih! Email Anda telah terdaftar.";
-        newsletterMsg.style.color = "#0da4a2";
+      const email = emailInput.value.trim();
+      if (!email) return;
+      submitBtn.disabled = true;
+      let ok = false;
+      let message = "Gagal mendaftar. Silakan coba lagi.";
+      try {
+        const res = await fetch(`${API_BASE}/newsletter`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        });
+        const data = await res.json().catch(() => ({}));
+        ok = res.ok;
+        message = data.message || data.error || (res.status === 429 ? "Terlalu banyak percobaan. Coba lagi sebentar." : message);
+      } catch {
+        message = "Server tidak dapat dihubungi. Silakan coba lagi.";
       }
-      emailInput.value = "";
-      showToast("Terima kasih sudah berlangganan newsletter!");
+      submitBtn.disabled = false;
+      if (newsletterMsg) {
+        newsletterMsg.textContent = message;
+        newsletterMsg.style.color = ok ? "#0da4a2" : "#ef4444";
+      }
+      if (ok) {
+        emailInput.value = "";
+        showToast("Terima kasih sudah berlangganan newsletter!");
+      }
     });
   }
 

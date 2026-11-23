@@ -273,7 +273,7 @@ import Footer from '../components/Footer.astro';
       } else {
         successEl.textContent = `Akun berhasil dibuat! Selamat datang, ${data.user.name}!`;
         successEl.style.display = 'block';
-        setTimeout(() => { window.location.href = '/dashboard'; }, 1200);
+        setTimeout(() => { window.location.href = '/user'; }, 1200);
       }
     } catch {
       errorEl.textContent = 'Terjadi kesalahan. Silakan coba lagi.';
