@@ -114,7 +114,7 @@ async function login(email, password) {
   return until(`!location.pathname.startsWith('/login')`, 10000);
 }
 async function logout() {
-  await until(`!!document.getElementById('logout-btn')`);
+  if (!(await until(`!!document.getElementById('logout-btn')`, 5000))) return false;
   await click('#logout-btn');
   return until(`location.pathname === '/'`);
 }
@@ -340,6 +340,7 @@ try {
   await go('/');
   await ev(`document.querySelector('[data-play]').click()`);
   check('situs: klik video memutar YouTube', await until(`!!document.querySelector('.video-player iframe[src*="youtube-nocookie.com/embed/aqz-KE-bpKQ"]')`));
+  await go('/dashboard/'); // logout lewat tombol di dashboard
 
   check('logout admin', await logout());
   await go('/dashboard/');
