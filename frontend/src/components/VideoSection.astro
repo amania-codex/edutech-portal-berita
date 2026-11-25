@@ -1,0 +1,199 @@
+---
+// Kolom video YouTube (Dashboard > Kelola Video). Video baru dimuat saat diklik,
+// jadi halaman tetap ringan walau banyak video.
+import { videoThumb, type Video } from '../lib/site';
+
+export interface Props {
+  videos: Video[];
+  title?: string;
+  channelUrl?: string;
+  /** beranda: 1 besar + daftar; halaman: semua video dalam kisi */
+  variant?: 'beranda' | 'halaman';
+}
+const { videos, title = 'Video & Podcast', channelUrl = '', variant = 'beranda' } = Astro.props;
+const [main, ...rest] = videos;
+const list = variant === 'beranda' ? rest.slice(0, 4) : rest;
+---
+
+{main && (
+  <section class:list={['video-section', `video-${variant}`]} aria-labelledby="video-heading" data-video-section>
+    <div class="video-head">
+      <div>
+        <span class="video-eyebrow">▶ TONTON</span>
+        <h2 id="video-heading">{title}</h2>
+      </div>
+      <div class="video-links">
+        {variant === 'beranda' && <a href="/video">Semua video ↗</a>}
+        {channelUrl && <a href={channelUrl} target="_blank" rel="noopener">Kunjungi kanal YouTube ↗</a>}
+      </div>
+    </div>
+
+    <div class="video-body">
+      <div class="video-main">
+        <div class="video-player" data-player>
+          <button type="button" class="video-poster" data-play={main.youtubeId} aria-label={`Putar video: ${main.title}`}>
+            <img src={videoThumb(main.youtubeId, 'hq')} alt="" loading="lazy" />
+            <span class="video-play" aria-hidden="true"></span>
+          </button>
+        </div>
+        <h3 class="video-title" data-title>{main.title}</h3>
+        {main.description && <p class="video-desc" data-desc>{main.description}</p>}
+        {!main.description && <p class="video-desc" data-desc hidden></p>}
+      </div>
+
+      {list.length > 0 && (
+        <ol class="video-list">
+          {list.map((v) => (
+            <li>
+              <button type="button" class="video-item" data-pick={v.youtubeId} data-title={v.title} data-desc={v.description}>
+                <span class="video-thumb">
+                  <img src={videoThumb(v.youtubeId, 'mq')} alt="" loading="lazy" />
+                  <span class="video-play small" aria-hidden="true"></span>
+                </span>
+                <span class="video-item-title">{v.title}</span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
+  </section>
+)}
+
+<script>
+  function embed(id: string) {
+    const frame = document.createElement('iframe');
+    frame.src = `https://www.youtube-nocookie.com/embed/${encodeURIComponent(id)}?autoplay=1&rel=0`;
+    frame.title = 'Video YouTube';
+    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.allowFullscreen = true;
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    return frame;
+  }
+  document.querySelectorAll<HTMLElement>('[data-video-section]').forEach((section) => {
+    const player = section.querySelector<HTMLElement>('[data-player]')!;
+    section.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const play = target.closest<HTMLElement>('[data-play]');
+      if (play) {
+        player.replaceChildren(embed(play.dataset.play!));
+        return;
+      }
+      const pick = target.closest<HTMLElement>('[data-pick]');
+      if (!pick) return;
+      const titleEl = section.querySelector<HTMLElement>('[data-title]')!;
+      const descEl = section.querySelector<HTMLElement>('[data-desc]')!;
+      titleEl.textContent = pick.dataset.title || '';
+      descEl.textContent = pick.dataset.desc || '';
+      descEl.hidden = !pick.dataset.desc;
+      section.querySelectorAll('.video-item.active').forEach((x) => x.classList.remove('active'));
+      pick.classList.add('active');
+      player.replaceChildren(embed(pick.dataset.pick!));
+      if (window.innerWidth < 900) player.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  });
+</script>
+
+<style>
+  .video-section {
+    margin: 28px 0;
+    padding: 22px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #071a32 0%, #0d2b52 100%);
+    color: #fff;
+  }
+  .video-head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 14px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  }
+  .video-eyebrow { display: block; font-size: 10px; font-weight: 800; letter-spacing: 1.7px; color: #ff6b6b; margin-bottom: 6px; }
+  .video-head h2 { margin: 0; font: 800 25px/1.15 var(--font-heading); letter-spacing: -0.6px; color: #fff; }
+  .video-links { display: flex; gap: 16px; flex-wrap: wrap; }
+  .video-links a { font-size: 12px; font-weight: 700; color: #19c8c3; }
+  .video-links a:hover { color: #fff; }
+
+  .video-body { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+  .video-player { position: relative; aspect-ratio: 16 / 9; border-radius: 10px; overflow: hidden; background: #000; }
+  .video-player :global(iframe) { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+  .video-poster { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; cursor: pointer; background: #000; }
+  .video-poster img { width: 100%; height: 100%; object-fit: cover; opacity: 0.92; transition: opacity 0.2s; }
+  .video-poster:hover img { opacity: 1; }
+  .video-play {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 68px;
+    height: 48px;
+    transform: translate(-50%, -50%);
+    border-radius: 14px;
+    background: #ff0000;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  }
+  .video-play::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-35%, -50%);
+    border-style: solid;
+    border-width: 10px 0 10px 17px;
+    border-color: transparent transparent transparent #fff;
+  }
+  .video-play.small { width: 40px; height: 28px; border-radius: 8px; }
+  .video-play.small::after { border-width: 6px 0 6px 10px; }
+  .video-title { margin: 12px 0 4px; font: 800 19px/1.3 var(--font-heading); color: #fff; }
+  .video-desc { margin: 0; font-size: 13.5px; line-height: 1.6; color: rgba(255, 255, 255, 0.75); white-space: pre-line; }
+  .video-desc[hidden] { display: none; }
+
+  .video-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .video-item {
+    display: grid;
+    grid-template-columns: 132px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+    width: 100%;
+    padding: 6px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: #fff;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+  }
+  .video-item:hover,
+  .video-item.active { background: rgba(255, 255, 255, 0.08); }
+  .video-thumb { position: relative; display: block; aspect-ratio: 16 / 9; border-radius: 7px; overflow: hidden; background: #000; }
+  .video-thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .video-item-title {
+    font-size: 13.5px;
+    font-weight: 700;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Halaman /video: semua video dalam kisi */
+  .video-halaman { margin-top: 0; }
+  .video-halaman .video-body { grid-template-columns: 1fr; }
+  .video-halaman .video-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  .video-halaman .video-item { grid-template-columns: 1fr; }
+
+  @media (max-width: 900px) {
+    .video-body { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    .video-section { padding: 16px; border-radius: 10px; }
+    .video-item { grid-template-columns: 112px minmax(0, 1fr); }
+    .video-halaman .video-list { grid-template-columns: 1fr; }
+    .video-halaman .video-item { grid-template-columns: 112px minmax(0, 1fr); }
+  }
+</style>

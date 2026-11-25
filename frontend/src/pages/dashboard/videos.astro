@@ -1,0 +1,208 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import '../../styles/admin.css';
+---
+
+<DashboardLayout title="Kelola Video" activeMenu="videos" roles={['admin', 'editor']}>
+  <div class="adm">
+    <div class="head">
+      <div>
+        <h2 class="page-title">Kelola Video</h2>
+        <p class="page-subtitle">Video YouTube (mis. EnhaPodcast atau berita video) tampil di kolom video beranda dan halaman /video. Cukup tempel alamat videonya.</p>
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-add-video">+ Tambah Video</button>
+    </div>
+
+    <form class="card card-pad admin-only" id="video-settings">
+      <p class="card-title">Kolom video di beranda</p>
+      <div class="grid">
+        <div class="field">
+          <label class="lbl" for="video_section_title">Judul kolom</label>
+          <input class="input" id="video_section_title" name="video_section_title" maxlength="60" placeholder="Video & Podcast" />
+        </div>
+        <div class="field">
+          <label class="lbl" for="video_channel_url">Tautan kanal YouTube (tombol "Kunjungi Kanal")</label>
+          <input class="input" type="url" id="video_channel_url" name="video_channel_url" placeholder="https://www.youtube.com/@namakanal" />
+        </div>
+      </div>
+      <div class="alert alert-ok" id="vs-ok" hidden>Tersimpan.</div>
+      <div class="alert alert-err" id="vs-error" hidden></div>
+      <div class="modal-actions"><button type="submit" class="btn btn-outline" id="vs-save">Simpan</button></div>
+    </form>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Video</th><th>Urutan</th><th>Status</th><th></th></tr></thead>
+          <tbody id="video-rows"><tr><td colspan="4" class="empty">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="video-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title" id="video-modal-title">Tambah Video</h3>
+          <button type="button" class="modal-close" id="video-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <form id="video-form">
+            <input type="hidden" id="v-id" />
+            <div class="field">
+              <label class="lbl" for="v-url">Alamat video YouTube</label>
+              <input class="input" id="v-url" required placeholder="https://youtu.be/... atau https://www.youtube.com/watch?v=..." />
+              <p class="hint">Bisa alamat biasa, Shorts, atau siaran langsung.</p>
+            </div>
+            <img class="video-preview" id="v-preview" alt="" hidden />
+            <div class="field"><label class="lbl" for="v-title">Judul</label><input class="input" id="v-title" required maxlength="255" /></div>
+            <div class="field"><label class="lbl" for="v-desc">Keterangan singkat (opsional)</label><textarea class="input" id="v-desc" rows="3" maxlength="2000"></textarea></div>
+            <div class="grid">
+              <div class="field"><label class="lbl" for="v-order">Urutan (kecil tampil dulu)</label><input class="input" type="number" id="v-order" min="0" max="9999" value="0" /></div>
+              <div class="field" style="justify-content:flex-end"><label class="check"><input type="checkbox" id="v-published" checked /> Tampilkan di situs</label></div>
+            </div>
+            <div class="alert alert-err" id="video-error" hidden></div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-outline" id="video-cancel">Batal</button>
+              <button type="submit" class="btn btn-primary" id="video-save">Simpan Video</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<style is:global>
+  #video-settings { margin-bottom: 16px; }
+  #video-form .field { margin-bottom: 14px; }
+  .video-preview { width: 100%; max-width: 320px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 8px; margin: 0 0 14px; background: #000; }
+  .vid-cell { display: flex; gap: 12px; align-items: center; }
+  .vid-cell img { width: 120px; aspect-ratio: 16 / 9; object-fit: cover; border-radius: 6px; flex-shrink: 0; background: #000; }
+  .vid-cell a { font-weight: 600; }
+</style>
+
+<script>
+  import { api, el, errorText, getJSON, sendJSON } from '../../lib/client';
+
+  const modal = el('video-modal') as HTMLElement;
+  const form = el('video-form') as HTMLFormElement;
+
+  /** ID video dari berbagai bentuk alamat YouTube (sama dengan aturan di server). */
+  function youtubeId(raw: string): string {
+    const s = raw.trim();
+    if (/^[\w-]{11}$/.test(s)) return s;
+    try {
+      const u = new URL(/^https?:\/\//i.test(s) ? s : `https://${s}`);
+      const host = u.hostname.replace(/^(www|m)\./, '');
+      const parts = u.pathname.split('/').filter(Boolean);
+      let id = '';
+      if (host === 'youtu.be') id = parts[0] || '';
+      else if (/(^|\.)youtube(-nocookie)?\.com$/.test(host)) id = u.searchParams.get('v') || (['shorts', 'live', 'embed', 'v'].includes(parts[0]) ? parts[1] || '' : '');
+      return /^[\w-]{11}$/.test(id) ? id : '';
+    } catch {
+      return '';
+    }
+  }
+  const thumb = (id: string) => `https://i.ytimg.com/vi/${id}/mqdefault.jpg`;
+  const td = (text = '') => { const c = document.createElement('td'); c.textContent = text; return c; };
+
+  async function load() {
+    try {
+      const videos: any[] = await getJSON('/admin/videos');
+      if (!videos.length) {
+        const tr = document.createElement('tr'); const c = td('Belum ada video. Klik "+ Tambah Video".'); c.colSpan = 4; c.className = 'empty'; tr.append(c);
+        return el('video-rows').replaceChildren(tr);
+      }
+      el('video-rows').replaceChildren(...videos.map((v) => {
+        const tr = document.createElement('tr');
+        tr.dataset.title = v.title;
+        const cell = td(); const wrap = document.createElement('div'); wrap.className = 'vid-cell';
+        const img = document.createElement('img'); img.src = thumb(v.youtubeId); img.alt = ''; img.loading = 'lazy';
+        const a = document.createElement('a'); a.href = `https://youtu.be/${v.youtubeId}`; a.target = '_blank'; a.rel = 'noopener'; a.textContent = v.title;
+        wrap.append(img, a); cell.append(wrap);
+        const status = td(); const b = document.createElement('span'); b.className = `badge ${v.isPublished ? 'b-green' : 'b-gray'}`; b.textContent = v.isPublished ? 'Tampil' : 'Disembunyikan'; status.append(b);
+        const actions = td(); const box = document.createElement('div'); box.className = 'actions';
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn btn-sm btn-outline v-edit'; edit.textContent = 'Ubah';
+        edit.addEventListener('click', () => openModal(v));
+        const del = document.createElement('button'); del.type = 'button'; del.className = 'btn btn-sm btn-danger v-delete'; del.textContent = 'Hapus';
+        del.addEventListener('click', async () => {
+          if (!confirm(`Hapus video "${v.title}" dari situs?`)) return;
+          const res = await api(`/admin/videos/${v.ID}`, { method: 'DELETE' }).catch(() => null);
+          if (res?.ok) load(); else alert('Gagal menghapus video.');
+        });
+        box.append(edit, del); actions.append(box);
+        tr.append(cell, td(String(v.sortOrder)), status, actions);
+        return tr;
+      }));
+    } catch {
+      el('video-rows').textContent = 'Gagal memuat video.';
+    }
+  }
+
+  function preview() {
+    const id = youtubeId(el('v-url').value);
+    el('v-preview').hidden = !id;
+    if (id) el('v-preview').src = thumb(id);
+  }
+
+  function openModal(v?: any) {
+    form.reset();
+    el('video-error').hidden = true;
+    el('video-modal-title').textContent = v ? 'Ubah Video' : 'Tambah Video';
+    el('v-id').value = v?.ID ?? '';
+    el('v-url').value = v ? `https://youtu.be/${v.youtubeId}` : '';
+    el('v-title').value = v?.title ?? '';
+    el('v-desc').value = v?.description ?? '';
+    el('v-order').value = v?.sortOrder ?? 0;
+    el('v-published').checked = v ? !!v.isPublished : true;
+    preview();
+    modal.classList.add('active');
+    el('v-url').focus();
+  }
+  const closeModal = () => modal.classList.remove('active');
+
+  el('v-url').addEventListener('input', preview);
+  el('btn-add-video').addEventListener('click', () => openModal());
+  el('video-close').addEventListener('click', closeModal);
+  el('video-cancel').addEventListener('click', closeModal);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    el('video-error').hidden = true;
+    if (!youtubeId(el('v-url').value)) {
+      el('video-error').textContent = 'Alamat YouTube tidak dikenali. Salin alamat dari tombol "Bagikan" di YouTube.';
+      el('video-error').hidden = false;
+      return;
+    }
+    const id = el('v-id').value;
+    el('video-save').disabled = true;
+    const res = await sendJSON(id ? `/admin/videos/${id}` : '/admin/videos', id ? 'PUT' : 'POST', {
+      url: el('v-url').value.trim(),
+      title: el('v-title').value.trim(),
+      description: el('v-desc').value.trim(),
+      sortOrder: Number(el('v-order').value) || 0,
+      isPublished: el('v-published').checked,
+    }).catch(() => null);
+    el('video-save').disabled = false;
+    if (res?.ok) { closeModal(); load(); return; }
+    el('video-error').textContent = res ? await errorText(res, 'Gagal menyimpan video.') : 'Server tidak dapat dihubungi.';
+    el('video-error').hidden = false;
+  });
+
+  // Pengaturan kolom (hanya admin; editor tidak melihat form ini)
+  const settingsForm = el('video-settings') as HTMLFormElement;
+  getJSON('/settings').then((s) => {
+    for (const f of settingsForm.querySelectorAll<HTMLInputElement>('[name]')) f.value = s[f.name] ?? '';
+  }).catch(() => {});
+  settingsForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    el('vs-ok').hidden = el('vs-error').hidden = true;
+    const body = Object.fromEntries([...settingsForm.querySelectorAll<HTMLInputElement>('[name]')].map((f) => [f.name, f.value.trim()]));
+    const res = await sendJSON('/admin/settings', 'PUT', body).catch(() => null);
+    if (res?.ok) { el('vs-ok').hidden = false; return; }
+    el('vs-error').textContent = res ? await errorText(res, 'Gagal menyimpan.') : 'Server tidak dapat dihubungi.';
+    el('vs-error').hidden = false;
+  });
+
+  load();
+</script>

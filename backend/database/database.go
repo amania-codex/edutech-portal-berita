@@ -66,6 +66,8 @@ func Connect() {
 		&models.NewsletterSubscriber{},
 		&models.Setting{},
 		&models.Page{},
+		&models.ActivityLog{},
+		&models.Video{},
 	)
 	if err != nil {
 		log.Fatal("Failed to auto-migrate database!\n", err)

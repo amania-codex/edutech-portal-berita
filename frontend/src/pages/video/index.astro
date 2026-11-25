@@ -1,0 +1,41 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import Navbar from "../../components/Navbar.astro";
+import Footer from "../../components/Footer.astro";
+import VideoSection from "../../components/VideoSection.astro";
+import { getSettings, getVideos } from "../../lib/site";
+
+const [videos, settings] = await Promise.all([getVideos(), getSettings()]);
+const title = settings.video_section_title || "Video & Podcast";
+---
+
+<Layout title={`${title} — EduTech News Portal`} description={`Kumpulan ${title.toLowerCase()} EduTech: liputan, wawancara, dan podcast pendidikan.`}>
+  <Navbar />
+  <div class="breadcrumb-bar">
+    <div class="container breadcrumb-inner">
+      <a href="/">Beranda</a>
+      <span class="bc-sep">›</span>
+      <span class="bc-current">{title}</span>
+    </div>
+  </div>
+  <main id="main-content" class="container video-page">
+    {videos.length > 0 ? (
+      <VideoSection videos={videos} title={title} channelUrl={settings.video_channel_url || settings.youtube_url || ""} variant="halaman" />
+    ) : (
+      <div class="video-empty">
+        <h1>{title}</h1>
+        <p>Belum ada video. Kunjungi lagi nanti.</p>
+      </div>
+    )}
+  </main>
+  <Footer />
+</Layout>
+
+<style>
+  .breadcrumb-bar { background: var(--color-bg-secondary); border-bottom: 1px solid var(--color-border); padding: var(--space-2) 0; }
+  .breadcrumb-inner { display: flex; gap: var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
+  .breadcrumb-inner a { color: var(--color-text-secondary); }
+  .video-page { max-width: 1180px; padding-top: var(--space-6); padding-bottom: var(--space-12); }
+  .video-empty { padding: var(--space-12) 0; text-align: center; color: var(--color-text-secondary); }
+  .video-empty h1 { font-size: var(--text-3xl); font-weight: 900; color: var(--color-text-primary); }
+</style>

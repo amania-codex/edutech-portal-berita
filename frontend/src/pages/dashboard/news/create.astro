@@ -3,7 +3,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
 import { API_BASE, BACKEND_URL } from '../../../lib/config';
 ---
 
-<DashboardLayout title="Tulis Berita Baru" activeMenu="create-news">
+<DashboardLayout title="Tulis Berita Baru" activeMenu="create-news" roles={["admin", "editor", "penulis"]}>
   <div class="gb-editor">
     <!-- Editor Toolbar (sticky inside content area) -->
     <div class="gb-toolbar">
@@ -73,9 +73,9 @@ import { API_BASE, BACKEND_URL } from '../../../lib/config';
                 <label class="sb-label">Slug URL</label>
                 <input type="text" id="slug" class="sb-input" placeholder="url-artikel-anda" />
               </div>
-              <div class="sb-field">
-                <label class="sb-label">Penulis</label>
-                <input type="text" id="author" class="sb-input" placeholder="Nama penulis..." />
+              <div class="sb-field editor-only">
+                <label class="sb-label">Nama Penulis (byline)</label>
+                <input type="text" id="author" class="sb-input" placeholder="Kosongkan = nama akun Anda" />
               </div>
             </div>
           </div>
@@ -129,7 +129,7 @@ import { API_BASE, BACKEND_URL } from '../../../lib/config';
             </div>
           </div>
 
-          <div class="sb-section">
+          <div class="sb-section editor-only">
             <button class="sb-section-toggle" data-target="sec-options">
               <span>Opsi</span>
               <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>

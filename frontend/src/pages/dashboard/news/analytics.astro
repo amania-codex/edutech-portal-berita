@@ -4,7 +4,7 @@ import DashboardLayout from '../../../layouts/DashboardLayout.astro';
 // Dibuka sebagai /dashboard/news/analytics?id=123 (situs statis: satu halaman untuk semua artikel)
 ---
 
-<DashboardLayout title="Analisis Berita" activeMenu="news">
+<DashboardLayout title="Analisis Berita" activeMenu="news" roles={["admin", "editor", "penulis"]}>
   <div class="analytics-page">
 
     <!-- Header -->

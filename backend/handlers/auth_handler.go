@@ -129,6 +129,10 @@ func Login(c *fiber.Ctx) error {
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
 		return c.Status(401).JSON(fiber.Map{"success": false, "error": "Email atau password salah."})
 	}
+	if user.Suspended {
+		return c.Status(403).JSON(fiber.Map{"success": false, "error": "Akun Anda dinonaktifkan. Hubungi admin redaksi."})
+	}
+	database.DB.Model(&models.User{}).Where("id = ?", user.ID).UpdateColumn("last_login_at", time.Now())
 
 	token, err := generateToken(user)
 	if err != nil {

@@ -13,7 +13,7 @@ export interface SessionPayload {
   userId: number;
   email: string;
   name: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'editor' | 'penulis' | 'user';
 }
 
 export async function createSession(payload: SessionPayload): Promise<string> {

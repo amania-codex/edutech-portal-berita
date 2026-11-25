@@ -105,3 +105,28 @@ export function textToHtml(text: string): string {
     })
     .join('\n');
 }
+
+export interface Video {
+  id: number;
+  title: string;
+  youtubeId: string;
+  description: string;
+}
+
+/** Video YouTube dari Dashboard > Kelola Video (sudah urut sesuai pengaturan). */
+export const getVideos = cached(
+  5,
+  safe<Video[]>(
+    async () =>
+      (await apiGet('/videos?limit=48')).map((v: any) => ({
+        id: v.ID ?? v.id,
+        title: v.title || '',
+        youtubeId: v.youtubeId || '',
+        description: v.description || '',
+      })),
+    [],
+  ),
+);
+
+export const videoThumb = (id: string, size: 'hq' | 'mq' | 'maxres' = 'hq') =>
+  `https://i.ytimg.com/vi/${id}/${size === 'maxres' ? 'maxresdefault' : `${size}default`}.jpg`;

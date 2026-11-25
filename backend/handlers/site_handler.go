@@ -25,6 +25,9 @@ var settingKeys = map[string]int{
 	"instagram_url":    300,
 	"youtube_url":      300,
 	"tiktok_url":       300,
+	// Kolom video di beranda (mis. "EnhaPodcast") dan tautan kanal YouTube-nya
+	"video_section_title": 60,
+	"video_channel_url":   300,
 }
 
 // GetSettings — GET /api/settings (publik)

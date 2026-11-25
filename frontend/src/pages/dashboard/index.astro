@@ -2,13 +2,13 @@
 import DashboardLayout from '../../layouts/DashboardLayout.astro';
 ---
 
-<DashboardLayout title="Dashboard" activeMenu="dashboard">
+<DashboardLayout title="Dashboard" activeMenu="dashboard" roles={["admin", "editor", "penulis"]}>
   <div class="dash-overview">
     <!-- Welcome Banner -->
     <div class="welcome-banner">
       <div class="welcome-text">
         <h2>Selamat datang, <span class="welcome-name" id="welcome-name">Admin</span> 👋</h2>
-        <p>Panel Admin — Kelola berita, dan analisis komentar portal.</p>
+        <p id="welcome-sub">Panel redaksi — tulis dan kelola berita portal.</p>
       </div>
       <a href="/dashboard/news/create" class="btn-create-news">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
@@ -121,8 +121,8 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
             <p class="sentiment-status-note" id="no-comments" style="display:none">Belum ada komentar pada berita.</p>
             <p class="sentiment-status-note note-neutral" id="all-neutral" style="display:none">ℹ Respon pembaca 100% netral</p>
           </div>
-          <a href="/dashboard/comments" class="btn-analysis">Lihat Analisis Lengkap →</a>
-          <div class="newsletter-box">
+          <a href="/dashboard/comments" class="btn-analysis admin-only">Lihat Analisis Lengkap →</a>
+          <div class="newsletter-box admin-only">
             <span>Pelanggan newsletter: <b id="subscribers">0</b></span>
             <button type="button" id="download-subscribers">Unduh CSV</button>
           </div>
@@ -269,7 +269,10 @@ import DashboardLayout from '../../layouts/DashboardLayout.astro';
   import { clone, el, getJSON, setText, show } from '../../lib/client';
   import { normalizeNews } from '../../lib/news';
 
-  getJSON('/auth/profile').then((u) => { el('welcome-name').textContent = u.name; }).catch(() => {});
+  getJSON('/auth/profile').then((u) => {
+    el('welcome-name').textContent = u.name;
+    if (u.role === 'penulis') el('welcome-sub').textContent = 'Angka di bawah ini dihitung dari berita yang Anda tulis.';
+  }).catch(() => {});
 
   getJSON('/admin/stats').then((stats) => {
     const { news, comments } = stats;

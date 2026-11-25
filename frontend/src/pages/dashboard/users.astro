@@ -1,0 +1,197 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import '../../styles/admin.css';
+---
+
+<DashboardLayout title="Akun Redaksi" activeMenu="users">
+  <div class="adm">
+    <div class="head">
+      <div>
+        <h2 class="page-title">Akun Redaksi</h2>
+        <p class="page-subtitle">Setiap orang yang menulis berita memakai akunnya sendiri, sehingga jelas siapa menulis dan mengubah apa (lihat Riwayat Aktivitas).</p>
+      </div>
+      <button type="button" class="btn btn-primary" id="btn-add-user">+ Tambah Akun</button>
+    </div>
+
+    <div class="card card-pad role-help">
+      <p><span class="badge b-red">Admin</span> Semua menu, termasuk akun redaksi, poster, event, dan pengaturan situs.</p>
+      <p><span class="badge b-orange">Editor</span> Menulis, mengubah, menerbitkan, dan menghapus <b>semua</b> berita; mengelola video.</p>
+      <p><span class="badge b-green">Penulis</span> Menulis berita dan hanya bisa mengubah atau menghapus <b>tulisannya sendiri</b>.</p>
+      <p><span class="badge b-gray">Pembaca</span> Akun pengunjung (komentar, simpan berita, tiket event). Tidak bisa masuk dashboard.</p>
+    </div>
+
+    <div class="filters">
+      <input class="input" type="search" id="user-search" placeholder="Cari nama atau email..." />
+      <select class="input" id="user-role-filter">
+        <option value="staff">Tim redaksi</option>
+        <option value="admin">Admin</option>
+        <option value="editor">Editor</option>
+        <option value="penulis">Penulis</option>
+        <option value="user">Pembaca</option>
+        <option value="all">Semua akun</option>
+      </select>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nama</th><th>Peran</th><th>Berita</th><th>Terakhir masuk</th><th>Status</th><th></th></tr></thead>
+          <tbody id="user-rows"><tr><td colspan="6" class="empty">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="user-modal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3 class="modal-title" id="user-modal-title">Tambah Akun</h3>
+          <button type="button" class="modal-close" id="user-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <form id="user-form">
+            <input type="hidden" id="u-id" />
+            <div class="field"><label class="lbl" for="u-name">Nama lengkap</label><input class="input" id="u-name" required minlength="2" maxlength="100" placeholder="Nama yang tampil di berita" /></div>
+            <div class="field"><label class="lbl" for="u-email">Email (untuk masuk)</label><input class="input" type="email" id="u-email" required /></div>
+            <div class="field">
+              <label class="lbl" for="u-role">Peran</label>
+              <select class="input" id="u-role">
+                <option value="penulis">Penulis</option>
+                <option value="editor">Editor</option>
+                <option value="admin">Admin</option>
+                <option value="user">Pembaca</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="lbl" for="u-password" id="u-password-label">Password awal</label>
+              <div class="pw-row">
+                <input class="input" type="text" id="u-password" minlength="8" autocomplete="new-password" />
+                <button type="button" class="btn btn-outline btn-sm" id="u-generate">Buat acak</button>
+              </div>
+              <p class="hint" id="u-password-hint">Minimal 8 karakter. Berikan ke orangnya; ia bisa menggantinya sendiri di menu Profil.</p>
+            </div>
+            <label class="check" id="u-suspended-wrap"><input type="checkbox" id="u-suspended" /> Nonaktifkan akun (tidak bisa masuk, tulisannya tetap ada)</label>
+            <div class="alert alert-err" id="user-error" hidden></div>
+            <div class="modal-actions">
+              <button type="button" class="btn btn-outline" id="user-cancel">Batal</button>
+              <button type="submit" class="btn btn-primary" id="user-save">Simpan</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<style is:global>
+  .role-help { display: grid; gap: 6px; margin-bottom: 16px; font-size: 13px; color: var(--color-text-secondary); }
+  .role-help p { margin: 0; }
+  .role-help .badge { display: inline-block; min-width: 64px; text-align: center; margin-right: 6px; }
+  .adm .filters { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .adm .filters .input { width: auto; flex: 1; min-width: 180px; }
+  .filters select.input { flex: 0 0 180px; }
+  .pw-row { display: flex; gap: 8px; }
+  .pw-row .input { flex: 1; }
+  .user-mail { display: block; font-size: 12px; color: var(--color-text-muted); }
+  #user-form .field { margin-bottom: 14px; }
+</style>
+
+<script>
+  import { el, errorText, formatDate, getJSON, sendJSON } from '../../lib/client';
+
+  const ROLE: Record<string, [string, string]> = {
+    admin: ['Admin', 'b-red'],
+    editor: ['Editor', 'b-orange'],
+    penulis: ['Penulis', 'b-green'],
+    user: ['Pembaca', 'b-gray'],
+  };
+  const modal = el('user-modal') as HTMLElement;
+  const form = el('user-form') as HTMLFormElement;
+  let me: any = (window as any).__staff;
+  document.addEventListener('staff-ready', (e: any) => { me = e.detail; });
+
+  const td = (text = '') => { const c = document.createElement('td'); c.textContent = text; return c; };
+  const badge = (text: string, cls: string) => { const b = document.createElement('span'); b.className = `badge ${cls}`; b.textContent = text; return b; };
+
+  async function load() {
+    const params = new URLSearchParams({ role: el('user-role-filter').value });
+    const q = el('user-search').value.trim();
+    if (q) params.set('q', q);
+    try {
+      const users: any[] = await getJSON(`/admin/users?${params}`);
+      if (!users.length) {
+        const tr = document.createElement('tr'); const c = td('Tidak ada akun.'); c.colSpan = 6; c.className = 'empty'; tr.append(c);
+        return el('user-rows').replaceChildren(tr);
+      }
+      el('user-rows').replaceChildren(...users.map((u) => {
+        const tr = document.createElement('tr');
+        tr.dataset.email = u.email;
+        const name = td(u.name);
+        const mail = document.createElement('span'); mail.className = 'user-mail'; mail.textContent = u.email; name.append(mail);
+        const [label, cls] = ROLE[u.role] || [u.role, 'b-gray'];
+        const role = td(); role.append(badge(label, cls));
+        const status = td(); status.append(u.suspended ? badge('Nonaktif', 'b-gray') : badge('Aktif', 'b-green'));
+        const articles = td();
+        if (u.articleCount > 0) {
+          const a = document.createElement('a'); a.href = `/dashboard/activity?user_id=${u.id}`; a.textContent = `${u.articleCount.toLocaleString('id-ID')} berita`; articles.append(a);
+        } else articles.textContent = '-';
+        const actions = td(); const wrap = document.createElement('div'); wrap.className = 'actions';
+        const edit = document.createElement('button'); edit.type = 'button'; edit.className = 'btn btn-sm btn-outline u-edit'; edit.textContent = 'Ubah';
+        edit.addEventListener('click', () => openModal(u));
+        const log = document.createElement('a'); log.className = 'btn btn-sm btn-link'; log.href = `/dashboard/activity?user_id=${u.id}`; log.textContent = 'Aktivitas';
+        wrap.append(edit, log); actions.append(wrap);
+        tr.append(name, role, articles, td(u.lastLoginAt ? formatDate(u.lastLoginAt, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Belum pernah'), status, actions);
+        return tr;
+      }));
+    } catch {
+      el('user-rows').textContent = 'Gagal memuat daftar akun.';
+    }
+  }
+
+  function openModal(u?: any) {
+    form.reset();
+    el('user-error').hidden = true;
+    el('user-modal-title').textContent = u ? `Ubah Akun — ${u.name}` : 'Tambah Akun Redaksi';
+    el('u-id').value = u?.id ?? '';
+    el('u-name').value = u?.name ?? '';
+    el('u-email').value = u?.email ?? '';
+    el('u-role').value = u?.role ?? 'penulis';
+    el('u-suspended').checked = !!u?.suspended;
+    el('u-password').required = !u;
+    el('u-password-label').textContent = u ? 'Password baru (kosongkan bila tidak diganti)' : 'Password awal';
+    el('u-suspended-wrap').hidden = !u;
+    const self = !!u && me && u.id === me.id;
+    el('u-role').disabled = self;
+    el('u-suspended').disabled = self;
+    modal.classList.add('active');
+    el('u-name').focus();
+  }
+  const closeModal = () => modal.classList.remove('active');
+
+  el('u-generate').addEventListener('click', () => {
+    const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    const bytes = crypto.getRandomValues(new Uint32Array(12));
+    el('u-password').value = [...bytes].map((n) => chars[n % chars.length]).join('');
+  });
+  el('btn-add-user').addEventListener('click', () => openModal());
+  el('user-close').addEventListener('click', closeModal);
+  el('user-cancel').addEventListener('click', closeModal);
+  let timer: ReturnType<typeof setTimeout>;
+  el('user-search').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(load, 300); });
+  el('user-role-filter').addEventListener('change', load);
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const id = el('u-id').value;
+    const body: any = { name: el('u-name').value.trim(), email: el('u-email').value.trim(), role: el('u-role').value };
+    if (el('u-password').value) body.password = el('u-password').value;
+    if (id) body.suspended = el('u-suspended').checked;
+    el('user-save').disabled = true;
+    const res = await sendJSON(id ? `/admin/users/${id}` : '/admin/users', id ? 'PUT' : 'POST', body).catch(() => null);
+    el('user-save').disabled = false;
+    if (res?.ok) { closeModal(); load(); return; }
+    el('user-error').textContent = res ? await errorText(res, 'Gagal menyimpan akun.') : 'Server tidak dapat dihubungi.';
+    el('user-error').hidden = false;
+  });
+
+  load();
+</script>

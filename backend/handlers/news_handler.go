@@ -6,6 +6,7 @@ import (
 	"news-portal-backend/database"
 	"news-portal-backend/models"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -37,6 +38,10 @@ func optionalClaims(c *fiber.Ctx) *Claims {
 		return nil
 	}
 	claims, _ := token.Claims.(*Claims)
+	if !RefreshClaims(claims) {
+		return nil
+	}
+	c.Locals("user", claims)
 	return claims
 }
 
@@ -44,6 +49,15 @@ func optionalClaims(c *fiber.Ctx) *Claims {
 func isAdminUser(c *fiber.Ctx) bool {
 	claims := optionalClaims(c)
 	return claims != nil && claims.Role == "admin"
+}
+
+// staffClaims — data login bila permintaan berasal dari staf redaksi (admin/editor/penulis)
+func staffClaims(c *fiber.Ctx) *Claims {
+	claims := optionalClaims(c)
+	if claims != nil && models.IsStaffRole(claims.Role) {
+		return claims
+	}
+	return nil
 }
 
 // newsQueryFilters menerapkan filter umum (status, kategori, tag, pencarian)
@@ -57,12 +71,17 @@ func newsQueryFilters(c *fiber.Ctx, q *gorm.DB) *gorm.DB {
 	tag := strings.TrimSpace(c.Query("tag"))
 	search := strings.TrimSpace(c.Query("q"))
 
-	switch {
-	case status == "all" && isAdminUser(c):
-		// admin: tanpa filter status
-	case status != "" && status != "all" && isAdminUser(c):
-		q = q.Where("status = ?", status)
-	default:
+	// Staf melihat draf juga (status=all / status=draft). Penulis hanya melihat beritanya sendiri.
+	if staff := staffClaims(c); staff != nil && status != "" {
+		if status != "all" {
+			q = q.Where("status = ?", status)
+		}
+		if !canManageAllNews(staff) || c.Query("mine") == "1" {
+			q = q.Where("author_id = ?", staff.UserID)
+		} else if author := c.QueryInt("author_id", 0); author > 0 {
+			q = q.Where("author_id = ?", author)
+		}
+	} else {
 		q = q.Where("is_published = ?", true)
 	}
 
@@ -300,11 +319,11 @@ func GetNewsBySlug(c *fiber.Ctx) error {
 func GetNewsById(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var article models.Article
-	q := database.DB
-	if !isAdminUser(c) {
-		q = q.Where("is_published = ?", true)
+	if err := database.DB.First(&article, id).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"message": "Berita tidak ditemukan."})
 	}
-	if err := q.First(&article, id).Error; err != nil {
+	// Draf hanya untuk staf yang berhak mengubahnya
+	if !article.IsPublished && !canEditArticle(staffClaims(c), &article) {
 		return c.Status(404).JSON(fiber.Map{"message": "Berita tidak ditemukan."})
 	}
 	return c.JSON(article)
@@ -359,7 +378,21 @@ func generateExcerpt(content string, customExcerpt string) string {
 	return string(runes)
 }
 
-// CreateNews — POST /api/news (admin)
+// newsStatus — hanya "published" atau "draft"
+func newsStatus(s string) string {
+	if s == "published" {
+		return "published"
+	}
+	return "draft"
+}
+
+var newsFieldLabels = map[string]string{
+	"title": "judul", "slug": "alamat (slug)", "excerpt": "ringkasan", "content": "isi", "image_url": "foto utama",
+	"category": "kategori", "tags": "tag", "author": "nama penulis", "status": "status",
+	"is_featured": "berita unggulan", "is_trending": "trending",
+}
+
+// CreateNews — POST /api/news (staf redaksi)
 func CreateNews(c *fiber.Ctx) error {
 	type Input struct {
 		Title       string `json:"title"`
@@ -385,6 +418,15 @@ func CreateNews(c *fiber.Ctx) error {
 	if strings.TrimSpace(input.Content) == "" {
 		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Konten wajib diisi."})
 	}
+	claims := currentClaims(c)
+	// Penulis: nama di berita selalu nama akunnya, dan tidak bisa menandai unggulan/trending
+	if claims.Role == models.RolePenulis {
+		input.Author = claims.Name
+		input.IsFeatured, input.IsTrending = false, false
+	}
+	if strings.TrimSpace(input.Author) == "" {
+		input.Author = claims.Name
+	}
 
 	// Auto-generate slug if empty
 	if input.Slug == "" {
@@ -403,62 +445,72 @@ func CreateNews(c *fiber.Ctx) error {
 		counter++
 	}
 
-	isPublished := input.Status == "published"
+	status := newsStatus(input.Status)
 	article := models.Article{
-		Title:       input.Title,
-		Slug:        slug,
-		Excerpt:     generateExcerpt(input.Content, input.Excerpt),
-		Content:     input.Content,
-		ImageURL:    input.ImageURL,
-		Category:     input.Category,
-		CategorySlug: categorySlugFor(input.Category),
-		ReadTime:     estimateReadTime(input.Content),
-		Tags:        input.Tags,
-		Author:      input.Author,
-		Status:      input.Status,
-		IsFeatured:  input.IsFeatured,
-		IsTrending:  input.IsTrending,
-		IsPublished: isPublished,
-	}
-
-	if claims, ok := c.Locals("user").(*Claims); ok {
-		article.AuthorID = claims.UserID
-		if article.Author == "" {
-			article.Author = claims.Name
-		}
+		Title:         input.Title,
+		Slug:          slug,
+		Excerpt:       generateExcerpt(input.Content, input.Excerpt),
+		Content:       input.Content,
+		ImageURL:      input.ImageURL,
+		Category:      input.Category,
+		CategorySlug:  categorySlugFor(input.Category),
+		ReadTime:      estimateReadTime(input.Content),
+		Tags:          input.Tags,
+		Author:        strings.TrimSpace(input.Author),
+		Status:        status,
+		IsFeatured:    input.IsFeatured,
+		IsTrending:    input.IsTrending,
+		IsPublished:   status == "published",
+		AuthorID:      claims.UserID,
+		CreatedByName: claims.Name,
+		UpdatedByID:   claims.UserID,
+		UpdatedByName: claims.Name,
 	}
 
 	if err := database.DB.Create(&article).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal menyimpan berita."})
 	}
 	syncArticleCategory(article.ID, "", article.CategorySlug)
+	detail := "Disimpan sebagai draf"
+	if article.IsPublished {
+		detail = "Langsung diterbitkan"
+	}
+	logActivity(c, "buat", "berita", article.ID, article.Title, detail)
 	return c.Status(201).JSON(fiber.Map{"success": true, "data": article})
 }
 
-// UpdateNews — PUT /api/news/:id (admin)
+// UpdateNews — PUT /api/news/:id (staf; penulis hanya beritanya sendiri)
 func UpdateNews(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var article models.Article
 	if err := database.DB.First(&article, id).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Berita tidak ditemukan."})
 	}
+	claims := currentClaims(c)
+	if !canEditArticle(claims, &article) {
+		return c.Status(403).JSON(fiber.Map{"success": false, "error": "Anda hanya dapat mengubah berita yang Anda tulis sendiri."})
+	}
 
 	type Input struct {
-		Title       string `json:"title"`
-		Slug        string `json:"slug"`
-		Excerpt     string `json:"excerpt"`
-		Content     string `json:"content"`
-		ImageURL    string `json:"imageUrl"`
-		Category    string `json:"category"`
-		Tags        string `json:"tags"`
-		Author      string `json:"author"`
-		Status      string `json:"status"`
-		IsFeatured  *bool  `json:"isFeatured"`
-		IsTrending  *bool  `json:"isTrending"`
+		Title      string `json:"title"`
+		Slug       string `json:"slug"`
+		Excerpt    string `json:"excerpt"`
+		Content    string `json:"content"`
+		ImageURL   string `json:"imageUrl"`
+		Category   string `json:"category"`
+		Tags       string `json:"tags"`
+		Author     string `json:"author"`
+		Status     string `json:"status"`
+		IsFeatured *bool  `json:"isFeatured"`
+		IsTrending *bool  `json:"isTrending"`
 	}
 	var input Input
 	if err := c.BodyParser(&input); err != nil {
 		return c.Status(400).JSON(fiber.Map{"success": false, "error": "Format tidak valid."})
+	}
+	if claims.Role == models.RolePenulis {
+		input.Author = ""
+		input.IsFeatured, input.IsTrending = nil, nil
 	}
 
 	oldCategorySlug, oldArticleSlug := article.CategorySlug, article.Slug
@@ -483,12 +535,13 @@ func UpdateNews(c *fiber.Ctx) error {
 	if input.Tags != "" {
 		updates["tags"] = input.Tags
 	}
-	if input.Author != "" {
-		updates["author"] = input.Author
+	if strings.TrimSpace(input.Author) != "" {
+		updates["author"] = strings.TrimSpace(input.Author)
 	}
 	if input.Status != "" {
-		updates["status"] = input.Status
-		updates["is_published"] = (input.Status == "published")
+		status := newsStatus(input.Status)
+		updates["status"] = status
+		updates["is_published"] = status == "published"
 	}
 	if input.IsFeatured != nil {
 		updates["is_featured"] = *input.IsFeatured
@@ -506,30 +559,71 @@ func UpdateNews(c *fiber.Ctx) error {
 		updates["slug"] = input.Slug
 	}
 
-	if len(updates) > 0 {
-		if err := database.DB.Model(&article).Updates(updates).Error; err != nil {
-			return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal memperbarui berita."})
-		}
-		if newSlug, ok := updates["category_slug"].(string); ok {
-			syncArticleCategory(article.ID, oldCategorySlug, newSlug)
-		}
-		// Link lama tetap hidup bila slug diganti
-		if newSlug, ok := updates["slug"].(string); ok {
-			database.DB.Exec("DELETE FROM article_redirects WHERE old_slug = ?", newSlug)
-			database.DB.Exec("INSERT INTO article_redirects (old_slug, article_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE article_id = VALUES(article_id)", oldArticleSlug, article.ID)
+	// Hanya kolom yang benar-benar berubah yang disimpan & dicatat
+	current := map[string]interface{}{
+		"title": article.Title, "slug": article.Slug, "excerpt": article.Excerpt, "content": article.Content,
+		"read_time": article.ReadTime, "image_url": article.ImageURL, "category": article.Category,
+		"category_slug": article.CategorySlug, "tags": article.Tags, "author": article.Author, "status": article.Status,
+		"is_published": article.IsPublished, "is_featured": article.IsFeatured, "is_trending": article.IsTrending,
+	}
+	var changed []string
+	for key, value := range updates {
+		if current[key] == value {
+			delete(updates, key)
+		} else if label, ok := newsFieldLabels[key]; ok {
+			changed = append(changed, label)
 		}
 	}
+	if len(updates) == 0 {
+		return c.JSON(fiber.Map{"success": true, "data": article})
+	}
+	sort.Strings(changed)
+	updates["updated_by_id"] = claims.UserID
+	updates["updated_by_name"] = claims.Name
+
+	if err := database.DB.Model(&models.Article{}).Where("id = ?", article.ID).Updates(updates).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal memperbarui berita."})
+	}
+	if newSlug, ok := updates["category_slug"].(string); ok {
+		syncArticleCategory(article.ID, oldCategorySlug, newSlug)
+	}
+	// Link lama tetap hidup bila slug diganti
+	if newSlug, ok := updates["slug"].(string); ok {
+		database.DB.Exec("DELETE FROM article_redirects WHERE old_slug = ?", newSlug)
+		database.DB.Exec("INSERT INTO article_redirects (old_slug, article_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE article_id = VALUES(article_id)", oldArticleSlug, article.ID)
+	}
+
+	action := "ubah"
+	if published, ok := updates["is_published"].(bool); ok {
+		if published {
+			action = "terbitkan"
+		} else {
+			action = "tarik"
+		}
+	}
+	database.DB.First(&article, article.ID)
+	logActivity(c, action, "berita", article.ID, article.Title, "Mengubah: "+strings.Join(changed, ", "))
 	return c.JSON(fiber.Map{"success": true, "data": article})
 }
 
-// DeleteNews — DELETE /api/news/:id (admin)
+// DeleteNews — DELETE /api/news/:id (staf; penulis hanya beritanya sendiri)
 func DeleteNews(c *fiber.Ctx) error {
 	id := c.Params("id")
 	var article models.Article
 	if err := database.DB.First(&article, id).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"success": false, "error": "Berita tidak ditemukan."})
 	}
-	database.DB.Delete(&article)
+	if !canEditArticle(currentClaims(c), &article) {
+		return c.Status(403).JSON(fiber.Map{"success": false, "error": "Anda hanya dapat menghapus berita yang Anda tulis sendiri."})
+	}
+	if err := database.DB.Delete(&article).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"success": false, "error": "Gagal menghapus berita."})
+	}
+	detail := "Penulis: " + article.Author
+	if article.IsPublished {
+		detail += " · sebelumnya sudah terbit"
+	}
+	logActivity(c, "hapus", "berita", article.ID, article.Title, detail)
 	return c.JSON(fiber.Map{"success": true})
 }
 

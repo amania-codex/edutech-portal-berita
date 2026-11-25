@@ -149,6 +149,9 @@ try {
   check('situs: muncul di kategori Pendidikan', (await pageHas('/kategori/pendidikan', title)).has);
   await go(`/berita/${slug}`);
   check('situs: gambar utama termuat', await until(`(() => { const i = document.querySelector('.article-hero-img img'); return !!i && i.complete && i.naturalWidth > 0; })()`));
+  check('berita: penulis & tanggal WIB tampil', (await ev(`document.querySelector('.byline-people')?.textContent.includes('Redaksi Uji') && /WIB/.test(document.querySelector('.byline-meta')?.textContent || '')`)) === true);
+  check('berita: tombol bagikan berisi alamat halaman', (await ev(`(() => { const wa = document.querySelector('a[data-share="wa"]'); return !!wa && wa.href.startsWith('https://wa.me/') && wa.href.includes(encodeURIComponent(location.pathname)); })()`)) === true);
+  check('berita: Berita Terkait tampil', (await ev(`document.querySelectorAll('.related-card').length`)) > 0);
 
   // --- sunting berita
   await go(`/dashboard/news/edit?id=${created.ID}`);
@@ -306,9 +309,65 @@ try {
   await go('/dashboard/');
   check('dashboard: pelanggan newsletter tercatat', await until(`Number(document.getElementById('subscribers').textContent) >= 1`));
   check('dashboard: daftar pelanggan memuat email', (await ev(`fetch('/api/admin/newsletter', { credentials: 'include' }).then((r) => r.json()).then((l) => l.some((x) => x.email === ${js(subscriber)}))`)) === true);
+  // --- akun redaksi (penulis)
+  const writer = { name: `Penulis Uji ${run}`, email: `penulis-${run}@contoh.id`, password: 'rahasia-penulis-1' };
+  await go('/dashboard/users/');
+  await until(`!document.getElementById('user-rows').textContent.includes('Memuat')`);
+  await click('#btn-add-user');
+  await fill('#u-name', writer.name);
+  await fill('#u-email', writer.email);
+  await fill('#u-role', 'penulis');
+  await fill('#u-password', writer.password);
+  await submit('#user-form');
+  const writerRow = `[...document.querySelectorAll('#user-rows tr')].find((r) => r.dataset.email === ${js(writer.email)})`;
+  check('akun redaksi: tambah penulis', await until(`!!${writerRow} && ${writerRow}.textContent.includes('Penulis')`));
+
+  // --- video
+  await go('/dashboard/videos/');
+  await until(`!document.getElementById('video-rows').textContent.includes('Memuat')`);
+  await click('#btn-add-video');
+  await fill('#v-url', 'https://www.youtube.com/watch?v=aqz-KE-bpKQ');
+  check('video: pratinjau gambar dari alamat', await until(`!document.getElementById('v-preview').hidden && document.getElementById('v-preview').src.includes('aqz-KE-bpKQ')`));
+  await fill('#v-title', `EnhaPodcast Uji ${run}`);
+  await submit('#video-form');
+  const videoRow = `[...document.querySelectorAll('#video-rows tr')].find((r) => r.dataset.title === ${js(`EnhaPodcast Uji ${run}`)})`;
+  check('video: simpan', await until(`!!${videoRow}`));
+  await fill('#video_section_title', `EnhaPodcast ${run}`);
+  await submit('#video-settings');
+  check('video: judul kolom tersimpan', await until(`!document.getElementById('vs-ok').hidden`));
+  check('situs: kolom video di beranda', await eventually('/', `data-play="aqz-KE-bpKQ"`) && (await pageHas('/', `EnhaPodcast ${run}`)).has);
+  check('situs: menu Video & halaman /video', (await pageHas('/', 'href="/video"')).has && (await pageHas('/video', `EnhaPodcast Uji ${run}`)).has);
+  await go('/');
+  await ev(`document.querySelector('[data-play]').click()`);
+  check('situs: klik video memutar YouTube', await until(`!!document.querySelector('.video-player iframe[src*="youtube-nocookie.com/embed/aqz-KE-bpKQ"]')`));
+
   check('logout admin', await logout());
   await go('/dashboard/');
   check('dashboard tanpa login dialihkan ke login', await until(`location.pathname.startsWith('/login')`));
+
+  // ================= PENULIS =================
+  check('penulis: login masuk ke dashboard', await login(writer.email, writer.password) && (await path_()).startsWith('/dashboard'));
+  check('penulis: menu sesuai peran', await until(`document.body.dataset.role === 'penulis'`) && (await ev(`(() => { const vis = (h) => { const a = document.querySelector('.sidebar-nav a[href="' + h + '"]'); return !!a && !a.hidden; }; return vis('/dashboard/news') && vis('/dashboard/activity') && !vis('/dashboard/users') && !vis('/dashboard/categories') && !vis('/dashboard/videos') && !vis('/dashboard/settings'); })()`)) === true);
+  await go('/dashboard/users/');
+  check('penulis: halaman akun redaksi dialihkan', await until(`location.pathname === '/dashboard' || location.pathname === '/dashboard/'`));
+  const writerTitle = `Tulisan Penulis Uji ${run}`;
+  await go('/dashboard/news/create/');
+  await until(`document.getElementById('category').options.length > 2`);
+  check('penulis: isian nama penulis & unggulan disembunyikan', (await ev(`getComputedStyle(document.getElementById('author').closest('.sb-field')).display === 'none' && getComputedStyle(document.getElementById('is-featured').closest('.sb-section')).display === 'none'`)) === true);
+  await ev(`(() => { const t = document.getElementById('post-title'); t.textContent = ${js(writerTitle)}; t.dispatchEvent(new Event('input')); document.querySelector('.block-para').innerHTML = 'Isi tulisan penulis uji.'; return true; })()`);
+  await fill('#category', 'Pendidikan');
+  await fill('#status', 'published');
+  await click('#publish-btn');
+  check('penulis: terbitkan berita', await until(`location.pathname.startsWith('/dashboard/news') && !location.pathname.includes('create')`, 12000));
+  const writerNews = await (await api(`/news/slug/${slug.replace(/^berita-uji-form/, 'tulisan-penulis-uji')}?track=0`)).json().catch(() => ({}));
+  check('penulis: nama di berita = nama akun', writerNews.author === writer.name && writerNews.createdByName === writer.name, writerNews);
+  await go('/dashboard/news/');
+  check('penulis: daftar berita hanya tulisannya', await until(`document.querySelectorAll('.news-row').length === 1 && document.querySelector('.news-row .td-title').textContent === ${js(writerTitle)}`));
+  await go(`/dashboard/news/edit?id=${created.ID}`);
+  check('penulis: berita orang lain hanya baca', await until(`document.getElementById('save-indicator')?.textContent.includes('Hanya baca') || document.body.textContent.includes('Anda hanya dapat mengubah tulisan Anda sendiri')`));
+  await go(`/dashboard/news/edit?id=${writerNews.ID}`);
+  check('penulis: riwayat perubahan tampil di halaman edit', await until(`document.getElementById('history-list').textContent.includes(${js(writer.name)}) && document.getElementById('history-who').textContent.includes('Dibuat oleh akun')`));
+  check('logout penulis', await logout());
 
   // ================= PENGGUNA =================
   const userEmail = `pembaca-${run}@contoh.id`;
@@ -399,6 +458,25 @@ try {
   await until(`[...document.querySelectorAll('#page-rows tr')].some((r) => r.dataset.title === ${js(`Tentang Kami ${run}`)})`);
   await ev(`[...document.querySelectorAll('#page-rows tr')].find((r) => r.dataset.title === ${js(`Tentang Kami ${run}`)}).querySelector('.pg-delete').click()`);
   check('halaman: hapus → 404', await until(`![...document.querySelectorAll('#page-rows tr')].some((r) => r.dataset.title === ${js(`Tentang Kami ${run}`)})`) && (await pageHas(`/halaman/tentang-kami-${run}`, 'x')).status === 404);
+
+  await go('/dashboard/activity/');
+  check('riwayat: aktivitas penulis tercatat', await until(`[...document.querySelectorAll('#activity-rows tr')].some((r) => r.textContent.includes(${js(writer.name)}) && r.textContent.includes('Membuat') && r.textContent.includes(${js(`Tulisan Penulis Uji ${run}`)}))`));
+  check('hapus berita penulis', (await ev(`fetch('/api/news/' + ${js(String((await (await api(`/news?q=${encodeURIComponent(`Tulisan Penulis Uji ${run}`)}`)).json())[0]?.ID))}, { method: 'DELETE', credentials: 'include' }).then((r) => r.ok)`)) === true);
+  await go('/dashboard/users/');
+  const writerRow2 = `[...document.querySelectorAll('#user-rows tr')].find((r) => r.dataset.email === ${js(`penulis-${run}@contoh.id`)})`;
+  await until(`!!${writerRow2}`);
+  await ev(`${writerRow2}.querySelector('.u-edit').click()`);
+  await ev(`document.getElementById('u-suspended').checked = true`);
+  await submit('#user-form');
+  check('akun redaksi: nonaktifkan penulis', await until(`${writerRow2}?.textContent.includes('Nonaktif')`));
+  check('akun nonaktif tidak bisa masuk', (await api('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: `penulis-${run}@contoh.id`, password: 'rahasia-penulis-1' }) })).status === 403);
+  await go('/dashboard/videos/');
+  const videoRow2 = `[...document.querySelectorAll('#video-rows tr')].find((r) => r.dataset.title === ${js(`EnhaPodcast Uji ${run}`)})`;
+  await until(`!!${videoRow2}`);
+  await ev(`${videoRow2}.querySelector('.v-delete').click()`);
+  check('video: hapus → hilang dari beranda', await until(`!${videoRow2}`) && await eventually('/', `EnhaPodcast Uji ${run}`, false));
+  await fill('#video_section_title', '');
+  await submit('#video-settings');
 
   await go('/dashboard/comments/');
   check('analisis komentar memuat komentar', await until(`document.getElementById('comments-list').textContent.includes('sangat bermanfaat')`));

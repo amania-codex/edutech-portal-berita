@@ -3,7 +3,7 @@
 
 import { API_BASE } from '../lib/config';
 import Poster from './Poster.astro';
-import { SOCIAL_LINKS, bannersAt, getMenuCategories, getPages, getSettings } from '../lib/site';
+import { SOCIAL_LINKS, bannersAt, getMenuCategories, getPages, getSettings, getVideos } from "../lib/site";
 
 const todayStr = new Intl.DateTimeFormat("id-ID", {
   weekday: "long",
@@ -15,7 +15,7 @@ const todayStr = new Intl.DateTimeFormat("id-ID", {
 
 const currentPath = Astro.url.pathname;
 
-const [menu, pages, settings, headerBanners] = await Promise.all([getMenuCategories(), getPages(), getSettings(), bannersAt('header')]);
+const [menu, pages, settings, headerBanners, videos] = await Promise.all([getMenuCategories(), getPages(), getSettings(), bannersAt("header"), getVideos()]);
 const topPages = pages.filter((p) => p.menuOrder > 0);
 const socials = SOCIAL_LINKS.filter((s) => settings[s.key]);
 const isCategory = (slug: string) =>
@@ -62,6 +62,7 @@ const isCategory = (slug: string) =>
       {menu.map((c) => (
         <a href={`/kategori/${c.slug}`} class={isCategory(c.slug) ? 'active' : ''}>{c.name}</a>
       ))}
+      {videos.length > 0 && <a href="/video" class={currentPath.startsWith("/video") ? "active" : ""}>Video</a>}
       <a href="/event" class={currentPath.startsWith('/event') ? 'active' : ''}>Event & Webinar</a>
       <a href="/user/tickets" class={`nav-ticket-link ${currentPath === '/user/tickets' ? 'active' : ''}`} id="ticketNavLink" style="display:none">Tiket Saya</a>
     </div>
@@ -157,7 +158,7 @@ const isCategory = (slug: string) =>
         const initial = (user.name || 'U').charAt(0).toUpperCase();
 
         if (authBtn) {
-          authBtn.href = user.role === 'admin' ? '/dashboard' : '/user';
+          authBtn.href = ['admin', 'editor', 'penulis'].includes(user.role) ? '/dashboard' : '/user';
           authBtn.title = 'Ke Dashboard';
         }
         if (authBtnText) {

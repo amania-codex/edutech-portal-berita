@@ -5,7 +5,7 @@ import { API_BASE, BACKEND_URL } from '../../../lib/config';
 // Dibuka sebagai /dashboard/news/edit?id=123 (situs statis: satu halaman untuk semua artikel)
 ---
 
-<DashboardLayout title="Edit Berita" activeMenu="news">
+<DashboardLayout title="Edit Berita" activeMenu="news" roles={["admin", "editor", "penulis"]}>
   <div class="gb-editor">
     <!-- Editor Toolbar (sticky inside content area) -->
     <div class="gb-toolbar">
@@ -128,6 +128,18 @@ import { API_BASE, BACKEND_URL } from '../../../lib/config';
           </div>
 
           <div class="sb-section">
+            <button class="sb-section-toggle" data-target="sec-history">
+              <span>Riwayat Perubahan</span>
+              <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
+            </button>
+            <div class="sb-section-body" id="sec-history">
+              <p class="history-who" id="history-who"></p>
+              <ol class="history-list" id="history-list"><li class="history-empty">Memuat...</li></ol>
+              <a class="history-more" href="/dashboard/activity">Semua riwayat aktivitas →</a>
+            </div>
+          </div>
+
+          <div class="sb-section editor-only">
             <button class="sb-section-toggle" data-target="sec-options">
               <span>Opsi</span>
               <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="18 15 12 9 6 15"/></svg>
@@ -637,6 +649,13 @@ import { API_BASE, BACKEND_URL } from '../../../lib/config';
 
   .sb-label { font-size: 11.5px; font-weight: 600; color: var(--color-text-secondary); margin-bottom: 3px; display: block; }
   .sb-field { display: flex; flex-direction: column; }
+  .history-who { margin: 0 0 8px; font-size: 12px; line-height: 1.5; color: var(--color-text-secondary); }
+  .history-who b { color: var(--color-text-primary); }
+  .history-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+  .history-list li { font-size: 12px; line-height: 1.45; color: var(--color-text-secondary); border-left: 2px solid var(--color-border); padding-left: 8px; }
+  .history-list li b { color: var(--color-text-primary); }
+  .history-list time { display: block; font-size: 11px; color: var(--color-text-muted); }
+  .history-more { display: inline-block; margin-top: 10px; font-size: 12px; font-weight: 600; color: var(--color-accent); text-decoration: none; }
   .sb-hint { font-size: 11px; color: var(--color-text-muted); margin: 2px 0 0; }
 
   .sb-input {
@@ -1437,12 +1456,20 @@ import { API_BASE, BACKEND_URL } from '../../../lib/config';
       const res = await fetch(`${API_BASE}/news/${articleId}`, { credentials: 'include' });
       if (!res.ok) throw new Error(res.status);
       const a = await res.json();
+      // Penulis hanya boleh mengubah tulisannya sendiri
+      const me = window.__staff || (await fetch(`${API_BASE}/auth/profile`, { credentials: 'include' }).then((r) => r.json()).catch(() => null));
+      if (me && me.role === 'penulis' && a.author_id !== me.id) {
+        indicatorEl.textContent = 'Hanya baca';
+        showToast('error', 'Berita ini ditulis orang lain. Anda hanya dapat mengubah tulisan Anda sendiri.');
+        return;
+      }
       titleEl.textContent = a.title;
       document.getElementById('breadcrumb-title').textContent = a.title;
       document.getElementById('slug').value = a.slug;
       document.getElementById('status').value = a.status === 'published' ? 'published' : 'draft';
       document.getElementById('tags').value = a.tags || '';
       document.getElementById('is-featured').checked = !!a.isFeatured;
+      showHistory(a);
       document.getElementById('is-trending').checked = !!a.isTrending;
       imageUrlInput.value = absolute(a.imageUrl || '');
       updateImagePreview(imageUrlInput.value);
@@ -1460,6 +1487,45 @@ import { API_BASE, BACKEND_URL } from '../../../lib/config';
       indicatorEl.textContent = 'Gagal memuat';
       showToast('error', 'Berita tidak ditemukan atau server tidak aktif.');
     }
+  }
+  // Siapa menulis & mengubah berita ini (dari catatan aktivitas di server)
+  const ACTION_LABEL = { buat: 'membuat', ubah: 'mengubah', terbitkan: 'menerbitkan', tarik: 'menarik (jadi draf)', hapus: 'menghapus' };
+  function showHistory(a) {
+    const who = document.getElementById('history-who');
+    who.replaceChildren();
+    const line = (label, name) => {
+      if (!name) return;
+      const row = document.createElement('div');
+      const b = document.createElement('b');
+      b.textContent = name;
+      row.append(label + ': ', b);
+      who.append(row);
+    };
+    line('Nama di berita', a.author);
+    line('Dibuat oleh akun', a.createdByName);
+    line('Terakhir diubah', a.updatedByName);
+    fetch(`${API_BASE}/admin/activity?type=berita&target_id=${a.ID ?? a.id}&limit=30`, { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((logs) => {
+        const list = document.getElementById('history-list');
+        if (!logs.length) {
+          const li = document.createElement('li');
+          li.className = 'history-empty';
+          li.textContent = 'Belum ada catatan (berita dari arsip lama).';
+          list.replaceChildren(li);
+          return;
+        }
+        list.replaceChildren(...logs.map((log) => {
+          const li = document.createElement('li');
+          const b = document.createElement('b');
+          b.textContent = log.userName || 'Sistem';
+          const time = document.createElement('time');
+          time.textContent = new Date(log.createdAt).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+          li.append(b, ` ${ACTION_LABEL[log.action] || log.action}`, log.detail ? ` — ${log.detail}` : '', time);
+          return li;
+        }));
+      })
+      .catch(() => {});
   }
   loadArticle();
 

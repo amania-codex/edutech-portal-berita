@@ -1,10 +1,13 @@
 ---
+export type StaffRole = 'admin' | 'editor' | 'penulis';
 export interface Props {
   title?: string;
   activeMenu?: string;
+  /** Peran yang boleh membuka halaman ini (bawaan: hanya admin) */
+  roles?: StaffRole[];
 }
 
-const { title = 'Dashboard', activeMenu = '' } = Astro.props;
+const { title = 'Dashboard', activeMenu = '', roles = ['admin'] } = Astro.props;
 ---
 
 <!doctype html>
@@ -26,7 +29,7 @@ const { title = 'Dashboard', activeMenu = '' } = Astro.props;
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/styles/global.css" />
   </head>
-  <body class="dashboard-body">
+  <body class="dashboard-body" data-page-roles={roles.join(" ")}>
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
@@ -75,27 +78,43 @@ const { title = 'Dashboard', activeMenu = '' } = Astro.props;
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
             Kelola Berita
           </a>
-          <a href="/dashboard/categories" class={`sidebar-link ${activeMenu === 'categories' ? 'active' : ''}`}>
+          <a href="/dashboard/categories" data-roles="admin" hidden class={`sidebar-link ${activeMenu === 'categories' ? 'active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
             Kelola Kategori
           </a>
-          <a href="/dashboard/banners" class={`sidebar-link ${activeMenu === 'banners' ? 'active' : ''}`}>
+          <a href="/dashboard/banners" data-roles="admin" hidden class={`sidebar-link ${activeMenu === 'banners' ? 'active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
             Kelola Poster
           </a>
-          <a href="/dashboard/comments" class={`sidebar-link ${activeMenu === 'comments' ? 'active' : ''}`}>
+          <a href="/dashboard/videos" data-roles="admin editor" hidden class={`sidebar-link ${activeMenu === 'videos' ? 'active' : ''}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="3"/><polygon points="10 9 15 12 10 15 10 9"/></svg>
+            Kelola Video
+          </a>
+          <a href="/dashboard/comments" data-roles="admin" hidden class={`sidebar-link ${activeMenu === 'comments' ? 'active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
             Analisis Komentar
           </a>
         </div>
 
         <div class="nav-section">
+          <p class="nav-section-title">Tim Redaksi</p>
+          <a href="/dashboard/users" data-roles="admin" hidden class={`sidebar-link ${activeMenu === 'users' ? 'active' : ''}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Akun Redaksi
+          </a>
+          <a href="/dashboard/activity" class={`sidebar-link ${activeMenu === 'activity' ? 'active' : ''}`}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            Riwayat Aktivitas
+          </a>
+        </div>
+
+        <div class="nav-section">
           <p class="nav-section-title">Event</p>
-          <a href="/dashboard/events" class={`sidebar-link ${activeMenu === 'events' ? 'active' : ''}`}>
+          <a href="/dashboard/events" data-roles="admin" hidden class={`sidebar-link ${activeMenu === 'events' ? 'active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             Kelola Event
           </a>
-          <a href="/dashboard/registrations" class={`sidebar-link ${activeMenu === 'registrations' ? 'active' : ''}`}>
+          <a href="/dashboard/registrations" data-roles="admin" hidden class={`sidebar-link ${activeMenu === 'registrations' ? 'active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>
             Pendaftaran
           </a>
@@ -103,11 +122,11 @@ const { title = 'Dashboard', activeMenu = '' } = Astro.props;
 
         <div class="nav-section">
           <p class="nav-section-title">Situs</p>
-          <a href="/dashboard/pages" class={`sidebar-link ${activeMenu === 'pages' ? 'active' : ''}`}>
+          <a href="/dashboard/pages" data-roles="admin" hidden class={`sidebar-link ${activeMenu === 'pages' ? 'active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
             Halaman Informasi
           </a>
-          <a href="/dashboard/settings" class={`sidebar-link ${activeMenu === 'settings' ? 'active' : ''}`}>
+          <a href="/dashboard/settings" data-roles="admin" hidden class={`sidebar-link ${activeMenu === 'settings' ? 'active' : ''}`}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-2.82 1.17V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 7 19.4l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 3 15H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6V4a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9H21a2 2 0 1 1 0 4h-.09A1.65 1.65 0 0 0 19.4 15z"/></svg>
             Pengaturan Situs
           </a>
@@ -159,6 +178,12 @@ const { title = 'Dashboard', activeMenu = '' } = Astro.props;
 </html>
 
 <style is:global>
+  /* Elemen khusus peran (halaman memakai class ini) */
+  body:not([data-role="admin"]) .admin-only,
+  body:not([data-role="admin"]):not([data-role="editor"]) .editor-only {
+    display: none !important;
+  }
+
   .dashboard-body {
     margin: 0;
     display: flex;
@@ -264,6 +289,11 @@ const { title = 'Dashboard', activeMenu = '' } = Astro.props;
     font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
     color: var(--color-text-muted); text-transform: uppercase;
     padding: 8px 10px 4px; margin: 0;
+  }
+
+  .sidebar-link[hidden],
+  .nav-section[hidden] {
+    display: none !important;
   }
 
   .sidebar-link {
@@ -416,7 +446,22 @@ const { title = 'Dashboard', activeMenu = '' } = Astro.props;
       const res = await fetch(`${API_GO}/auth/profile`, { credentials: 'include' });
       if (!res.ok) { window.location.href = '/login'; return; }
       const user = await res.json();
-      if (user.role !== 'admin') { window.location.href = '/user'; return; }
+      const ROLE_LABEL: Record<string, string> = { admin: 'Admin', editor: 'Editor', penulis: 'Penulis' };
+      if (!ROLE_LABEL[user.role]) { window.location.href = '/user'; return; }
+      const pageRoles = (document.body.dataset.pageRoles || 'admin').split(' ');
+      if (!pageRoles.includes(user.role)) { window.location.href = '/dashboard'; return; }
+      document.body.dataset.role = user.role;
+
+      // Menu sesuai peran; bagian yang kosong disembunyikan
+      document.querySelectorAll<HTMLElement>('.sidebar-nav [data-roles]').forEach((link) => {
+        link.hidden = !(link.dataset.roles || '').split(' ').includes(user.role);
+      });
+      document.querySelectorAll<HTMLElement>('.sidebar-nav .nav-section').forEach((section) => {
+        const links = [...section.querySelectorAll<HTMLElement>('.sidebar-link')];
+        section.hidden = links.length > 0 && links.every((l) => l.hidden);
+      });
+      (window as any).__staff = user;
+      document.dispatchEvent(new CustomEvent('staff-ready', { detail: user }));
 
       // Populate user info in sidebar and header
       const avatarInitial = (user.name || 'U').charAt(0).toUpperCase();
@@ -427,7 +472,7 @@ const { title = 'Dashboard', activeMenu = '' } = Astro.props;
 
       if (sidebarAvatar) sidebarAvatar.textContent = avatarInitial;
       if (sidebarName) sidebarName.textContent = user.name || '';
-      if (sidebarRole) sidebarRole.textContent = user.role === 'admin' ? 'Admin' : 'User';
+      if (sidebarRole) sidebarRole.textContent = ROLE_LABEL[user.role];
       if (headerAvatar) {
         headerAvatar.textContent = avatarInitial;
         headerAvatar.title = user.name || '';

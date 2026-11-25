@@ -3,6 +3,7 @@
 import (
 	"fmt"
 	"news-portal-backend/handlers"
+	"news-portal-backend/models"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -40,6 +41,11 @@ func Protected() fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "error": "Klaim token tidak valid."})
 		}
 
+		// Peran terbaru & status akun selalu dibaca dari database
+		if !handlers.RefreshClaims(claims) {
+			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"success": false, "error": "Akun tidak aktif. Hubungi admin."})
+		}
+
 		c.Locals("user", claims)
 		return c.Next()
 	}
@@ -53,5 +59,29 @@ func AdminOnly() fiber.Handler {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"success": false, "error": "Akses ditolak. Hanya untuk administrator."})
 		}
 		return c.Next()
+	}
+}
+
+// StaffOnly — admin, editor, dan penulis (staf redaksi)
+func StaffOnly() fiber.Handler {
+	return roleGuard("Akses ditolak. Hanya untuk tim redaksi.", models.RoleAdmin, models.RoleEditor, models.RolePenulis)
+}
+
+// EditorOnly — admin dan editor
+func EditorOnly() fiber.Handler {
+	return roleGuard("Akses ditolak. Hanya untuk admin dan editor.", models.RoleAdmin, models.RoleEditor)
+}
+
+func roleGuard(message string, roles ...string) fiber.Handler {
+	return func(c *fiber.Ctx) error {
+		claims, ok := c.Locals("user").(*handlers.Claims)
+		if ok {
+			for _, r := range roles {
+				if claims.Role == r {
+					return c.Next()
+				}
+			}
+		}
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"success": false, "error": message})
 	}
 }

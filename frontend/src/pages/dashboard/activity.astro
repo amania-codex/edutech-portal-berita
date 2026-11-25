@@ -1,0 +1,155 @@
+---
+import DashboardLayout from '../../layouts/DashboardLayout.astro';
+import '../../styles/admin.css';
+---
+
+<DashboardLayout title="Riwayat Aktivitas" activeMenu="activity" roles={['admin', 'editor', 'penulis']}>
+  <div class="adm">
+    <div class="head">
+      <div>
+        <h2 class="page-title">Riwayat Aktivitas</h2>
+        <p class="page-subtitle" id="activity-subtitle">Catatan otomatis siapa membuat, mengubah, menerbitkan, atau menghapus berita. Catatan tidak bisa diubah atau dihapus.</p>
+      </div>
+    </div>
+
+    <div class="filters">
+      <select class="input" id="f-type">
+        <option value="">Semua jenis</option>
+        <option value="berita">Berita</option>
+        <option value="video">Video</option>
+        <option value="pengguna">Akun</option>
+      </select>
+      <select class="input" id="f-action">
+        <option value="">Semua aksi</option>
+        <option value="buat">Membuat</option>
+        <option value="ubah">Mengubah</option>
+        <option value="terbitkan">Menerbitkan</option>
+        <option value="tarik">Menarik jadi draf</option>
+        <option value="hapus">Menghapus</option>
+        <option value="tambah">Menambah akun</option>
+      </select>
+      <span class="filter-user" id="f-user" hidden>
+        <span id="f-user-name"></span>
+        <button type="button" class="btn btn-sm btn-outline" id="f-user-clear">Semua orang ✕</button>
+      </span>
+    </div>
+
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Waktu</th><th>Oleh</th><th>Aksi</th><th>Pada</th><th>Keterangan</th></tr></thead>
+          <tbody id="activity-rows"><tr><td colspan="5" class="empty">Memuat...</td></tr></tbody>
+        </table>
+      </div>
+      <div class="pager">
+        <button type="button" class="btn btn-sm btn-outline" id="prev-page" disabled>← Sebelumnya</button>
+        <span id="page-info"></span>
+        <button type="button" class="btn btn-sm btn-outline" id="next-page" disabled>Berikutnya →</button>
+      </div>
+    </div>
+  </div>
+</DashboardLayout>
+
+<style is:global>
+  .adm .filters { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .filters select.input { width: auto; min-width: 170px; }
+  .filter-user { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+  .filter-user[hidden] { display: none; }
+  .pager { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; border-top: 1px solid var(--color-border); font-size: 13px; color: var(--color-text-muted); }
+  .act-who small { display: block; font-size: 11px; color: var(--color-text-muted); }
+  .act-detail { max-width: 360px; font-size: 12.5px; color: var(--color-text-secondary); }
+  td.act-time { white-space: nowrap; font-size: 12.5px; }
+</style>
+
+<script>
+  import { el, getJSON, api } from '../../lib/client';
+
+  const PAGE = 50;
+  const ACTION: Record<string, [string, string]> = {
+    buat: ['Membuat', 'b-green'],
+    ubah: ['Mengubah', 'b-orange'],
+    terbitkan: ['Menerbitkan', 'b-green'],
+    tarik: ['Menarik jadi draf', 'b-gray'],
+    hapus: ['Menghapus', 'b-red'],
+    tambah: ['Menambah akun', 'b-green'],
+  };
+  const TYPE: Record<string, string> = { berita: 'Berita', video: 'Video', pengguna: 'Akun' };
+  const ROLE: Record<string, string> = { admin: 'Admin', editor: 'Editor', penulis: 'Penulis' };
+  const params = new URLSearchParams(location.search);
+  let userId = params.get('user_id') || '';
+  let page = 1;
+
+  const td = (text = '', cls = '') => { const c = document.createElement('td'); c.textContent = text; if (cls) c.className = cls; return c; };
+
+  document.addEventListener('staff-ready', (e: any) => {
+    if (e.detail.role === 'penulis') el('activity-subtitle').textContent = 'Aktivitas Anda dan perubahan orang lain pada berita yang Anda tulis.';
+  });
+
+  if (userId) {
+    el('f-user').hidden = false;
+    el('f-user-name').textContent = 'Akun terpilih';
+    // Nama akun (hanya admin yang punya daftar akun)
+    getJSON('/admin/users?role=all').then((list: any[]) => {
+      const u = list.find((x) => String(x.id) === userId);
+      if (u) el('f-user-name').textContent = `Aktivitas ${u.name}`;
+    }).catch(() => {});
+  }
+
+  function target(log: any): Node {
+    const cell = td();
+    const label = document.createElement('small');
+    label.textContent = TYPE[log.targetType] || log.targetType;
+    label.style.cssText = 'display:block;font-size:11px;color:var(--color-text-muted)';
+    if (log.targetType === 'berita' && log.action !== 'hapus') {
+      const a = document.createElement('a');
+      a.href = `/dashboard/news/edit?id=${log.targetId}`;
+      a.textContent = log.targetTitle;
+      cell.append(a, label);
+    } else {
+      cell.append(log.targetTitle || '-', label);
+    }
+    return cell;
+  }
+
+  async function load() {
+    const q = new URLSearchParams({ page: String(page), limit: String(PAGE) });
+    if (userId) q.set('user_id', userId);
+    if (el('f-type').value) q.set('type', el('f-type').value);
+    if (el('f-action').value) q.set('action', el('f-action').value);
+    try {
+      const res = await api(`/admin/activity?${q}`);
+      if (!res.ok) throw new Error(String(res.status));
+      const logs: any[] = await res.json();
+      const total = Number(res.headers.get('X-Total-Count') || logs.length);
+      const last = Math.max(1, Math.ceil(total / PAGE));
+      if (!logs.length) {
+        const tr = document.createElement('tr'); const c = td('Belum ada aktivitas tercatat.'); c.colSpan = 5; c.className = 'empty'; tr.append(c);
+        el('activity-rows').replaceChildren(tr);
+      } else {
+        el('activity-rows').replaceChildren(...logs.map((log) => {
+          const tr = document.createElement('tr');
+          const time = new Date(log.createdAt).toLocaleString('id-ID', { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+          const who = td(log.userName || 'Sistem', 'act-who');
+          const role = document.createElement('small'); role.textContent = ROLE[log.userRole] || log.userRole || ''; who.append(role);
+          const [label, cls] = ACTION[log.action] || [log.action, 'b-gray'];
+          const action = td(); const b = document.createElement('span'); b.className = `badge ${cls}`; b.textContent = label; action.append(b);
+          tr.append(td(time, 'act-time'), who, action, target(log), td(log.detail || '', 'act-detail'));
+          return tr;
+        }));
+      }
+      el('page-info').textContent = `${total.toLocaleString('id-ID')} catatan · halaman ${page} dari ${last}`;
+      el('prev-page').disabled = page <= 1;
+      el('next-page').disabled = page >= last;
+    } catch {
+      el('activity-rows').textContent = 'Gagal memuat riwayat aktivitas.';
+    }
+  }
+
+  const reload = () => { page = 1; load(); };
+  el('f-type').addEventListener('change', reload);
+  el('f-action').addEventListener('change', reload);
+  el('f-user-clear').addEventListener('click', () => { userId = ''; el('f-user').hidden = true; history.replaceState(null, '', location.pathname); reload(); });
+  el('prev-page').addEventListener('click', () => { page--; load(); });
+  el('next-page').addEventListener('click', () => { page++; load(); });
+  load();
+</script>

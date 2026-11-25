@@ -6,7 +6,7 @@ import { getCategories } from '../../../lib/news';
 const categories = await getCategories(true);
 ---
 
-<DashboardLayout title="Kelola Berita" activeMenu="news">
+<DashboardLayout title="Kelola Berita" activeMenu="news" roles={["admin", "editor", "penulis"]}>
   <div class="news-manager">
     <!-- Header -->
     <div class="manager-header">
@@ -35,6 +35,7 @@ const categories = await getCategories(true);
         <option value="">Semua Kategori</option>
         {categories.map((cat) => <option value={cat.slug}>{cat.name}</option>)}
       </select>
+      <label class="filter-mine editor-only"><input type="checkbox" id="mine-filter" /> Hanya tulisan saya</label>
     </div>
 
     <!-- Table -->
@@ -129,6 +130,7 @@ const categories = await getCategories(true);
   .filter-search svg { width: 16px; height: 16px; color: var(--color-text-muted); flex-shrink: 0; }
   .filter-search input { flex: 1; background: none; border: none; outline: none; color: var(--color-text-primary); font-size: 13.5px; font-family: var(--font-sans); }
   .filter-search input::placeholder { color: var(--color-text-muted); }
+  .filter-mine { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--color-text-secondary); cursor: pointer; }
   .filter-select { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 10px; padding: 10px 14px; color: var(--color-text-primary); font-size: 13.5px; font-family: var(--font-sans); cursor: pointer; outline: none; min-width: 150px; }
 
   .dash-card { background: var(--color-bg-card); border: 1px solid var(--color-border); border-radius: 12px; }
@@ -219,7 +221,8 @@ const categories = await getCategories(true);
     const q = (sel: string) => node.querySelector(sel) as any;
     q('.td-thumb').src = n.imageUrl;
     q('.td-title').textContent = n.title;
-    q('.td-author').textContent = `by ${n.author}`;
+    const editedBy = raw.updatedByName && raw.updatedByName !== (raw.createdByName || n.author) ? ` · terakhir diubah ${raw.updatedByName}` : '';
+    q('.td-author').textContent = `Penulis: ${n.author}${raw.createdByName && raw.createdByName !== n.author ? ` (akun ${raw.createdByName})` : ''}${editedBy}`;
     q('.td-badge').textContent = n.category || '-';
     q('.td-status').textContent = published ? 'Terbit' : 'Draft';
     q('.td-status').classList.add(published ? 'status-published' : 'status-draft');
@@ -241,6 +244,7 @@ const categories = await getCategories(true);
     const id = ++requestId;
     const query = new URLSearchParams({ limit: String(PAGE), offset: String((page - 1) * PAGE), lite: '1', status: el('status-filter').value || 'all' });
     if (el('category-filter').value) query.set('category', el('category-filter').value);
+    if (el('mine-filter').checked) query.set('mine', '1');
     if (el('search-input').value.trim()) query.set('q', el('search-input').value.trim());
     try {
       const res = await fetch(`${API_BASE}/news?${query}`, { credentials: 'include' });
@@ -268,6 +272,7 @@ const categories = await getCategories(true);
   el('search-input').addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(reload, 300); });
   el('status-filter').addEventListener('change', reload);
   el('category-filter').addEventListener('change', reload);
+  el('mine-filter').addEventListener('change', reload);
   el('prev-page').addEventListener('click', () => { page--; load(); });
   el('next-page').addEventListener('click', () => { page++; load(); });
   el('cancel-delete-btn').addEventListener('click', () => { modal.style.display = 'none'; deleteId = null; });
@@ -279,7 +284,7 @@ const categories = await getCategories(true);
     try {
       const res = await fetch(`${API_BASE}/news/${deleteId}`, { method: 'DELETE', credentials: 'include' });
       if (res.ok) { showToast('Berita berhasil dihapus.'); load(); }
-      else showToast('Gagal menghapus berita.', true);
+      else showToast((await res.json().catch(() => null))?.error || 'Gagal menghapus berita.', true);
     } catch {
       showToast('Terjadi kesalahan.', true);
     } finally {

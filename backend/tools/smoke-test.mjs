@@ -324,6 +324,114 @@ check('kategori: keluarkan dari menu', r.status === 200 && r.data.menuOrder === 
 check('hapus induk: anak naik jadi kategori utama', (await call('DELETE', `/api/categories/${top.data.ID}`, { cookie: admin })).status === 200 && (await call('GET', '/api/categories')).data.find((c) => c.ID === child.data.ID)?.parentId === null);
 check('kategori terhapus: namanya bisa dipakai lagi', (await call('POST', '/api/categories', { cookie: admin, body: { name: `Induk ${run}` } })).status === 200);
 
+// ---------- tim redaksi: akun, hak akses, riwayat ----------
+for (const [m, p] of [['GET', '/api/admin/users'], ['POST', '/api/admin/users'], ['GET', '/api/admin/activity'], ['GET', '/api/admin/videos'], ['POST', '/api/admin/videos']]) {
+  check(`${m} ${p}: pembaca 403`, (await call(m, p, { cookie: user, body: m === 'POST' ? {} : undefined })).status === 403);
+}
+const staffAccount = async (name, role) => {
+  const mail = `${role}-${name.toLowerCase().replace(/\W+/g, '')}-${run}@contoh.id`;
+  const res = await call('POST', '/api/admin/users', { cookie: admin, body: { name: `${name} ${run}`, email: mail, password: 'rahasia-redaksi', role } });
+  const session = cookieOf(await call('POST', '/api/auth/login', { body: { email: mail, password: 'rahasia-redaksi' } }));
+  return { id: res.data.id, name: `${name} ${run}`, email: mail, status: res.status, role: res.data.role, cookie: session };
+};
+const penA = await staffAccount('Penulis A', 'penulis');
+const penB = await staffAccount('Penulis B', 'penulis');
+const edt = await staffAccount('Editor', 'editor');
+check('admin: tambah akun penulis', penA.status === 201 && penA.role === 'penulis' && penA.cookie.startsWith('auth_token='), penA);
+check('admin: tambah akun editor', edt.status === 201 && edt.role === 'editor' && edt.cookie.startsWith('auth_token='), edt);
+check('akun: email ganda ditolak', (await call('POST', '/api/admin/users', { cookie: admin, body: { name: 'Ganda', email: penA.email, password: 'rahasia-redaksi', role: 'penulis' } })).status === 409);
+check('akun: password pendek ditolak', (await call('POST', '/api/admin/users', { cookie: admin, body: { name: 'Pendek', email: `p-${run}@contoh.id`, password: '123', role: 'penulis' } })).status === 400);
+check('akun: peran tak dikenal ditolak', (await call('POST', '/api/admin/users', { cookie: admin, body: { name: 'Raja', email: `r-${run}@contoh.id`, password: 'rahasia-redaksi', role: 'superadmin' } })).status === 400);
+check('akun: profil penulis berperan penulis', (await call('GET', '/api/auth/profile', { cookie: penA.cookie })).data.role === 'penulis');
+for (const [m, p] of [['GET', '/api/admin/users'], ['GET', '/api/admin/videos'], ['POST', '/api/categories'], ['GET', '/api/admin/banners'], ['PUT', '/api/admin/settings']]) {
+  check(`${m} ${p}: penulis 403`, (await call(m, p, { cookie: penA.cookie, body: m !== 'GET' ? {} : undefined })).status === 403);
+}
+check('akun: editor tidak bisa kelola akun', (await call('GET', '/api/admin/users', { cookie: edt.cookie })).status === 403);
+r = await call('GET', '/api/admin/users?role=staff', { cookie: admin });
+check('akun: daftar tim redaksi', r.status === 200 && r.data.some((u) => u.id === penA.id && u.role === 'penulis') && !r.data.some((u) => u.email === email), r.data?.length);
+
+// Penulis menulis berita
+const penNews = await call('POST', '/api/news', { cookie: penA.cookie, body: { title: `Tulisan Penulis ${run}`, content: '<p>Isi tulisan penulis.</p>', category: catName, status: 'published', author: 'Nama Orang Lain', isFeatured: true } });
+const pn = penNews.data.data || {};
+check('penulis: buat berita', penNews.status === 201 && pn.ID > 0, penNews.data);
+check('penulis: nama di berita = nama akunnya', pn.author === penA.name && pn.createdByName === penA.name && pn.author_id === penA.id, pn);
+check('penulis: tidak bisa menandai unggulan', pn.isFeatured === false);
+const penDraft = (await call('POST', '/api/news', { cookie: penA.cookie, body: { title: `Draf Penulis ${run}`, content: '<p>Draf.</p>', status: 'draft' } })).data.data || {};
+check('penulis: draf sendiri terlihat', (await call('GET', `/api/news/${penDraft.ID}`, { cookie: penA.cookie })).status === 200);
+check('penulis lain: draf orang lain tidak terlihat', (await call('GET', `/api/news/${penDraft.ID}`, { cookie: penB.cookie })).status === 404);
+check('editor: draf penulis terlihat', (await call('GET', `/api/news/${penDraft.ID}`, { cookie: edt.cookie })).status === 200);
+r = await call('GET', '/api/news?status=all&limit=100', { cookie: penB.cookie });
+check('penulis lain: daftar dashboard hanya berita sendiri', r.status === 200 && !r.data.some((a) => a.ID === pn.ID || a.ID === penDraft.ID), r.data?.length);
+r = await call('GET', '/api/news?status=all&limit=100', { cookie: penA.cookie });
+check('penulis: daftar dashboard berisi tulisannya (termasuk draf)', r.data.some((a) => a.ID === penDraft.ID) && r.data.every((a) => a.author_id === penA.id));
+check('penulis lain: ubah berita orang lain ditolak', (await call('PUT', `/api/news/${pn.ID}`, { cookie: penB.cookie, body: { title: 'Dibajak' } })).status === 403);
+check('penulis lain: hapus berita orang lain ditolak', (await call('DELETE', `/api/news/${pn.ID}`, { cookie: penB.cookie })).status === 403);
+check('berita tetap utuh setelah percobaan', (await call('GET', `/api/news/${pn.ID}`)).data.title === `Tulisan Penulis ${run}`);
+r = await call('PUT', `/api/news/${pn.ID}`, { cookie: penA.cookie, body: { title: `Tulisan Penulis ${run} (revisi)`, author: 'Orang Lain', isTrending: true } });
+check('penulis: ubah berita sendiri', r.status === 200 && r.data.data.title.endsWith('(revisi)') && r.data.data.author === penA.name && r.data.data.isTrending === false, r.data);
+r = await call('PUT', `/api/news/${pn.ID}`, { cookie: edt.cookie, body: { title: `Tulisan Penulis ${run} (disunting editor)`, content: '<p>Isi disunting editor.</p>' } });
+check('editor: ubah berita penulis', r.status === 200 && r.data.data.updatedByName === edt.name && r.data.data.author === penA.name, r.data);
+
+const logsOf = async (cookie, id) => (await call('GET', `/api/admin/activity?type=berita&target_id=${id}&limit=50`, { cookie })).data || [];
+let logs = await logsOf(admin, pn.ID);
+check('riwayat: tercatat pembuatan oleh penulis', logs.some((l) => l.action === 'buat' && l.userId === penA.id && l.userRole === 'penulis'), logs);
+check('riwayat: tercatat suntingan editor beserta kolomnya', logs.some((l) => l.action === 'ubah' && l.userId === edt.id && /judul/.test(l.detail) && /isi/.test(l.detail)), logs);
+check('riwayat: percobaan yang ditolak tidak tercatat', !logs.some((l) => l.userId === penB.id));
+const before = logs.length;
+await call('PUT', `/api/news/${pn.ID}`, { cookie: edt.cookie, body: { title: `Tulisan Penulis ${run} (disunting editor)` } });
+check('riwayat: simpan tanpa perubahan tidak dicatat', (await logsOf(admin, pn.ID)).length === before);
+check('riwayat: penulis melihat suntingan orang lain pada tulisannya', (await logsOf(penA.cookie, pn.ID)).some((l) => l.userId === edt.id));
+check('riwayat: penulis lain tidak melihatnya', (await logsOf(penB.cookie, pn.ID)).length === 0);
+await call('PUT', `/api/news/${pn.ID}`, { cookie: edt.cookie, body: { status: 'draft' } });
+check('riwayat: tarik jadi draf tercatat', (await logsOf(admin, pn.ID)).some((l) => l.action === 'tarik' && l.userId === edt.id));
+await call('PUT', `/api/news/${pn.ID}`, { cookie: edt.cookie, body: { status: 'published' } });
+check('riwayat: terbitkan tercatat', (await logsOf(admin, pn.ID)).some((l) => l.action === 'terbitkan'));
+r = await call('GET', `/api/admin/activity?user_id=${edt.id}`, { cookie: admin });
+check('riwayat: saring per orang + jumlah', r.status === 200 && r.data.every((l) => l.userId === edt.id) && Number(r.headers.get('x-total-count')) === r.data.length, r.data);
+r = await call('GET', '/api/admin/stats', { cookie: penA.cookie });
+check('ringkasan penulis: hanya beritanya', r.status === 200 && r.data.news.total === 2 && r.data.subscribers === 0, r.data);
+
+// Admin mengatur akun
+check('admin: tidak bisa ubah peran sendiri', (await call('PUT', `/api/admin/users/${me.data.id}`, { cookie: admin, body: { role: 'penulis' } })).status === 400);
+check('admin: tidak bisa menonaktifkan diri', (await call('PUT', `/api/admin/users/${me.data.id}`, { cookie: admin, body: { suspended: true } })).status === 400);
+r = await call('PUT', `/api/admin/users/${penB.id}`, { cookie: admin, body: { suspended: true } });
+check('admin: nonaktifkan akun', r.status === 200 && r.data.suspended === true, r.data);
+check('akun nonaktif: sesi lama langsung ditolak', (await call('GET', '/api/auth/profile', { cookie: penB.cookie })).status === 401);
+check('akun nonaktif: tidak bisa masuk', (await call('POST', '/api/auth/login', { body: { email: penB.email, password: 'rahasia-redaksi' } })).status === 403);
+check('akun aktif lagi bisa masuk', (await call('PUT', `/api/admin/users/${penB.id}`, { cookie: admin, body: { suspended: false } })).status === 200 && (await call('POST', '/api/auth/login', { body: { email: penB.email, password: 'rahasia-redaksi' } })).status === 200);
+check('admin: reset password', (await call('PUT', `/api/admin/users/${penB.id}`, { cookie: admin, body: { password: 'password-baru-1' } })).status === 200 && (await call('POST', '/api/auth/login', { body: { email: penB.email, password: 'password-baru-1' } })).status === 200);
+check('admin: ubah peran berlaku seketika', (await call('PUT', `/api/admin/users/${penB.id}`, { cookie: admin, body: { role: 'user' } })).status === 200 && (await call('POST', '/api/news', { cookie: penB.cookie, body: { title: 'x', content: 'y' } })).status === 403);
+r = await call('GET', `/api/admin/activity?type=pengguna&target_id=${penB.id}`, { cookie: admin });
+check('riwayat: perubahan akun tercatat', r.data.some((l) => /dinonaktifkan/.test(l.detail)) && r.data.some((l) => /password direset/.test(l.detail)) && !r.data.some((l) => /password-baru/.test(l.detail)), r.data);
+
+// ---------- video ----------
+const yt = [['https://youtu.be/aqz-KE-bpKQ?si=abc', 'aqz-KE-bpKQ'], ['https://www.youtube.com/watch?v=jNQXAC9IVRw&t=10s', 'jNQXAC9IVRw'], ['https://youtube.com/shorts/aqz-KE-bpKQ', 'aqz-KE-bpKQ'], ['m.youtube.com/watch?v=jNQXAC9IVRw', 'jNQXAC9IVRw']];
+const vids = [];
+for (const [url, id] of yt) {
+  const v = await call('POST', '/api/admin/videos', { cookie: edt.cookie, body: { title: `Video ${run} ${id}`, url, sortOrder: vids.length } });
+  check(`video: alamat dikenali (${url})`, v.status === 201 && v.data.youtubeId === id, v.data);
+  vids.push(v.data);
+}
+check('video: alamat bukan YouTube ditolak', (await call('POST', '/api/admin/videos', { cookie: edt.cookie, body: { title: 'X', url: 'https://vimeo.com/123' } })).status === 400);
+check('video: judul kosong ditolak', (await call('POST', '/api/admin/videos', { cookie: edt.cookie, body: { title: ' ', url: yt[0][0] } })).status === 400);
+r = await call('PUT', `/api/admin/videos/${vids[1].ID}`, { cookie: edt.cookie, body: { title: `Disembunyikan ${run}`, url: yt[1][0], isPublished: false } });
+check('video: sembunyikan', r.status === 200 && r.data.isPublished === false, r.data);
+r = await call('GET', '/api/videos');
+check('video: publik hanya yang tampil, urut', r.data.some((v) => v.ID === vids[0].ID) && !r.data.some((v) => v.ID === vids[1].ID), r.data);
+check('video: semua ada di dashboard', (await call('GET', '/api/admin/videos', { cookie: edt.cookie })).data.some((v) => v.ID === vids[1].ID));
+r = await call('PUT', '/api/admin/settings', { cookie: admin, body: { video_section_title: 'EnhaPodcast', video_channel_url: 'https://www.youtube.com/@uji' } });
+check('video: judul kolom & kanal tersimpan', r.status === 200 && r.data.video_section_title === 'EnhaPodcast' && r.data.video_channel_url === 'https://www.youtube.com/@uji', r.data);
+check('video: tautan kanal bukan http ditolak', (await call('PUT', '/api/admin/settings', { cookie: admin, body: { video_channel_url: 'javascript:alert(1)' } })).status === 400);
+for (const v of vids) check(`video: hapus #${v.ID}`, (await call('DELETE', `/api/admin/videos/${v.ID}`, { cookie: edt.cookie })).status === 200);
+check('video: terhapus hilang dari publik', !(await call('GET', '/api/videos')).data.some((v) => vids.some((x) => x.ID === v.ID)));
+check('riwayat: video tercatat', (await call('GET', `/api/admin/activity?type=video&user_id=${edt.id}`, { cookie: admin })).data.filter((l) => l.action === 'hapus').length === vids.length);
+await call('PUT', '/api/admin/settings', { cookie: admin, body: { video_section_title: '', video_channel_url: '' } });
+
+// Penulis menghapus tulisannya sendiri
+check('penulis: hapus berita sendiri', (await call('DELETE', `/api/news/${penDraft.ID}`, { cookie: penA.cookie })).status === 200);
+check('riwayat: penghapusan tercatat dengan judul', (await logsOf(admin, penDraft.ID)).some((l) => l.action === 'hapus' && l.targetTitle === `Draf Penulis ${run}` && l.userId === penA.id));
+check('editor: hapus berita penulis', (await call('DELETE', `/api/news/${pn.ID}`, { cookie: edt.cookie })).status === 200);
+
 // ---------- CORS ----------
 r = await call('OPTIONS', '/api/news', { headers: { Origin: 'http://localhost:4321', 'Access-Control-Request-Method': 'PUT' } });
 check('CORS frontend diizinkan', r.headers.get('access-control-allow-origin') === 'http://localhost:4321' && r.headers.get('access-control-allow-credentials') === 'true');

@@ -317,7 +317,7 @@ import Footer from '../components/Footer.astro';
         successEl.textContent = `Selamat datang, ${data.user.name}! Mengalihkan...`;
         successEl.style.display = 'block';
         setTimeout(() => {
-          window.location.href = data.user.role === 'admin' ? '/dashboard' : '/user';
+          window.location.href = ['admin', 'editor', 'penulis'].includes(data.user.role) ? '/dashboard' : '/user';
         }, 1000);
       }
     } catch {

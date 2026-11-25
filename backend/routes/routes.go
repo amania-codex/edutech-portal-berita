@@ -85,13 +85,26 @@ func Setup(app *fiber.App) {
 	api.Put("/categories/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateCategory)
 	api.Delete("/categories/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteCategory)
 	// News routes (Admin)
-	api.Post("/news", middleware.Protected(), middleware.AdminOnly(), handlers.CreateNews)
-	api.Put("/news/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateNews)
-	api.Delete("/news/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.DeleteNews)
+	api.Post("/news", middleware.Protected(), middleware.StaffOnly(), handlers.CreateNews)
+	api.Put("/news/:id<int>", middleware.Protected(), middleware.StaffOnly(), handlers.UpdateNews)
+	api.Delete("/news/:id<int>", middleware.Protected(), middleware.StaffOnly(), handlers.DeleteNews)
 
 	api.Post("/newsletter", limiter.New(limiter.Config{Max: 10, Expiration: 1 * time.Minute}), handlers.Subscribe)
 	api.Get("/admin/newsletter", middleware.Protected(), middleware.AdminOnly(), handlers.GetSubscribers)
-	api.Get("/admin/stats", middleware.Protected(), middleware.AdminOnly(), handlers.GetAdminStats)
+	api.Get("/admin/stats", middleware.Protected(), middleware.StaffOnly(), handlers.GetAdminStats)
+
+	// Tim redaksi: akun, riwayat aktivitas
+	api.Get("/admin/users", middleware.Protected(), middleware.AdminOnly(), handlers.GetUsers)
+	api.Post("/admin/users", middleware.Protected(), middleware.AdminOnly(), handlers.CreateUser)
+	api.Put("/admin/users/:id<int>", middleware.Protected(), middleware.AdminOnly(), handlers.UpdateUser)
+	api.Get("/admin/activity", middleware.Protected(), middleware.StaffOnly(), handlers.GetActivity)
+
+	// Video YouTube (kolom video/podcast)
+	api.Get("/videos", handlers.GetVideos)
+	api.Get("/admin/videos", middleware.Protected(), middleware.EditorOnly(), handlers.GetAdminVideos)
+	api.Post("/admin/videos", middleware.Protected(), middleware.EditorOnly(), handlers.CreateVideo)
+	api.Put("/admin/videos/:id<int>", middleware.Protected(), middleware.EditorOnly(), handlers.UpdateVideo)
+	api.Delete("/admin/videos/:id<int>", middleware.Protected(), middleware.EditorOnly(), handlers.DeleteVideo)
 
 	// Banner / Poster routes
 	api.Get("/banners", handlers.GetActiveBanners)

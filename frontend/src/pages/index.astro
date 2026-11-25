@@ -7,7 +7,8 @@ import Footer from "../components/Footer.astro";
 import { apiGet, getNews, type News } from "../lib/news";
 import { API_BASE } from "../lib/config";
 import Poster from "../components/Poster.astro";
-import { bannersAt, getTopicCategories } from "../lib/site";
+import VideoSection from "../components/VideoSection.astro";
+import { bannersAt, getSettings, getTopicCategories, getVideos } from "../lib/site";
 
 // Fetch data paralel dari backend Go
 const [latestNews, featuredNews, trendingNews, popularNews, articleNews, eventsList] = await Promise.all([
@@ -18,11 +19,13 @@ const [latestNews, featuredNews, trendingNews, popularNews, articleNews, eventsL
   getNews("/news?category=artikel&limit=8&lite=1"),
   apiGet("/events").then((r) => r.data || []),
 ]);
-const [leftBanners, rightBanners, middleBanners, topics] = await Promise.all([
+const [leftBanners, rightBanners, middleBanners, topics, videos, settings] = await Promise.all([
   bannersAt("kiri"),
   bannersAt("kanan"),
   bannersAt("tengah"),
   getTopicCategories(),
+  getVideos(),
+  getSettings(),
 ]);
 const topicStyles = ["topic-campus", "topic-tech", "topic-research"];
 
@@ -287,6 +290,13 @@ const displayEvents = eventsList
           ))}
         </div>
       </section>
+
+      <!-- VIDEO & PODCAST (Dashboard > Kelola Video) -->
+      <VideoSection
+        videos={videos}
+        title={settings.video_section_title || "Video & Podcast"}
+        channelUrl={settings.video_channel_url || settings.youtube_url || ""}
+      />
 
       <!-- ARTIKEL & OPINI -->
       {displayArtikel.length > 0 && (

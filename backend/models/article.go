@@ -14,7 +14,11 @@ type Article struct {
 	Category     string `json:"category" gorm:"type:varchar(100);index"`
 	CategorySlug string `json:"categorySlug" gorm:"type:varchar(150);index"`
 	Author       string `json:"author" gorm:"type:varchar(100)"`
-	AuthorID     uint   `json:"author_id" gorm:"default:0"`
+	AuthorID     uint   `json:"author_id" gorm:"default:0;index"`
+	// Akun yang membuat & terakhir mengubah berita (pertanggungjawaban redaksi)
+	CreatedByName string `json:"createdByName" gorm:"type:varchar(100)"`
+	UpdatedByID   uint   `json:"updatedById" gorm:"default:0"`
+	UpdatedByName string `json:"updatedByName" gorm:"type:varchar(100)"`
 	Tags         string `json:"tags" gorm:"type:varchar(500)"`
 	ViewCount    int    `json:"viewCount" gorm:"default:0"`
 	ReadTime     int    `json:"readTime" gorm:"default:5"`

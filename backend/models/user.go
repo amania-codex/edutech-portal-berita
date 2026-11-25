@@ -19,4 +19,20 @@ type User struct {
 	ResetCode     string     `json:"-" gorm:"type:varchar(64)"`
 	ResetCodeExp  *time.Time `json:"-"`
 	ResetAttempts int        `json:"-" gorm:"default:0"`
+	// Akun yang dinonaktifkan admin tidak bisa masuk; tulisannya tetap ada.
+	Suspended   bool       `json:"suspended" gorm:"not null;default:false"`
+	LastLoginAt *time.Time `json:"lastLoginAt"`
+}
+
+// Peran akun. Staf redaksi (admin, editor, penulis) bisa masuk dashboard.
+const (
+	RoleAdmin   = "admin"
+	RoleEditor  = "editor"
+	RolePenulis = "penulis"
+	RoleUser    = "user"
+)
+
+// IsStaffRole — peran yang boleh menulis berita.
+func IsStaffRole(role string) bool {
+	return role == RoleAdmin || role == RoleEditor || role == RolePenulis
 }
